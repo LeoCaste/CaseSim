@@ -1,0 +1,24 @@
+<section class="transcript-card">
+  <header class="transcript-header">
+    <div>
+      <p>Transcripción</p>
+      <h2>Entrevista clínica</h2>
+    </div>
+  </header>
+
+  <div class="transcript-list">
+    <article
+      *ngFor="let message of messages"
+      class="transcript-message"
+      [class.patient]="message.role === 'Paciente'"
+      [class.student]="message.role === 'Estudiante'"
+    >
+      <div class="message-meta">
+        <span>{{ message.role }}</span>
+        <time>{{ message.time }}</time>
+      </div>
+
+      <p>{{ message.content }}</p>
+    </article>
+  </div>
+</section>

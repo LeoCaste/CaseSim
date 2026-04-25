@@ -1,0 +1,75 @@
+.evaluation-card {
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  overflow: hidden;
+}
+
+.evaluation-card header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cs-border);
+  background: #ffffff;
+}
+
+.evaluation-card header p {
+  margin: 0 0 4px;
+  color: var(--cs-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.evaluation-card header h2 {
+  margin: 0;
+  color: var(--cs-primary-dark);
+  font-size: 20px;
+}
+
+.evaluation-block {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cs-border);
+}
+
+.evaluation-block span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--cs-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.evaluation-block p {
+  margin: 0;
+  color: var(--cs-text);
+  line-height: 1.55;
+}
+
+.evaluation-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  background: #fbfcfd;
+}
+
+.cs-button {
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cs-button.primary {
+  color: white;
+  background: var(--cs-primary);
+  border: 1px solid var(--cs-primary);
+}
+
+.cs-button.secondary {
+  color: var(--cs-primary-dark);
+  background: white;
+  border: 1px solid var(--cs-border);
+}

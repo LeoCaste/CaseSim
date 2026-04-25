@@ -5,7 +5,7 @@ import { InterviewPage } from './features/interview/pages/interview-page/intervi
 import { SessionCompletedPage } from './features/interview/pages/session-completed-page/session-completed-page';
 import { StudentDashboardPage } from './features/student/pages/student-dashboard-page/student-dashboard-page';
 import { ProfessorDashboardPage } from './features/professor/pages/professor-dashboard-page/professor-dashboard-page';
-
+import { ProfessorReviewPage } from './features/professor/pages/professor-review-page/professor-review-page';
 
 export const routes: Routes = [
   {
@@ -23,6 +23,10 @@ export const routes: Routes = [
       {
         path: 'student/dashboard',
         component: StudentDashboardPage,
+      },
+      {
+        path: 'professor/review',
+        component: ProfessorReviewPage,
       },
       {
         path: 'professor/dashboard',

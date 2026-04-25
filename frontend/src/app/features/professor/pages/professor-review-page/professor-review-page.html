@@ -1,0 +1,45 @@
+<section class="review-page">
+  <header class="review-header">
+    <div>
+      <p class="review-header__eyebrow">Revisión clínica</p>
+      <h1>{{ session.activity }}</h1>
+      <p>Sesión completada lista para evaluación.</p>
+    </div>
+
+    <div class="review-header__status">
+      <span class="cs-badge success">{{ session.status }}</span>
+      <span class="cs-badge neutral">{{ session.duration }}</span>
+      <span class="cs-badge neutral">{{ session.turns }} turnos</span>
+    </div>
+  </header>
+
+  <section class="review-context">
+    <p class="review-context__eyebrow">Revisión clínica</p>
+
+    <h2>
+      {{ session.student }} · Caso {{ session.caseName }}
+    </h2>
+
+    <p class="review-context__meta">
+      {{ session.activity }} · Registrada el {{ session.submittedAt }}
+    </p>
+  </section>
+
+  <section class="review-layout">
+    <main class="review-main">
+      <app-session-transcript
+        [messages]="transcript"
+      ></app-session-transcript>
+    </main>
+
+    <aside class="review-side">
+      <app-student-notebook
+        [notebook]="notebook"
+      ></app-student-notebook>
+
+      <app-evaluation-panel
+        [diagnosis]="diagnosis"
+      ></app-evaluation-panel>
+    </aside>
+  </section>
+</section>
