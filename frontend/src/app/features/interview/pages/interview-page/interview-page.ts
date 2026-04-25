@@ -1,11 +1,13 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+
 import { UserContext } from '../../../../core/services/user-context';
 import { FinalDiagnosisModal } from '../../components/final-diagnosis-modal/final-diagnosis-modal';
 
 @Component({
   selector: 'app-interview-page',
-  imports: [FinalDiagnosisModal],
+  imports: [CommonModule, FinalDiagnosisModal],
   templateUrl: './interview-page.html',
   styleUrl: './interview-page.css'
 })

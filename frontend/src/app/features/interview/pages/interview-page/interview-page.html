@@ -1,6 +1,5 @@
 <section class="interview-page">
   <article class="interview-card">
-
     <header class="patient-header">
       <div>
         <p class="patient-header__eyebrow">Paciente simulado</p>
@@ -17,7 +16,6 @@
         <span class="cs-badge neutral">Sin límite de tiempo</span>
       </div>
     </header>
-
 
     <section class="clinical-summary">
       <article class="clinical-summary__item">
@@ -90,7 +88,10 @@
         ></textarea>
 
         <div class="intervention-actions">
-          <button class="cs-button primary">Enviar intervención</button>
+          <button class="cs-button primary" type="button">
+            Enviar intervención
+          </button>
+
           <button
             class="cs-button danger secondary-danger"
             type="button"
@@ -102,10 +103,10 @@
       </div>
     </footer>
   </article>
-  @if (showFinalDiagnosisModal) {
-    <app-final-diagnosis-modal
-      (cancel)="closeFinalDiagnosisModal()"
-      (confirm)="confirmFinalDiagnosis()"
-    />
-  }
+
+  <app-final-diagnosis-modal
+    *ngIf="showFinalDiagnosisModal"
+    (cancel)="closeFinalDiagnosisModal()"
+    (confirm)="confirmFinalDiagnosis()"
+  ></app-final-diagnosis-modal>
 </section>
