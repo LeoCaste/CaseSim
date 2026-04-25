@@ -1,0 +1,32 @@
+.sidebar {
+  background: var(--cs-surface);
+  border-right: 1px solid var(--cs-border);
+  padding: 18px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar a {
+  color: var(--cs-text-muted);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  background: var(--cs-surface-muted);
+  color: var(--cs-primary-dark);
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    display: none;
+  }
+}
