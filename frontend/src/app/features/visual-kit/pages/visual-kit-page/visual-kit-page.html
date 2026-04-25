@@ -1,0 +1,99 @@
+<div class="cs-page">
+  <div class="cs-container">
+    <header class="vk-header">
+      <div>
+        <p class="vk-eyebrow">Case-Sim</p>
+        <h1>Visual Kit clínico</h1>
+        <p>
+          Base visual para entrevistas clínicas simuladas. El objetivo es una interfaz seria,
+          ordenada y profesional, evitando apariencia de chatbot genérico.
+        </p>
+      </div>
+
+      <div class="vk-header-card">
+        <span class="status-dot"></span>
+        Entrevista en curso
+      </div>
+    </header>
+
+    <section class="vk-grid">
+      <article class="vk-card">
+        <h2>Botones</h2>
+        <div class="vk-row">
+          <button class="cs-button primary">Iniciar entrevista</button>
+          <button class="cs-button secondary">Guardar notas</button>
+          <button class="cs-button danger">Concluir atención</button>
+        </div>
+      </article>
+
+      <article class="vk-card">
+        <h2>Estados</h2>
+        <div class="vk-row">
+          <span class="cs-badge success">Entrevista en curso</span>
+          <span class="cs-badge warning">Diagnóstico pendiente</span>
+          <span class="cs-badge neutral">Sin límite de tiempo</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="interview-shell">
+      <header class="patient-header">
+        <div>
+          <p class="label">Paciente simulado</p>
+          <h2>Catalina Paz Soto</h2>
+          <p>22 años · Consulta ambulatoria</p>
+        </div>
+
+        <div class="patient-status">
+          <span class="cs-badge success">Entrevista en curso</span>
+          <span class="cs-badge warning">Diagnóstico pendiente</span>
+        </div>
+      </header>
+
+      <div class="interview-layout">
+        <main class="conversation-panel">
+          <div class="clinical-message patient">
+            <div class="message-role">Paciente</div>
+            <p>
+              Vengo porque tengo una tos seca que no se me pasa y me siento muy agotada.
+            </p>
+          </div>
+
+          <div class="clinical-message student">
+            <div class="message-role">Estudiante</div>
+            <p>¿Desde cuándo comenzó con la tos?</p>
+          </div>
+
+          <div class="clinical-message patient">
+            <div class="message-role">Paciente</div>
+            <p>
+              La tos empezó hace unos cinco días. Es seca, molesta, y me ha costado dormir bien.
+            </p>
+          </div>
+        </main>
+
+        <aside class="notebook-panel">
+          <div class="notebook-header">
+            <h3>Cuadernillo clínico</h3>
+            <p>No se envía al paciente simulado.</p>
+          </div>
+
+          <label>Motivo de consulta</label>
+          <textarea placeholder="Registrar motivo de consulta..."></textarea>
+
+          <label>Hallazgos relevantes</label>
+          <textarea placeholder="Registrar síntomas, antecedentes o datos relevantes..."></textarea>
+
+          <label>Hipótesis diagnósticas</label>
+          <textarea placeholder="Registrar hipótesis iniciales..."></textarea>
+        </aside>
+      </div>
+
+      <footer class="interview-footer">
+        <input type="text" placeholder="Escribe tu intervención clínica..." />
+        <button class="cs-button primary">Enviar</button>
+        <button class="cs-button danger">Concluir atención</button>
+      </footer>
+    </section>
+  </div>
+</div>

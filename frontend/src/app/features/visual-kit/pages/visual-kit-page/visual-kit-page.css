@@ -1,0 +1,287 @@
+.vk-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.vk-header h1 {
+  margin: 0 0 10px;
+  font-size: 34px;
+  color: var(--cs-primary-dark);
+}
+
+.vk-header p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.6;
+}
+
+.vk-eyebrow {
+  margin-bottom: 8px !important;
+  color: var(--cs-secondary) !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vk-header-card {
+  min-width: 210px;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  padding: 16px;
+  box-shadow: var(--cs-shadow);
+  color: var(--cs-primary-dark);
+  font-weight: 600;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--cs-success);
+}
+
+.vk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.vk-card,
+.interview-shell {
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+}
+
+.vk-card {
+  padding: 20px;
+}
+
+.vk-card h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.vk-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cs-button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cs-button.primary {
+  background: var(--cs-primary);
+  color: white;
+}
+
+.cs-button.primary:hover {
+  background: var(--cs-primary-dark);
+}
+
+.cs-button.secondary {
+  background: var(--cs-surface-muted);
+  color: var(--cs-primary-dark);
+}
+
+.cs-button.danger {
+  background: #fff1f0;
+  color: var(--cs-danger);
+  border: 1px solid #fecdca;
+}
+
+.cs-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cs-badge.success {
+  color: var(--cs-success);
+  background: #ecfdf3;
+}
+
+.cs-badge.warning {
+  color: var(--cs-warning);
+  background: #fffaeb;
+}
+
+.cs-badge.neutral {
+  color: var(--cs-text-muted);
+  background: var(--cs-surface-muted);
+}
+
+.interview-shell {
+  overflow: hidden;
+}
+
+.patient-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--cs-border);
+  background: linear-gradient(135deg, #ffffff 0%, #eef7f6 100%);
+}
+
+.patient-header h2 {
+  margin: 4px 0;
+  font-size: 24px;
+  color: var(--cs-primary-dark);
+}
+
+.patient-header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cs-secondary) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.patient-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  justify-content: flex-end;
+}
+
+.interview-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  min-height: 520px;
+}
+
+.conversation-panel {
+  padding: 24px;
+  background: #fbfcfd;
+}
+
+.clinical-message {
+  max-width: 720px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--cs-border);
+  background: var(--cs-surface);
+}
+
+.clinical-message.patient {
+  border-left: 4px solid var(--cs-secondary);
+}
+
+.clinical-message.student {
+  margin-left: auto;
+  border-left: 4px solid var(--cs-primary);
+}
+
+.message-role {
+  margin-bottom: 8px;
+  color: var(--cs-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.clinical-message p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.notebook-panel {
+  padding: 20px;
+  border-left: 1px solid var(--cs-border);
+  background: var(--cs-surface);
+}
+
+.notebook-header h3 {
+  margin: 0 0 4px;
+  color: var(--cs-primary-dark);
+}
+
+.notebook-header p {
+  margin: 0 0 18px;
+  color: var(--cs-text-muted);
+  font-size: 13px;
+}
+
+.notebook-panel label {
+  display: block;
+  margin: 14px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cs-text);
+}
+
+.notebook-panel textarea {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  border: 1px solid var(--cs-border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfcfd;
+}
+
+.interview-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid var(--cs-border);
+  background: var(--cs-surface);
+}
+
+.interview-footer input {
+  flex: 1;
+  border: 1px solid var(--cs-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+@media (max-width: 900px) {
+  .cs-page {
+    padding: 18px;
+  }
+
+  .vk-header,
+  .patient-header,
+  .interview-footer {
+    flex-direction: column;
+  }
+
+  .vk-grid,
+  .interview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .notebook-panel {
+    border-left: 0;
+    border-top: 1px solid var(--cs-border);
+  }
+
+  .clinical-message.student {
+    margin-left: 0;
+  }
+}
