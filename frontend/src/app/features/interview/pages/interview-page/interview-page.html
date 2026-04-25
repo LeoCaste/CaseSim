@@ -1,0 +1,99 @@
+<section class="interview-page">
+  <article class="interview-card">
+
+    <header class="patient-header">
+      <div>
+        <p class="patient-header__eyebrow">Paciente simulado</p>
+        <h1>Catalina Paz Soto</h1>
+        <p>22 años · Sexo F · Consulta ambulatoria</p>
+        <p class="patient-header__reason">
+          Motivo principal: tos seca y fatiga de 5 días
+        </p>
+      </div>
+
+      <div class="patient-header__status">
+        <span class="cs-badge success">Entrevista en curso</span>
+        <span class="cs-badge warning">Diagnóstico pendiente</span>
+        <span class="cs-badge neutral">Sin límite de tiempo</span>
+      </div>
+    </header>
+
+
+    <section class="clinical-summary">
+      <article class="clinical-summary__item">
+        <span class="clinical-summary__label">Motivo de consulta</span>
+        <strong>Tos seca persistente</strong>
+      </article>
+
+      <article class="clinical-summary__item">
+        <span class="clinical-summary__label">Tiempo de evolución</span>
+        <strong>5 días</strong>
+      </article>
+    </section>
+
+    <div class="interview-layout">
+      <main class="conversation-panel">
+        <section class="clinical-message patient">
+          <div class="message-meta">
+            <span>Paciente</span>
+            <time>6:00 AM</time>
+          </div>
+          <p>Vengo por tos seca y agotamiento desde hace cinco días.</p>
+        </section>
+
+        <section class="clinical-message student">
+          <div class="message-meta">
+            <span>Estudiante</span>
+            <time>6:01 AM</time>
+          </div>
+          <p>Gracias por comentarlo. ¿Desde cuándo nota que la tos empeora?</p>
+        </section>
+
+        <section class="clinical-message patient">
+          <div class="message-meta">
+            <span>Paciente</span>
+            <time>6:02 AM</time>
+          </div>
+          <p>Empeora en la noche y me cuesta dormir bien.</p>
+        </section>
+      </main>
+
+      <aside class="notebook-panel">
+        <div class="notebook-header">
+          <h2>Cuadernillo clínico</h2>
+          <p>Tus notas no son visibles para el paciente simulado.</p>
+        </div>
+
+        <label for="clinical-notes">Notas clínicas</label>
+        <textarea
+          id="clinical-notes"
+          class="notebook-textarea large"
+          placeholder="Escribe tus notas clínicas aquí..."
+        ></textarea>
+
+        <label for="diagnostic-hypothesis">Hipótesis diagnóstica</label>
+        <textarea
+          id="diagnostic-hypothesis"
+          class="notebook-textarea"
+          placeholder="Escribe tu hipótesis diagnóstica..."
+        ></textarea>
+      </aside>
+    </div>
+
+    <footer class="intervention-panel">
+      <label for="clinical-intervention">Intervención clínica</label>
+
+      <div class="intervention-row">
+        <textarea
+          id="clinical-intervention"
+          placeholder="Escribe tu intervención clínica..."
+        ></textarea>
+
+        <div class="intervention-actions">
+          <button class="cs-button primary">Enviar intervención</button>
+          <button class="cs-button danger secondary-danger">Concluir atención</button>
+        </div>
+      </div>
+    </footer>
+  </article>
+</section>
