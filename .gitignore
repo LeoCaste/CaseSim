@@ -1,0 +1,21 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Java / Maven
+target/
+*.class
+
+# Logs
+*.log
+
+# Env
+.env
+
+# Node / Angular futuro
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
