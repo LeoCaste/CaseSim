@@ -91,9 +91,21 @@
 
         <div class="intervention-actions">
           <button class="cs-button primary">Enviar intervención</button>
-          <button class="cs-button danger secondary-danger">Concluir atención</button>
+          <button
+            class="cs-button danger secondary-danger"
+            type="button"
+            (click)="openFinalDiagnosisModal()"
+          >
+            Concluir atención
+          </button>
         </div>
       </div>
     </footer>
   </article>
+  @if (showFinalDiagnosisModal) {
+    <app-final-diagnosis-modal
+      (cancel)="closeFinalDiagnosisModal()"
+      (confirm)="confirmFinalDiagnosis()"
+    />
+  }
 </section>
