@@ -4,6 +4,8 @@ import { VisualKitPage } from './features/visual-kit/pages/visual-kit-page/visua
 import { InterviewPage } from './features/interview/pages/interview-page/interview-page';
 import { SessionCompletedPage } from './features/interview/pages/session-completed-page/session-completed-page';
 import { StudentDashboardPage } from './features/student/pages/student-dashboard-page/student-dashboard-page';
+import { ProfessorDashboardPage } from './features/professor/pages/professor-dashboard-page/professor-dashboard-page';
+
 
 export const routes: Routes = [
   {
@@ -12,25 +14,29 @@ export const routes: Routes = [
     children: [
       {
         path: 'visual-kit',
-        component: VisualKitPage
+        component: VisualKitPage,
       },
       {
         path: 'interview',
-        component: InterviewPage
+        component: InterviewPage,
       },
       {
         path: 'student/dashboard',
-        component: StudentDashboardPage
+        component: StudentDashboardPage,
+      },
+      {
+        path: 'professor/dashboard',
+        component: ProfessorDashboardPage,
       },
       {
         path: 'session-completed',
-        component: SessionCompletedPage
+        component: SessionCompletedPage,
       },
       {
         path: '',
         redirectTo: 'student/dashboard',
-        pathMatch: 'full'
-      }
-    ]
-  }
+        pathMatch: 'full',
+      },
+    ],
+  },
 ];

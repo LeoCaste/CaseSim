@@ -1,0 +1,58 @@
+<section class="professor-dashboard">
+  <header class="dashboard-header">
+    <div>
+      <p class="dashboard-header__eyebrow">Panel profesor</p>
+      <h1>Seguimiento de simulación clínica</h1>
+      <p>
+        Revisa el avance de la simulación activa y las sesiones registradas por los estudiantes.
+      </p>
+    </div>
+
+    <div class="dashboard-header__actions">
+      <button class="cs-button secondary" type="button">Gestionar caso</button>
+      <button class="cs-button primary" type="button">Nueva simulación</button>
+    </div>
+  </header>
+
+  <section class="summary-grid">
+    <article *ngFor="let item of summary" class="summary-card">
+      <span>{{ item.label }}</span>
+      <strong>{{ item.value }}</strong>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <div class="dashboard-column">
+      <h2>Simulación activa</h2>
+
+      <app-professor-course-card
+        *ngFor="let simulation of simulations"
+        [simulation]="simulation"
+      ></app-professor-course-card>
+    </div>
+
+    <div class="dashboard-column">
+      <h2>Estado de actividades</h2>
+
+      <app-professor-activity-summary
+        *ngFor="let activity of activities"
+        [activity]="activity"
+      ></app-professor-activity-summary>
+    </div>
+  </section>
+
+  <section class="sessions-section">
+    <div class="sessions-section__header">
+      <div>
+        <h2>Sesiones recientes</h2>
+        <p>
+          Las sesiones en curso solo muestran estado general. La revisión se habilita al finalizar.
+        </p>
+      </div>
+    </div>
+
+    <app-recent-session-table
+      [sessions]="sessions"
+    ></app-recent-session-table>
+  </section>
+</section>

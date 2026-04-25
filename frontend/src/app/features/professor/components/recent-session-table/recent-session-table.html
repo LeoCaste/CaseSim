@@ -1,0 +1,55 @@
+<div class="session-table-wrapper">
+  <table class="session-table">
+    <thead>
+    <tr>
+      <th>Estudiante</th>
+      <th>Actividad</th>
+      <th>Estado</th>
+      <th>Turnos</th>
+      <th>Duración</th>
+      <th></th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr *ngFor="let session of sessions">
+      <td>{{ session.student }}</td>
+      <td>{{ session.activity }}</td>
+
+      <td>
+          <span
+            class="cs-badge"
+            [ngClass]="{
+              'success': session.status === 'Completada',
+              'warning': session.status === 'En curso',
+              'neutral': session.status !== 'Completada' && session.status !== 'En curso'
+            }"
+          >
+            {{ session.status }}
+          </span>
+      </td>
+
+      <td>{{ session.turns }}</td>
+      <td>{{ session.duration }}</td>
+
+      <td>
+        <!-- Caso habilitado -->
+        <a
+          *ngIf="session.status === 'Completada'"
+          class="review-link"
+        >
+          Revisar
+        </a>
+
+        <!-- Caso deshabilitado -->
+        <span
+          *ngIf="session.status !== 'Completada'"
+          class="review-link disabled"
+        >
+            Revisar
+          </span>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+</div>
