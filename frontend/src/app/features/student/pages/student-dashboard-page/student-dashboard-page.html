@@ -1,0 +1,26 @@
+<section class="student-dashboard">
+  <header class="student-dashboard__header">
+    <div>
+      <p class="student-dashboard__eyebrow">Panel estudiante</p>
+      <h1>Actividades asignadas</h1>
+      <p>
+        Selecciona una simulación clínica disponible para iniciar o continuar tu entrevista.
+      </p>
+    </div>
+  </header>
+
+  <section class="student-dashboard__notice">
+    <strong>Indicaciones generales</strong>
+    <p>
+      Compórtate como lo harías en una consulta real. La entrevista, tu diagnóstico
+      y tu cuadernillo clínico quedarán registrados.
+    </p>
+  </section>
+
+  <section class="activities-grid">
+    <app-activity-card
+      *ngFor="let activity of activities"
+      [activity]="activity"
+    ></app-activity-card>
+  </section>
+</section>
