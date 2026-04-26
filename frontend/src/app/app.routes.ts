@@ -7,7 +7,7 @@ import { StudentDashboardPage } from './features/student/pages/student-dashboard
 import { ProfessorDashboardPage } from './features/professor/pages/professor-dashboard-page/professor-dashboard-page';
 import { ProfessorReviewPage } from './features/professor/pages/professor-review-page/professor-review-page';
 import { WaitingRoomPage } from './features/student/pages/waiting-room-page/waiting-room-page';
-
+import { ClinicalCaseListPage } from './features/clinical-cases/pages/clinical-case-list-page/clinical-case-list-page';
 
 
 export const routes: Routes = [
@@ -30,6 +30,10 @@ export const routes: Routes = [
       {
         path: 'student/waiting-room',
         component: WaitingRoomPage,
+      },
+      {
+        path: 'clinical-cases',
+        component: ClinicalCaseListPage,
       },
       {
         path: 'professor/review',

@@ -1,0 +1,59 @@
+<article class="clinical-case-card">
+  <header class="clinical-case-card__header">
+    <div>
+      <p>{{ clinicalCase.title }}</p>
+      <h2>{{ clinicalCase.patientName }}</h2>
+      <span>
+        {{ clinicalCase.age }} años · Sexo {{ clinicalCase.sex }}
+      </span>
+    </div>
+
+    <span
+      class="case-status"
+      [class.ready]="clinicalCase.status === 'Listo'"
+      [class.draft]="clinicalCase.status !== 'Listo'"
+    >
+      {{ clinicalCase.status }}
+    </span>
+  </header>
+
+  <section class="case-reason">
+    <span>Motivo de consulta</span>
+    <p>{{ clinicalCase.reason }}</p>
+  </section>
+
+  <dl class="case-stats">
+    <div>
+      <dt>Carácter</dt>
+      <dd>{{ clinicalCase.difficulty }}</dd>
+    </div>
+
+    <div>
+      <dt>Duración</dt>
+      <dd>{{ clinicalCase.estimatedTime }}</dd>
+    </div>
+
+    <div>
+      <dt>Hechos clínicos</dt>
+      <dd>{{ clinicalCase.facts }}</dd>
+    </div>
+  </dl>
+
+  <footer class="clinical-case-card__actions">
+    <button class="case-button secondary" type="button">
+      Ver detalle
+    </button>
+
+    <button class="case-button secondary" type="button">
+      Editar
+    </button>
+
+    <button class="case-button primary" type="button">
+      Asignar a simulación
+    </button>
+
+    <button class="case-button danger" type="button">
+      Eliminar
+    </button>
+  </footer>
+</article>

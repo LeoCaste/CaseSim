@@ -1,0 +1,24 @@
+<section class="case-list-page">
+  <header class="case-list-header">
+    <div>
+      <p class="case-list-header__eyebrow">Banco de casos</p>
+      <h1>Casos clínicos simulados</h1>
+      <p>
+        Crea, edita y asigna casos clínicos a futuras simulaciones.
+      </p>
+    </div>
+
+    <div class="case-list-header__actions">
+      <button class="cs-button primary" type="button">
+        Crear nuevo caso
+      </button>
+    </div>
+  </header>
+
+  <section class="case-grid">
+    <app-clinical-case-card
+      *ngFor="let clinicalCase of cases"
+      [clinicalCase]="clinicalCase"
+    ></app-clinical-case-card>
+  </section>
+</section>
