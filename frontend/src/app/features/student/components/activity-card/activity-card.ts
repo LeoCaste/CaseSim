@@ -19,7 +19,7 @@ export interface StudentActivity {
   selector: 'app-activity-card',
   imports: [CommonModule, RouterLink],
   templateUrl: './activity-card.html',
-  styleUrl: './activity-card.css'
+  styleUrl: './activity-card.css',
 })
 export class ActivityCard {
   @Input({ required: true }) activity!: StudentActivity;
