@@ -1,0 +1,266 @@
+.case-form-page {
+  width: 100%;
+}
+
+.case-form-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.case-form-header__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.case-form-header h1 {
+  margin: 0 0 8px;
+  color: var(--cs-primary-dark);
+  font-size: 32px;
+}
+
+.case-form-header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.55;
+  max-width: 760px;
+}
+
+.case-form-header__actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.case-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-card {
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  overflow: hidden;
+}
+
+.form-card > header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cs-border);
+  background: linear-gradient(135deg, #ffffff 0%, #f2fbf8 100%);
+}
+
+.form-card > header p {
+  margin: 0 0 4px;
+  color: var(--cs-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.form-card > header h2 {
+  margin: 0;
+  color: var(--cs-primary-dark);
+  font-size: 22px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.form-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  color: var(--cs-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.form-grid label {
+  padding: 0;
+}
+
+.form-card input,
+.form-card select,
+.form-card textarea {
+  width: 100%;
+  border: 1px solid var(--cs-border);
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: #fbfcfd;
+  color: var(--cs-text);
+  font: inherit;
+  font-weight: 500;
+}
+
+.form-card textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.form-help {
+  margin: 0;
+  padding: 18px 20px 0;
+  color: var(--cs-text-muted);
+  line-height: 1.55;
+}
+
+.facts-list {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.fact-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--cs-border);
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.fact-item span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cs-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fact-item h3 {
+  margin: 0 0 4px;
+  color: var(--cs-primary-dark);
+  font-size: 17px;
+}
+
+.fact-item p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.45;
+}
+
+.fact-item strong {
+  align-self: flex-start;
+  white-space: nowrap;
+  color: var(--cs-primary-dark);
+  background: var(--cs-surface-muted);
+  border: 1px solid var(--cs-border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.case-button {
+  margin: 0 20px 20px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.case-button.secondary {
+  color: var(--cs-primary-dark);
+  background: white;
+  border: 1px solid var(--cs-border);
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 4px 0 0;
+}
+
+.cs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cs-button.primary {
+  color: white;
+  background: var(--cs-primary);
+  border: 1px solid var(--cs-primary);
+}
+
+.cs-button.secondary {
+  color: var(--cs-primary-dark);
+  background: white;
+  border: 1px solid var(--cs-border);
+}
+
+@media (max-width: 900px) {
+  .case-form-header {
+    flex-direction: column;
+  }
+
+  .case-form-header__actions {
+    flex-direction: column;
+  }
+
+  .form-grid.two {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-item {
+    flex-direction: column;
+  }
+
+  .fact-item strong {
+    white-space: normal;
+  }
+
+  .form-footer {
+    flex-direction: column-reverse;
+  }
+
+  .cs-button {
+    width: 100%;
+  }
+
+  .fact-visibility {
+    align-self: flex-start;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .fact-visibility.initial {
+    color: var(--cs-success);
+    background: #ecfdf3;
+    border: 1px solid #abefc6;
+  }
+
+  .fact-visibility.guided {
+    color: #b45309;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+  }
+}

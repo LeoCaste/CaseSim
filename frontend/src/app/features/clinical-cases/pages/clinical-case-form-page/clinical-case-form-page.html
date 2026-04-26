@@ -1,0 +1,182 @@
+<section class="case-form-page">
+  <header class="case-form-header">
+    <div>
+      <p class="case-form-header__eyebrow">Caso clínico</p>
+      <h1>Crear caso simulado</h1>
+      <p>
+        Define la información base del paciente, los antecedentes revelables y las reglas
+        que guiarán la entrevista clínica simulada.
+      </p>
+    </div>
+
+    <div class="case-form-header__actions">
+      <a routerLink="/clinical-cases" class="cs-button secondary">
+        Cancelar
+      </a>
+
+      <button class="cs-button primary" type="button">
+        Guardar caso
+      </button>
+    </div>
+  </header>
+
+  <form class="case-form">
+    <section class="form-card">
+      <header>
+        <p>Sección 1</p>
+        <h2>Datos del paciente</h2>
+      </header>
+
+      <div class="form-grid two">
+        <label>
+          Nombre del paciente
+          <input type="text" value="Catalina Paz Soto" />
+        </label>
+
+        <label>
+          Edad
+          <input type="number" value="22" />
+        </label>
+
+        <label>
+          Sexo
+          <select>
+            <option selected>Femenino</option>
+            <option>Masculino</option>
+            <option>Otro / No especificado</option>
+          </select>
+        </label>
+
+        <label>
+          Contexto de atención
+          <input type="text" value="Consulta ambulatoria" />
+        </label>
+      </div>
+    </section>
+
+    <section class="form-card">
+      <header>
+        <p>Sección 2</p>
+        <h2>Motivo de consulta</h2>
+      </header>
+
+      <label>
+        Motivo principal
+        <textarea>Tos seca persistente y fatiga de 5 días.</textarea>
+      </label>
+
+      <label>
+        Mensaje inicial del paciente
+        <textarea>Vengo porque tengo una tos seca que no se me pasa y me siento muy agotada.</textarea>
+      </label>
+    </section>
+
+    <section class="form-card">
+      <header>
+        <p>Sección 3</p>
+        <h2>Antecedentes del paciente</h2>
+      </header>
+
+      <p class="form-help">
+        Define la información que el paciente puede entregar durante la entrevista.
+        Parte de esta información se menciona al inicio, y otra solo cuando el estudiante
+        realiza preguntas adecuadas.
+      </p>
+
+      <div class="facts-list">
+        <article class="fact-item" *ngFor="let fact of clinicalFacts">
+          <div>
+            <span>{{ fact.category }}</span>
+            <h3>{{ fact.title }}</h3>
+            <p>
+              Se menciona cuando el estudiante pregunta por: {{ fact.trigger }}
+            </p>
+          </div>
+
+          <span
+            class="fact-visibility"
+            [ngClass]="{
+          'initial': fact.visibility === 'Inicial',
+          'guided': fact.visibility === 'Bajo pregunta'
+        }"
+          >
+        {{ fact.visibility }}
+      </span>
+        </article>
+      </div>
+
+      <button class="case-button secondary" type="button">
+        Agregar antecedente
+      </button>
+    </section>
+
+    <section class="form-card">
+      <header>
+        <p>Sección 4</p>
+        <h2>Personalidad del paciente</h2>
+      </header>
+
+      <div class="form-grid two">
+        <label>
+          Tono
+          <select>
+            <option selected>Natural y colaborador</option>
+            <option>Ansioso</option>
+            <option>Reservado</option>
+            <option>Confundido</option>
+          </select>
+        </label>
+
+        <label>
+          Nivel de detalle
+          <select>
+            <option selected>Responder solo lo preguntado</option>
+            <option>Dar contexto moderado</option>
+            <option>Respuestas breves</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Notas de comportamiento
+        <textarea>Paciente responde de forma natural, breve y coherente. No entrega información no solicitada.</textarea>
+      </label>
+    </section>
+
+    <section class="form-card">
+      <header>
+        <p>Sección 5</p>
+        <h2>Comportamiento del paciente</h2>
+      </header>
+
+      <label>
+        Diagnóstico base del caso
+        <input type="text" value="Neumonía atípica probable" />
+      </label>
+
+      <label>
+        Cómo responde cuando no sabe algo
+        <input type="text" value="No estoy segura, no sabría decir." />
+      </label>
+
+      <label>
+        Estilo de respuesta
+        <textarea>
+Responde de forma natural, breve y coherente.
+No entrega información que no se le haya preguntado.
+Puede mostrar leve preocupación por su estado.
+    </textarea>
+      </label>
+    </section>
+
+    <footer class="form-footer">
+      <a routerLink="/clinical-cases" class="cs-button secondary">
+        Cancelar
+      </a>
+
+      <button class="cs-button primary" type="button">
+        Guardar caso
+      </button>
+    </footer>
+  </form>
+</section>

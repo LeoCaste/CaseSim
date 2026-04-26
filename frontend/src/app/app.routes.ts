@@ -8,6 +8,8 @@ import { ProfessorDashboardPage } from './features/professor/pages/professor-das
 import { ProfessorReviewPage } from './features/professor/pages/professor-review-page/professor-review-page';
 import { WaitingRoomPage } from './features/student/pages/waiting-room-page/waiting-room-page';
 import { ClinicalCaseListPage } from './features/clinical-cases/pages/clinical-case-list-page/clinical-case-list-page';
+import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-case-form-page/clinical-case-form-page';
+
 
 
 export const routes: Routes = [
@@ -34,6 +36,14 @@ export const routes: Routes = [
       {
         path: 'clinical-cases',
         component: ClinicalCaseListPage,
+      },
+      {
+        path: 'clinical-cases/new',
+        component: ClinicalCaseFormPage,
+      },
+      {
+        path: 'clinical-cases/:id/edit',
+        component: ClinicalCaseFormPage,
       },
       {
         path: 'professor/review',

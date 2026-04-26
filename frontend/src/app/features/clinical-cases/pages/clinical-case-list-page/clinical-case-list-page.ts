@@ -2,10 +2,11 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
 import { ClinicalCaseCard } from '../../components/clinical-case-card/clinical-case-card';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-clinical-case-list-page',
-  imports: [CommonModule, ClinicalCaseCard],
+  imports: [CommonModule, RouterLink, ClinicalCaseCard],
   templateUrl: './clinical-case-list-page.html',
   styleUrl: './clinical-case-list-page.css',
 })

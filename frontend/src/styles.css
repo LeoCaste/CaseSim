@@ -81,6 +81,21 @@ textarea {
   border: 1px solid #fedf89;
 }
 
+.cs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cs-button:hover {
+  text-decoration: none;
+}
+
 .cs-badge.neutral {
   color: var(--cs-text-muted);
   background: var(--cs-surface-muted);
