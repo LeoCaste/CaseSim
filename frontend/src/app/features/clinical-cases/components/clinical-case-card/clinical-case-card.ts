@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 export interface ClinicalCaseCardData {
+  id: number;
   patientName: string;
   title: string;
   age: number;
@@ -16,7 +17,7 @@ export interface ClinicalCaseCardData {
 
 @Component({
   selector: 'app-clinical-case-card',
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './clinical-case-card.html',
   styleUrl: './clinical-case-card.css',
 })

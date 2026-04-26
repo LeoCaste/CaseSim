@@ -167,6 +167,18 @@
   }
 
   .case-button {
-    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 800;
+    cursor: pointer;
+
+    text-decoration: none !important;
+  }
+
+  .case-button:hover {
+    text-decoration: none !important;
   }
 }

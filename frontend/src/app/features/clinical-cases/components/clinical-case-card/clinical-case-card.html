@@ -40,11 +40,17 @@
   </dl>
 
   <footer class="clinical-case-card__actions">
-    <button class="case-button secondary" type="button">
+    <a
+      [routerLink]="['/clinical-cases', clinicalCase.id]"
+      class="case-button secondary"
+    >
       Ver detalle
-    </button>
+    </a>
 
-    <a routerLink="/clinical-cases/1/edit" class="case-button secondary">
+    <a
+      [routerLink]="['/clinical-cases', clinicalCase.id, 'edit']"
+      class="case-button secondary"
+    >
       Editar
     </a>
 

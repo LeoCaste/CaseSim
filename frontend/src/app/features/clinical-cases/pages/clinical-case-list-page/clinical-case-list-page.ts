@@ -1,8 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
 import { ClinicalCaseCard } from '../../components/clinical-case-card/clinical-case-card';
-import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-clinical-case-list-page',
@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
 export class ClinicalCaseListPage {
   cases = [
     {
+      id: 1,
       patientName: 'Catalina Paz Soto',
       title: 'Entrevista respiratoria',
       age: 22,
@@ -24,6 +25,7 @@ export class ClinicalCaseListPage {
       facts: 8,
     },
     {
+      id: 2,
       patientName: 'Roberto Alarcón',
       title: 'Caso cardiovascular',
       age: 58,

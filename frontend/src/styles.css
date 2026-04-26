@@ -101,3 +101,13 @@ textarea {
   background: var(--cs-surface-muted);
   border: 1px solid var(--cs-border);
 }
+
+a.cs-button,
+a.case-button {
+  text-decoration: none;
+}
+
+a.cs-button:hover,
+a.case-button:hover {
+  text-decoration: none;
+}
