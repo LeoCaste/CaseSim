@@ -1,9 +1,7 @@
 import { Component, Input } from '@angular/core';
+import { ProfessorSessionReview } from '../../../../core/models/professor-dashboard.model';
 
-export interface StudentNotebookData {
-  notes: string;
-  hypothesis: string;
-}
+export type StudentNotebookData = ProfessorSessionReview['notebook'];
 
 @Component({
   selector: 'app-student-notebook',

@@ -2,11 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-
-export interface DiagnosisReview {
-  finalDiagnosis: string;
-  reasoning: string;
-}
+import { DiagnosisReview } from '../../../../core/models/student-session.model';
 
 @Component({
   selector: 'app-evaluation-panel',

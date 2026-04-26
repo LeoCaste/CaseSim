@@ -1,14 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-
-export interface RecentSession {
-  student: string;
-  activity: string;
-  status: string;
-  turns: number;
-  duration: string;
-}
+import { ProfessorRecentSession as RecentSession } from '../../../../core/models/professor-dashboard.model';
 
 @Component({
   selector: 'app-recent-session-table',

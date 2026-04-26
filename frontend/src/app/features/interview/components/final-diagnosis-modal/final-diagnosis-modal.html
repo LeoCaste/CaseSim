@@ -14,12 +14,16 @@
       <textarea
         id="diagnosis"
         placeholder="Ej: Neumonía atípica por Mycoplasma pneumoniae..."
+        [(ngModel)]="diagnosis"
+        [ngModelOptions]="{ standalone: true }"
       ></textarea>
 
       <label for="reasoning">Razonamiento clínico</label>
       <textarea
         id="reasoning"
         placeholder="Describe brevemente los antecedentes que sustentan tu hipótesis..."
+        [(ngModel)]="reasoning"
+        [ngModelOptions]="{ standalone: true }"
       ></textarea>
     </div>
 
@@ -28,7 +32,7 @@
         Continuar entrevista
       </button>
 
-      <button class="modal-button primary" type="button" (click)="confirm.emit()">
+      <button class="modal-button primary" type="button" (click)="onConfirm()">
         Enviar diagnóstico y finalizar
       </button>
     </footer>

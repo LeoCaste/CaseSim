@@ -1,14 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
-
-interface ClinicalFact {
-  category: string;
-  title: string;
-  trigger: string;
-  visibility: 'Inicial' | 'Bajo pregunta';
-}
+import { ClinicalCase, ClinicalFact } from '../../../../core/models/clinical-case.model';
+import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
 
 @Component({
   selector: 'app-clinical-case-form-page',
@@ -16,40 +11,63 @@ interface ClinicalFact {
   templateUrl: './clinical-case-form-page.html',
   styleUrl: './clinical-case-form-page.css'
 })
-export class ClinicalCaseFormPage {
+export class ClinicalCaseFormPage implements OnInit {
   isEditMode = false;
   patientName = 'Catalina Paz Soto';
   showSaveModal = false;
   isSaveSuccess = false;
+  isLoading = false;
+  loadError = '';
 
-  clinicalFacts: ClinicalFact[] = [
-    {
-      category: 'Síntoma',
-      title: 'Tos seca persistente',
-      trigger: 'tos, respiratorio',
-      visibility: 'Inicial'
-    },
-    {
-      category: 'Evolución',
-      title: 'Fatiga de 5 días',
-      trigger: 'duración, evolución',
-      visibility: 'Bajo pregunta'
-    },
-    {
-      category: 'Antecedente epidemiológico',
-      title: 'Contacto con persona enferma',
-      trigger: 'contactos, contagio',
-      visibility: 'Bajo pregunta'
-    }
-  ];
+  caseFormState: ClinicalCase = {
+    id: '1',
+    title: '',
+    patientName: '',
+    status: 'DRAFT',
+    estimatedTimeMinutes: undefined,
+    factsCount: 0,
+    age: 0,
+    sex: 'F',
+    context: '',
+    reason: '',
+    initialMessage: '',
+    expectedDiagnosis: '',
+    fallbackResponse: '',
+    behaviorGuidelines: '',
+    facts: []
+  };
+
+  clinicalFacts: Array<ClinicalFact & { visibilityLabel: 'Inicial' | 'Bajo pregunta' }> = [];
 
   constructor(
     private userContext: UserContext,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private clinicalCaseService: ClinicalCaseService
   ) {
     this.userContext.setRole('professor');
     this.isEditMode = this.route.snapshot.paramMap.has('id');
+  }
+
+  ngOnInit(): void {
+    this.isLoading = true;
+    if (!this.isEditMode) {
+      this.clinicalCaseService.getCaseDraft().subscribe((draft) => {
+        this.caseFormState = draft;
+        this.syncFromFormState();
+        this.isLoading = false;
+      });
+      return;
+    }
+
+    const caseId = this.route.snapshot.paramMap.get('id') ?? '1';
+    this.clinicalCaseService.getClinicalCaseById(caseId).subscribe((clinicalCase) => {
+      if (clinicalCase) {
+        this.caseFormState = clinicalCase;
+      }
+      this.syncFromFormState();
+      this.isLoading = false;
+    });
   }
 
   get pageTitle(): string {
@@ -69,6 +87,15 @@ export class ClinicalCaseFormPage {
   }
 
   confirmSaveCase(): void {
+    this.caseFormState.facts = this.clinicalFacts.map((fact) => ({
+      id: fact.id,
+      category: fact.category,
+      title: fact.title,
+      trigger: fact.trigger,
+      visibility: fact.visibilityLabel === 'Inicial' ? 'INITIAL' : 'ON_QUESTION'
+    }));
+
+    this.clinicalCaseService.upsertClinicalCase(this.caseFormState).subscribe();
     this.isSaveSuccess = true;
 
     setTimeout(() => {
@@ -78,5 +105,13 @@ export class ClinicalCaseFormPage {
 
   get saveLabel(): string {
     return this.isEditMode ? 'Guardar cambios' : 'Guardar caso';
+  }
+
+  private syncFromFormState(): void {
+    this.patientName = this.caseFormState.patientName;
+    this.clinicalFacts = this.caseFormState.facts.map((fact) => ({
+      ...fact,
+      visibilityLabel: fact.visibility === 'INITIAL' ? 'Inicial' : 'Bajo pregunta'
+    }));
   }
 }

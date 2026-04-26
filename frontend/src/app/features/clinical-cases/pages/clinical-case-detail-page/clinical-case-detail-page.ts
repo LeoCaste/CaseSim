@@ -1,7 +1,31 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
+import { ClinicalCase } from '../../../../core/models/clinical-case.model';
+import { SimulationStudent } from '../../../../core/models/simulation.model';
+import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
+import { SimulationAssignmentService } from '../../../../core/services/simulation-assignment.service';
+
+interface ClinicalCaseDetailView {
+  id: string;
+  patientName: string;
+  title: string;
+  age: number;
+  sex: string;
+  context: string;
+  reason: string;
+  initialMessage: string;
+  diagnosis: string;
+  fallback: string;
+  behavior: string;
+  facts: Array<{
+    category: string;
+    title: string;
+    trigger: string;
+    visibility: 'Inicial' | 'Bajo pregunta';
+  }>;
+}
 
 @Component({
   selector: 'app-clinical-case-detail-page',
@@ -9,49 +33,80 @@ import { UserContext } from '../../../../core/services/user-context';
   templateUrl: './clinical-case-detail-page.html',
   styleUrl: './clinical-case-detail-page.css',
 })
-export class ClinicalCaseDetailPage {
-  clinicalCase = {
-    id: 1,
-    patientName: 'Catalina Paz Soto',
-    title: 'Caso Catalina Paz Soto',
-    age: 22,
+export class ClinicalCaseDetailPage implements OnInit {
+  clinicalCase: ClinicalCaseDetailView = {
+    id: '1',
+    patientName: '',
+    title: '',
+    age: 0,
     sex: 'F',
-    context: 'Consulta ambulatoria',
-    reason: 'tos seca y fatiga',
-    initialMessage: 'Vengo porque tengo una tos seca que no se me pasa y me siento muy agotada.',
-    diagnosis: 'Neumonía atípica probable',
-    fallback: 'No estoy segura, no sabría decir.',
-    behavior:
-      'Paciente responde de forma natural, breve y coherente. No entrega información que no se le haya preguntado. Puede mostrar leve preocupación por su estado.',
-    facts: [
-      {
-        category: 'Síntoma',
-        title: 'Tos seca persistente',
-        trigger: 'tos, respiratorio',
-        visibility: 'Inicial',
-      },
-      {
-        category: 'Evolución',
-        title: 'Fatiga de 5 días',
-        trigger: 'duración, evolución',
-        visibility: 'Bajo pregunta',
-      },
-      {
-        category: 'Antecedente epidemiológico',
-        title: 'Contacto con persona enferma',
-        trigger: 'contactos, contagio',
-        visibility: 'Bajo pregunta',
-      },
-    ],
+    context: '',
+    reason: '',
+    initialMessage: '',
+    diagnosis: '',
+    fallback: '',
+    behavior: '',
+    facts: []
   };
 
-  associatedStudents = [
-    { name: 'Diego Muñoz', status: 'Completada', canReview: true },
-    { name: 'Valentina Ríos', status: 'En curso', canReview: false },
-    { name: 'Matías Soto', status: 'Pendiente', canReview: false },
-  ];
+  associatedStudents: Array<{ name: string; status: string; canReview: boolean }> = [];
+  isLoading = false;
+  loadError = '';
 
-  constructor(private userContext: UserContext) {
+  constructor(
+    private userContext: UserContext,
+    private route: ActivatedRoute,
+    private clinicalCaseService: ClinicalCaseService,
+    private simulationAssignmentService: SimulationAssignmentService
+  ) {
     this.userContext.setRole('professor');
+  }
+
+  ngOnInit(): void {
+    this.isLoading = true;
+    const caseId = this.route.snapshot.paramMap.get('id') ?? '1';
+
+    this.clinicalCaseService.getClinicalCaseById(caseId).subscribe((clinicalCase) => {
+      if (clinicalCase) {
+        this.clinicalCase = this.mapClinicalCase(clinicalCase);
+      }
+      this.isLoading = false;
+    });
+
+    this.simulationAssignmentService.getAssignmentContext(caseId).subscribe((context) => {
+      this.associatedStudents = context.students
+        .filter((student) => student.selected ?? true)
+        .map((student) => this.mapStudent(student));
+    });
+  }
+
+  private mapClinicalCase(clinicalCase: ClinicalCase): ClinicalCaseDetailView {
+    return {
+      id: clinicalCase.id,
+      patientName: clinicalCase.patientName,
+      title: `Caso ${clinicalCase.patientName}`,
+      age: clinicalCase.age,
+      sex: clinicalCase.sex,
+      context: clinicalCase.context,
+      reason: clinicalCase.reason,
+      initialMessage: clinicalCase.initialMessage,
+      diagnosis: clinicalCase.expectedDiagnosis ?? '',
+      fallback: clinicalCase.fallbackResponse ?? '',
+      behavior: clinicalCase.behaviorGuidelines ?? '',
+      facts: clinicalCase.facts.map((fact) => ({
+        category: fact.category,
+        title: fact.title,
+        trigger: fact.trigger,
+        visibility: fact.visibility === 'INITIAL' ? 'Inicial' : 'Bajo pregunta'
+      }))
+    };
+  }
+
+  private mapStudent(student: SimulationStudent): { name: string; status: string; canReview: boolean } {
+    return {
+      name: student.name,
+      status: student.status === 'COMPLETED' ? 'Completada' : student.status === 'IN_PROGRESS' ? 'En curso' : 'Pendiente',
+      canReview: !!student.canReview
+    };
   }
 }

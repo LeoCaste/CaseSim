@@ -1,19 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-
-export interface StudentActivity {
-  title: string;
-  course: string;
-  professor: string;
-  patient: string;
-  status: string;
-  statusType: string;
-  duration: string;
-  description: string;
-  actionLabel: string;
-  route: string | null;
-}
+import { StudentActivity } from '../../../../core/models/student-session.model';
 
 @Component({
   selector: 'app-activity-card',

@@ -1,12 +1,5 @@
 import { Component, Input } from '@angular/core';
-
-export interface ProfessorSimulation {
-  name: string;
-  caseName: string;
-  course: string;
-  students: number;
-  completedSessions: number;
-}
+import { ProfessorSimulationOverview as ProfessorSimulation } from '../../../../core/models/professor-dashboard.model';
 
 @Component({
   selector: 'app-professor-course-card',

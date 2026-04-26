@@ -2,7 +2,7 @@
   <header class="session-header">
     <div>
       <p class="session-header__eyebrow">Sesión registrada</p>
-      <h1>Caso Catalina Paz Soto</h1>
+      <h1>{{ title }}</h1>
       <p>Tu entrevista quedó registrada correctamente.</p>
     </div>
 
@@ -44,12 +44,12 @@
 
         <div class="session-block">
           <span>Diagnóstico presuntivo</span>
-          <p>Neumonía atípica probable</p>
+          <p>{{ diagnosis.finalDiagnosis }}</p>
         </div>
 
         <div class="session-block">
           <span>Razonamiento clínico</span>
-          <p>Tos seca, fatiga y evolución subaguda orientan a cuadro respiratorio compatible.</p>
+          <p>{{ diagnosis.reasoning }}</p>
         </div>
       </section>
 
@@ -61,7 +61,7 @@
 
         <div class="session-block">
           <span>Notas clínicas</span>
-          <p>Paciente con tos seca persistente, fatiga y empeoramiento nocturno.</p>
+          <p>{{ notes }}</p>
         </div>
       </section>
     </aside>

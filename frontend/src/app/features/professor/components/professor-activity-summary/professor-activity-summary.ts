@@ -1,14 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-export interface ProfessorActivity {
-  title: string;
-  course: string;
-  caseName: string;
-  status: string;
-  completed: number;
-  total: number;
-}
+import { ProfessorActivityOverview as ProfessorActivity } from '../../../../core/models/professor-dashboard.model';
 
 @Component({
   selector: 'app-professor-activity-summary',

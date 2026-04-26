@@ -2,7 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface TranscriptMessage {
-  role: string;
+  role: 'Paciente' | 'Estudiante' | 'Sistema';
   time: string;
   content: string;
 }

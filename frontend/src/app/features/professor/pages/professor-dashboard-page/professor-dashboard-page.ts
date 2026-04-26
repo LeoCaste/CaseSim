@@ -1,10 +1,17 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
 import { RouterLink } from '@angular/router';
 import { ProfessorCourseCard } from '../../components/professor-course-card/professor-course-card';
 import { ProfessorActivitySummary } from '../../components/professor-activity-summary/professor-activity-summary';
 import { RecentSessionTable } from '../../components/recent-session-table/recent-session-table';
+import {
+  ProfessorActivityOverview,
+  ProfessorRecentSession,
+  ProfessorSimulationOverview,
+  ProfessorSummaryItem
+} from '../../../../core/models/professor-dashboard.model';
+import { ProfessorDashboardService } from '../../../../core/services/professor-dashboard.service';
 
 @Component({
   selector: 'app-professor-dashboard-page',
@@ -12,61 +19,29 @@ import { RecentSessionTable } from '../../components/recent-session-table/recent
   templateUrl: './professor-dashboard-page.html',
   styleUrl: './professor-dashboard-page.css',
 })
-export class ProfessorDashboardPage {
-  summary = [
-    { label: 'Simulación activa', value: '1' },
-    { label: 'Estudiantes asignados', value: '32' },
-    { label: 'Sesiones en curso', value: '8' },
-    { label: 'Sesiones completadas', value: '18' },
-  ];
+export class ProfessorDashboardPage implements OnInit {
+  summary: ProfessorSummaryItem[] = [];
+  simulations: ProfessorSimulationOverview[] = [];
+  activities: ProfessorActivityOverview[] = [];
+  sessions: ProfessorRecentSession[] = [];
+  isLoading = false;
+  loadError = '';
 
-  simulations = [
-    {
-      name: 'Entrevista respiratoria',
-      caseName: 'Catalina Paz Soto',
-      course: 'Caso de prueba',
-      students: 32,
-      completedSessions: 18,
-    },
-  ];
-
-  activities = [
-    {
-      title: 'Entrevista respiratoria',
-      course: 'Caso de prueba',
-      caseName: 'Catalina Paz Soto',
-      status: 'Activa',
-      completed: 18,
-      total: 32,
-    },
-    {
-      title: 'Caso cardiovascular',
-      course: 'Caso de prueba',
-      caseName: 'Roberto Alarcón',
-      status: 'Borrador',
-      completed: 0,
-      total: 28,
-    },
-  ];
-
-  sessions = [
-    {
-      student: 'Diego Muñoz',
-      activity: 'Entrevista respiratoria',
-      status: 'Completada',
-      turns: 18,
-      duration: '12 min',
-    },
-    {
-      student: 'Valentina Ríos',
-      activity: 'Entrevista respiratoria',
-      status: 'En curso',
-      turns: 9,
-      duration: '7 min',
-    },
-  ];
-
-  constructor(private userContext: UserContext) {
+  constructor(
+    private userContext: UserContext,
+    private professorDashboardService: ProfessorDashboardService
+  ) {
     this.userContext.setRole('professor');
+  }
+
+  ngOnInit(): void {
+    this.isLoading = true;
+    this.professorDashboardService.getDashboard().subscribe((dashboard) => {
+      this.summary = dashboard.summary;
+      this.simulations = dashboard.simulations;
+      this.activities = dashboard.activities;
+      this.sessions = dashboard.sessions;
+      this.isLoading = false;
+    });
   }
 }

@@ -1,19 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-
-export interface ClinicalCaseCardData {
-  id: number;
-  patientName: string;
-  title: string;
-  age: number;
-  sex: string;
-  reason: string;
-  status: string;
-  difficulty: string;
-  estimatedTime: string;
-  facts: number;
-}
+import { ClinicalCaseCardView as ClinicalCaseCardData } from '../../../../core/services/clinical-case.service';
 
 @Component({
   selector: 'app-clinical-case-card',

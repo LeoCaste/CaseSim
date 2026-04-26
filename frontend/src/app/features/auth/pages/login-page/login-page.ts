@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
+import { AuthService } from '../../../../core/services/auth.service';
 import { UserContext } from '../../../../core/services/user-context';
 
 @Component({
@@ -14,30 +15,28 @@ import { UserContext } from '../../../../core/services/user-context';
 export class LoginPage {
   email = '';
   error = '';
+  isLoading = false;
 
   constructor(
     private router: Router,
-    private userContext: UserContext
+    private userContext: UserContext,
+    private authService: AuthService
   ) {}
 
   login(): void {
-    const email = this.email.trim().toLowerCase();
+    this.error = '';
+    this.isLoading = true;
 
-    const isProfessor = /^[a-z]+\.[a-z]+@ufrontera\.cl$/.test(email);
-    const isStudent = /^[a-z]\.[a-z]+\d*@ufromail\.cl$/.test(email);
+    this.authService.login(this.email).subscribe((user) => {
+      this.isLoading = false;
 
-    if (isProfessor) {
-      this.userContext.setRole('professor');
-      this.router.navigate(['/professor/dashboard']);
-      return;
-    }
+      if (!user) {
+        this.error = 'Correo institucional no válido.';
+        return;
+      }
 
-    if (isStudent) {
-      this.userContext.setRole('student');
-      this.router.navigate(['/student/dashboard']);
-      return;
-    }
-
-    this.error = 'Correo institucional no válido.';
+      this.userContext.setUser(user);
+      this.router.navigate([user.role === 'professor' ? '/professor/dashboard' : '/student/dashboard']);
+    });
   }
 }

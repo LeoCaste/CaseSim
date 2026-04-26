@@ -3,10 +3,10 @@
     <header class="patient-header">
       <div>
         <p class="patient-header__eyebrow">Paciente simulado</p>
-        <h1>Catalina Paz Soto</h1>
-        <p>22 años · Sexo F · Consulta ambulatoria</p>
+        <h1>{{ session.patientName }}</h1>
+        <p>{{ session.age }} años · Sexo {{ session.sex }} · {{ session.context }}</p>
         <p class="patient-header__reason">
-          Motivo principal: tos seca y fatiga de 5 días
+          Motivo principal: {{ session.reason }}
         </p>
       </div>
 
@@ -20,7 +20,7 @@
     <section class="clinical-summary">
       <article class="clinical-summary__item">
         <span class="clinical-summary__label">Motivo de consulta</span>
-        <strong>Tos seca persistente</strong>
+            <strong>Tos seca persistente</strong>
       </article>
 
       <article class="clinical-summary__item">
@@ -53,18 +53,22 @@
         </div>
 
         <label for="clinical-notes">Notas clínicas</label>
-        <textarea
-          id="clinical-notes"
-          class="notebook-textarea large"
-          placeholder="Escribe tus notas clínicas aquí..."
-        ></textarea>
+          <textarea
+            id="clinical-notes"
+            class="notebook-textarea large"
+            placeholder="Escribe tus notas clínicas aquí..."
+            [(ngModel)]="clinicalNotes"
+            [ngModelOptions]="{ standalone: true }"
+          ></textarea>
 
         <label for="diagnostic-hypothesis">Hipótesis diagnóstica</label>
-        <textarea
-          id="diagnostic-hypothesis"
-          class="notebook-textarea"
-          placeholder="Escribe tu hipótesis diagnóstica..."
-        ></textarea>
+          <textarea
+            id="diagnostic-hypothesis"
+            class="notebook-textarea"
+            placeholder="Escribe tu hipótesis diagnóstica..."
+            [(ngModel)]="diagnosticHypothesis"
+            [ngModelOptions]="{ standalone: true }"
+          ></textarea>
       </aside>
     </div>
 
@@ -101,7 +105,9 @@
 
   <app-final-diagnosis-modal
     *ngIf="showFinalDiagnosisModal"
+    [diagnosis]="finalDiagnosis"
+    [reasoning]="finalReasoning"
     (cancel)="closeFinalDiagnosisModal()"
-    (confirm)="confirmFinalDiagnosis()"
+    (confirm)="confirmFinalDiagnosis($event)"
   ></app-final-diagnosis-modal>
 </section>

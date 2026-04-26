@@ -1,8 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
 import { ActivityCard } from '../../components/activity-card/activity-card';
 import { RouterLink } from '@angular/router';
+import { StudentActivity } from '../../../../core/models/student-session.model';
+import { StudentSessionService } from '../../../../core/services/student-session.service';
 
 @Component({
   selector: 'app-student-dashboard-page',
@@ -10,45 +12,27 @@ import { RouterLink } from '@angular/router';
   templateUrl: './student-dashboard-page.html',
   styleUrl: './student-dashboard-page.css'
 })
-export class StudentDashboardPage {
-  activities = [
-    {
-      title: 'Caso de prueba respiratorio',
-      course: 'Caso de prueba',
-      professor: 'Equipo docente',
-      patient: 'Catalina Paz Soto',
-      status: 'Disponible',
-      statusType: 'success',
-      duration: 'Sin límite de tiempo',
-      description: 'Realiza una anamnesis clínica y concluye la atención cuando tengas una hipótesis diagnóstica.',
-      actionLabel: 'Iniciar entrevista',
-      route: '/student/waiting-room'
-    },
-    {
-      title: 'Caso de prueba cardiovascular',
-      course: 'Caso de prueba',
-      professor: 'Equipo docente',
-      patient: 'Roberto Alarcón',
-      status: 'Pendiente',
-      statusType: 'neutral',
-      duration: '20 minutos',
-      description: 'Actividad de prueba pendiente de habilitación.',
-      actionLabel: 'No disponible',
-      route: null
-    }
-  ];
+export class StudentDashboardPage implements OnInit {
+  activities: StudentActivity[] = [];
+  history: Array<{ title: string; patient: string; status: string; date: string; route: string }> = [];
+  isLoading = false;
+  loadError = '';
 
-  history = [
-    {
-      title: 'Caso de prueba respiratorio',
-      patient: 'Catalina Paz Soto',
-      status: 'Registrada',
-      date: '25/04/2026',
-      route: '/student/session-detail'
-    }
-  ];
-
-  constructor(private userContext: UserContext) {
+  constructor(
+    private userContext: UserContext,
+    private studentSessionService: StudentSessionService
+  ) {
     this.userContext.setRole('student');
+  }
+
+  ngOnInit(): void {
+    this.isLoading = true;
+    this.loadError = '';
+
+    this.studentSessionService.getDashboardData().subscribe((data) => {
+      this.activities = data.activities;
+      this.history = data.history;
+      this.isLoading = false;
+    });
   }
 }

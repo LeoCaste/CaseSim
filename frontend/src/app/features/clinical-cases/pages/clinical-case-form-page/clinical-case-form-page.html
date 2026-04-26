@@ -93,14 +93,14 @@
             </p>
           </div>
 
-          <span
-            class="fact-visibility"
-            [ngClass]="{
-              'initial': fact.visibility === 'Inicial',
-              'guided': fact.visibility === 'Bajo pregunta'
+            <span
+              class="fact-visibility"
+              [ngClass]="{
+              'initial': fact.visibilityLabel === 'Inicial',
+              'guided': fact.visibilityLabel === 'Bajo pregunta'
             }"
           >
-            {{ fact.visibility }}
+            {{ fact.visibilityLabel }}
           </span>
         </article>
       </div>
