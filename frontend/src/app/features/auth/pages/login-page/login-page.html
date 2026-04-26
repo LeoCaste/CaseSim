@@ -1,0 +1,38 @@
+<section class="login-page">
+  <article class="login-card">
+    <header class="login-card__header">
+      <div class="login-logo">CS</div>
+
+      <div>
+        <p>CaseSim</p>
+        <h1>Ingreso institucional</h1>
+        <span>Simulación clínica asistida por IA</span>
+      </div>
+    </header>
+
+    <form class="login-form" (ngSubmit)="login()">
+      <label>
+        Correo institucional
+        <input
+          type="email"
+          name="email"
+          [(ngModel)]="email"
+          placeholder="correo institucional"
+          autocomplete="email"
+        />
+      </label>
+
+      <p class="login-help">
+        Utiliza tu correo institucional para acceder.
+      </p>
+
+      <p class="login-error" *ngIf="error">
+        {{ error }}
+      </p>
+
+      <button class="login-button" type="submit">
+        Ingresar
+      </button>
+    </form>
+  </article>
+</section>

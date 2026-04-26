@@ -1,25 +1,31 @@
 <aside class="sidebar">
   <nav>
-    <a routerLink="/visual-kit" routerLinkActive="active">Visual Kit</a>
-
-    <a routerLink="/student/dashboard" routerLinkActive="active">
-      Panel estudiante
+    <a routerLink="/visual-kit" routerLinkActive="active">
+      Visual Kit
     </a>
 
-    <a routerLink="/interview" routerLinkActive="active">
-      Entrevista clínica
-    </a>
+    <ng-container *ngIf="userContext.getRole() === 'student'">
+      <a routerLink="/student/dashboard" routerLinkActive="active">
+        Panel estudiante
+      </a>
 
-    <a routerLink="/professor/dashboard" routerLinkActive="active">
-      Panel profesor
-    </a>
+      <a routerLink="/interview" routerLinkActive="active">
+        Entrevista clínica
+      </a>
+    </ng-container>
 
-    <a routerLink="/professor/review" routerLinkActive="active">
-      Revisión docente
-    </a>
+    <ng-container *ngIf="userContext.getRole() === 'professor'">
+      <a routerLink="/professor/dashboard" routerLinkActive="active">
+        Panel profesor
+      </a>
 
-    <a routerLink="/clinical-cases" routerLinkActive="active">
-      Casos clínicos
-    </a>
+      <a routerLink="/professor/review" routerLinkActive="active">
+        Revisión docente
+      </a>
+
+      <a routerLink="/clinical-cases" routerLinkActive="active">
+        Casos clínicos
+      </a>
+    </ng-container>
   </nav>
 </aside>

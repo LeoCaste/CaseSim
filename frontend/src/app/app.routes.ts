@@ -1,49 +1,55 @@
 import { Routes } from '@angular/router';
 import { AppShell } from './layout/app-shell/app-shell';
+import { LoginPage } from './features/auth/pages/login-page/login-page';
 import { VisualKitPage } from './features/visual-kit/pages/visual-kit-page/visual-kit-page';
 import { InterviewPage } from './features/interview/pages/interview-page/interview-page';
 import { SessionCompletedPage } from './features/interview/pages/session-completed-page/session-completed-page';
 import { StudentDashboardPage } from './features/student/pages/student-dashboard-page/student-dashboard-page';
+import { WaitingRoomPage } from './features/student/pages/waiting-room-page/waiting-room-page';
 import { ProfessorDashboardPage } from './features/professor/pages/professor-dashboard-page/professor-dashboard-page';
 import { ProfessorReviewPage } from './features/professor/pages/professor-review-page/professor-review-page';
-import { WaitingRoomPage } from './features/student/pages/waiting-room-page/waiting-room-page';
 import { ClinicalCaseListPage } from './features/clinical-cases/pages/clinical-case-list-page/clinical-case-list-page';
 import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-case-form-page/clinical-case-form-page';
 import { ClinicalCaseDetailPage } from './features/clinical-cases/pages/clinical-case-detail-page/clinical-case-detail-page';
 import { AssignSimulationPage } from './features/clinical-cases/pages/assign-simulation-page/assign-simulation-page';
 
+
 export const routes: Routes = [
+  {
+    path: 'login',
+    component: LoginPage
+  },
   {
     path: '',
     component: AppShell,
     children: [
       {
         path: 'visual-kit',
-        component: VisualKitPage,
+        component: VisualKitPage
       },
       {
         path: 'interview',
-        component: InterviewPage,
+        component: InterviewPage
       },
       {
         path: 'student/dashboard',
-        component: StudentDashboardPage,
+        component: StudentDashboardPage
       },
       {
         path: 'student/waiting-room',
-        component: WaitingRoomPage,
+        component: WaitingRoomPage
       },
       {
         path: 'clinical-cases',
-        component: ClinicalCaseListPage,
-      },
-      {
-        path: 'clinical-cases/:id/assign',
-        component: AssignSimulationPage
+        component: ClinicalCaseListPage
       },
       {
         path: 'clinical-cases/new',
         component: ClinicalCaseFormPage
+      },
+      {
+        path: 'clinical-cases/:id/assign',
+        component: AssignSimulationPage
       },
       {
         path: 'clinical-cases/:id/edit',
@@ -55,21 +61,21 @@ export const routes: Routes = [
       },
       {
         path: 'professor/review',
-        component: ProfessorReviewPage,
+        component: ProfessorReviewPage
       },
       {
         path: 'professor/dashboard',
-        component: ProfessorDashboardPage,
+        component: ProfessorDashboardPage
       },
       {
         path: 'session-completed',
-        component: SessionCompletedPage,
+        component: SessionCompletedPage
       },
       {
         path: '',
-        redirectTo: 'student/dashboard',
-        pathMatch: 'full',
-      },
-    ],
-  },
+        redirectTo: 'login',
+        pathMatch: 'full'
+      }
+    ]
+  }
 ];
