@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
 import { ClinicalCaseCard } from '../../components/clinical-case-card/clinical-case-card';
-import { ClinicalCaseCardView, ClinicalCaseService } from '../../../../core/services/clinical-case.service';
+import { ClinicalCaseSummary } from '../../../../core/models/clinical-case.model';
+import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
 
 @Component({
   selector: 'app-clinical-case-list-page',
@@ -12,9 +13,9 @@ import { ClinicalCaseCardView, ClinicalCaseService } from '../../../../core/serv
   styleUrl: './clinical-case-list-page.css',
 })
 export class ClinicalCaseListPage implements OnInit {
-  cases: ClinicalCaseCardView[] = [];
-  isLoading = false;
-  loadError = '';
+  loading = false;
+  error = '';
+  cases: ClinicalCaseSummary[] = [];
 
   constructor(
     private userContext: UserContext,
@@ -24,10 +25,18 @@ export class ClinicalCaseListPage implements OnInit {
   }
 
   ngOnInit(): void {
-    this.isLoading = true;
-    this.clinicalCaseService.getClinicalCaseCards().subscribe((cases) => {
-      this.cases = cases;
-      this.isLoading = false;
+    this.loading = true;
+    this.error = '';
+
+    this.clinicalCaseService.getClinicalCases().subscribe({
+      next: (cases) => {
+        this.cases = cases;
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'No fue posible cargar los casos clínicos.';
+        this.loading = false;
+      }
     });
   }
 }

@@ -2,34 +2,39 @@
   <header class="case-detail-header">
     <div>
       <p class="case-detail-header__eyebrow">Detalle del caso</p>
-      <h1>{{ clinicalCase.title }}</h1>
-      <p>
+      <h1>{{ pageTitle }}</h1>
+      <p *ngIf="clinicalCase">
         Paciente simulado: {{ clinicalCase.patientName }} · {{ clinicalCase.age }} años · Sexo {{ clinicalCase.sex }}
       </p>
     </div>
 
-    <div class="case-detail-header__actions">
-      <a routerLink="/clinical-cases" class="cs-button secondary">
+    <div class="case-detail-header__actions" *ngIf="clinicalCase">
+      <button routerLink="/clinical-cases" class="cs-button secondary" type="button">
         Volver
-      </a>
+      </button>
 
-      <a
+      <button
         [routerLink]="['/clinical-cases', clinicalCase.id, 'edit']"
         class="cs-button secondary"
+        type="button"
       >
         Editar
-      </a>
+      </button>
 
-      <a
+      <button
         [routerLink]="['/clinical-cases', clinicalCase.id, 'assign']"
         class="cs-button primary"
+        type="button"
       >
         Asignar a simulación
-      </a>
+      </button>
     </div>
   </header>
 
-  <section class="detail-layout">
+  <p *ngIf="loading">Cargando casos clínicos...</p>
+  <p *ngIf="!loading && error">{{ error }}</p>
+
+  <section class="detail-layout" *ngIf="!loading && !error && clinicalCase">
     <main class="detail-main">
       <section class="detail-card">
         <header>
@@ -94,10 +99,10 @@
             </div>
 
             <strong
-              [class.initial]="fact.visibility === 'Inicial'"
-              [class.guided]="fact.visibility === 'Bajo pregunta'"
+              [class.initial]="getFactVisibilityLabel(fact.visibility) === 'Inicial'"
+              [class.guided]="getFactVisibilityLabel(fact.visibility) === 'Bajo pregunta'"
             >
-              {{ fact.visibility }}
+              {{ getFactVisibilityLabel(fact.visibility) }}
             </strong>
           </article>
         </div>
@@ -150,12 +155,12 @@
 
         <div class="detail-block">
           <span>Estilo de respuesta</span>
-          <p>{{ clinicalCase.behavior }}</p>
+          <p>{{ clinicalCase.behaviorGuidelines }}</p>
         </div>
 
         <div class="detail-block">
           <span>Si no tiene información</span>
-          <p>{{ clinicalCase.fallback }}</p>
+          <p>{{ clinicalCase.fallbackResponse }}</p>
         </div>
       </section>
 
@@ -167,7 +172,7 @@
 
         <div class="detail-block">
           <span>Diagnóstico esperado</span>
-          <p>{{ clinicalCase.diagnosis }}</p>
+          <p>{{ clinicalCase.expectedDiagnosis }}</p>
         </div>
       </section>
     </aside>

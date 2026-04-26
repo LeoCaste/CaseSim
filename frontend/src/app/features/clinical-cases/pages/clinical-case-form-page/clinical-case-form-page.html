@@ -4,7 +4,7 @@
       <p class="case-form-header__eyebrow">Caso clínico</p>
       <h1>{{ pageTitle }}</h1>
       <p>
-        Paciente simulado: {{ patientName }}. Define su contexto clínico y cómo
+        Paciente simulado: {{ caseFormState.patientName }}. Define su contexto clínico y cómo
         responderá durante la entrevista simulada.
       </p>
     </div>
@@ -20,7 +20,10 @@
     </div>
   </header>
 
-  <form class="case-form">
+  <p *ngIf="isLoading">Cargando casos clínicos...</p>
+  <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
+
+  <form class="case-form" *ngIf="!isLoading && !loadError">
     <section class="form-card">
       <header>
         <p>Sección 1</p>
@@ -30,26 +33,26 @@
       <div class="form-grid two">
         <label>
           Nombre del paciente
-          <input type="text" value="Catalina Paz Soto" />
+          <input type="text" [(ngModel)]="caseFormState.patientName" name="patientName" />
         </label>
 
         <label>
           Edad
-          <input type="number" value="22" />
+          <input type="number" [(ngModel)]="caseFormState.age" name="age" />
         </label>
 
         <label>
           Sexo
-          <select>
-            <option selected>Femenino</option>
-            <option>Masculino</option>
-            <option>Otro / No especificado</option>
+          <select [(ngModel)]="caseFormState.sex" name="sex">
+            <option value="F">Femenino</option>
+            <option value="M">Masculino</option>
+            <option value="X">Otro / No especificado</option>
           </select>
         </label>
 
         <label>
           Contexto de atención
-          <input type="text" value="Consulta ambulatoria" />
+          <input type="text" [(ngModel)]="caseFormState.context" name="context" />
         </label>
       </div>
     </section>
@@ -62,12 +65,12 @@
 
       <label>
         Motivo principal
-        <textarea>Tos seca persistente y fatiga de 5 días.</textarea>
+        <textarea [(ngModel)]="caseFormState.reason" name="reason"></textarea>
       </label>
 
       <label>
         Mensaje inicial del paciente
-        <textarea>Vengo porque tengo una tos seca que no se me pasa y me siento muy agotada.</textarea>
+        <textarea [(ngModel)]="caseFormState.initialMessage" name="initialMessage"></textarea>
       </label>
     </section>
 
@@ -139,7 +142,7 @@
 
       <label>
         Notas de comportamiento
-        <textarea>Paciente responde de forma natural, breve y coherente. No entrega información no solicitada.</textarea>
+        <textarea [(ngModel)]="caseFormState.behaviorGuidelines" name="behaviorGuidelines"></textarea>
       </label>
     </section>
 
@@ -151,19 +154,17 @@
 
       <label>
         Diagnóstico base del caso
-        <input type="text" value="Neumonía atípica probable" />
+        <input type="text" [(ngModel)]="caseFormState.expectedDiagnosis" name="expectedDiagnosis" />
       </label>
 
       <label>
         Cómo responde cuando no sabe algo
-        <input type="text" value="No estoy segura, no sabría decir." />
+        <input type="text" [(ngModel)]="caseFormState.fallbackResponse" name="fallbackResponse" />
       </label>
 
       <label>
         Estilo de respuesta
-        <textarea>Responde de forma natural, breve y coherente.
-No entrega información que no se le haya preguntado.
-Puede mostrar leve preocupación por su estado.</textarea>
+        <textarea [(ngModel)]="caseFormState.behaviorGuidelines" name="behaviorStyle"></textarea>
       </label>
     </section>
 
@@ -188,7 +189,7 @@ Puede mostrar leve preocupación por su estado.</textarea>
           Cancelar
         </button>
 
-        <button class="cs-button primary" type="button" (click)="confirmSaveCase()">
+        <button class="cs-button primary" type="button" (click)="saveCase()">
           Confirmar guardado
         </button>
       </div>

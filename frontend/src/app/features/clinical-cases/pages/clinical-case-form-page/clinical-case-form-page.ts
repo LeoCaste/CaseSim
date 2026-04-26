@@ -1,23 +1,31 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { UserContext } from '../../../../core/services/user-context';
-import { ClinicalCase, ClinicalFact } from '../../../../core/models/clinical-case.model';
+import {
+  ClinicalCase,
+  ClinicalCaseUpsertPayload,
+  ClinicalFact,
+  ClinicalFactVisibility
+} from '../../../../core/models/clinical-case.model';
 import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
+
+type FactVisibilityLabel = 'Inicial' | 'Bajo pregunta';
 
 @Component({
   selector: 'app-clinical-case-form-page',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './clinical-case-form-page.html',
   styleUrl: './clinical-case-form-page.css'
 })
 export class ClinicalCaseFormPage implements OnInit {
   isEditMode = false;
-  patientName = 'Catalina Paz Soto';
   showSaveModal = false;
   isSaveSuccess = false;
   isLoading = false;
   loadError = '';
+  private caseId?: string;
 
   caseFormState: ClinicalCase = {
     id: '1',
@@ -37,7 +45,7 @@ export class ClinicalCaseFormPage implements OnInit {
     facts: []
   };
 
-  clinicalFacts: Array<ClinicalFact & { visibilityLabel: 'Inicial' | 'Bajo pregunta' }> = [];
+  clinicalFacts: Array<ClinicalFact & { visibilityLabel: FactVisibilityLabel }> = [];
 
   constructor(
     private userContext: UserContext,
@@ -51,6 +59,8 @@ export class ClinicalCaseFormPage implements OnInit {
 
   ngOnInit(): void {
     this.isLoading = true;
+    this.caseId = this.route.snapshot.paramMap.get('id') ?? undefined;
+
     if (!this.isEditMode) {
       this.clinicalCaseService.getCaseDraft().subscribe((draft) => {
         this.caseFormState = draft;
@@ -60,10 +70,17 @@ export class ClinicalCaseFormPage implements OnInit {
       return;
     }
 
-    const caseId = this.route.snapshot.paramMap.get('id') ?? '1';
-    this.clinicalCaseService.getClinicalCaseById(caseId).subscribe((clinicalCase) => {
+    if (!this.caseId) {
+      this.loadError = 'No se encontró el caso clínico solicitado.';
+      this.isLoading = false;
+      return;
+    }
+
+    this.clinicalCaseService.getClinicalCaseById(this.caseId).subscribe((clinicalCase) => {
       if (clinicalCase) {
         this.caseFormState = clinicalCase;
+      } else {
+        this.loadError = 'No se encontró el caso clínico solicitado.';
       }
       this.syncFromFormState();
       this.isLoading = false;
@@ -71,9 +88,10 @@ export class ClinicalCaseFormPage implements OnInit {
   }
 
   get pageTitle(): string {
+    const patientName = this.caseFormState.patientName || 'sin nombre';
     return this.isEditMode
-      ? `Editar caso ${this.patientName}`
-      : `Caso ${this.patientName}`;
+      ? `Editar caso ${patientName}`
+      : `Caso ${patientName}`;
   }
 
   openSaveConfirmation(): void {
@@ -86,16 +104,36 @@ export class ClinicalCaseFormPage implements OnInit {
     this.isSaveSuccess = false;
   }
 
-  confirmSaveCase(): void {
-    this.caseFormState.facts = this.clinicalFacts.map((fact) => ({
+  saveCase(): void {
+    const facts: ClinicalFact[] = this.clinicalFacts.map((fact) => ({
       id: fact.id,
       category: fact.category,
       title: fact.title,
       trigger: fact.trigger,
-      visibility: fact.visibilityLabel === 'Inicial' ? 'INITIAL' : 'ON_QUESTION'
+      visibility: this.mapLabelToVisibility(fact.visibilityLabel)
     }));
 
-    this.clinicalCaseService.upsertClinicalCase(this.caseFormState).subscribe();
+    const payload: ClinicalCaseUpsertPayload = {
+      title: this.caseFormState.title || `Caso ${this.caseFormState.patientName}`,
+      patientName: this.caseFormState.patientName,
+      status: this.caseFormState.status,
+      estimatedTimeMinutes: this.caseFormState.estimatedTimeMinutes,
+      age: this.caseFormState.age,
+      sex: this.caseFormState.sex,
+      context: this.caseFormState.context,
+      reason: this.caseFormState.reason,
+      initialMessage: this.caseFormState.initialMessage,
+      expectedDiagnosis: this.caseFormState.expectedDiagnosis,
+      fallbackResponse: this.caseFormState.fallbackResponse,
+      behaviorGuidelines: this.caseFormState.behaviorGuidelines,
+      facts
+    };
+
+    const save$ = this.isEditMode && this.caseId
+      ? this.clinicalCaseService.updateClinicalCase(this.caseId, payload)
+      : this.clinicalCaseService.createClinicalCase(payload);
+
+    save$.subscribe();
     this.isSaveSuccess = true;
 
     setTimeout(() => {
@@ -108,10 +146,17 @@ export class ClinicalCaseFormPage implements OnInit {
   }
 
   private syncFromFormState(): void {
-    this.patientName = this.caseFormState.patientName;
     this.clinicalFacts = this.caseFormState.facts.map((fact) => ({
       ...fact,
-      visibilityLabel: fact.visibility === 'INITIAL' ? 'Inicial' : 'Bajo pregunta'
+      visibilityLabel: this.mapVisibilityToLabel(fact.visibility)
     }));
+  }
+
+  private mapLabelToVisibility(label: string): ClinicalFactVisibility {
+    return label === 'Inicial' ? 'INITIAL' : 'ON_QUESTION';
+  }
+
+  private mapVisibilityToLabel(visibility: ClinicalFactVisibility): FactVisibilityLabel {
+    return visibility === 'INITIAL' ? 'Inicial' : 'Bajo pregunta';
   }
 }

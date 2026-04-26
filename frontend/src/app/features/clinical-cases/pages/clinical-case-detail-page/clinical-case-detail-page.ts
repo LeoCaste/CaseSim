@@ -7,26 +7,6 @@ import { SimulationStudent } from '../../../../core/models/simulation.model';
 import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
 import { SimulationAssignmentService } from '../../../../core/services/simulation-assignment.service';
 
-interface ClinicalCaseDetailView {
-  id: string;
-  patientName: string;
-  title: string;
-  age: number;
-  sex: string;
-  context: string;
-  reason: string;
-  initialMessage: string;
-  diagnosis: string;
-  fallback: string;
-  behavior: string;
-  facts: Array<{
-    category: string;
-    title: string;
-    trigger: string;
-    visibility: 'Inicial' | 'Bajo pregunta';
-  }>;
-}
-
 @Component({
   selector: 'app-clinical-case-detail-page',
   imports: [CommonModule, RouterLink],
@@ -34,24 +14,11 @@ interface ClinicalCaseDetailView {
   styleUrl: './clinical-case-detail-page.css',
 })
 export class ClinicalCaseDetailPage implements OnInit {
-  clinicalCase: ClinicalCaseDetailView = {
-    id: '1',
-    patientName: '',
-    title: '',
-    age: 0,
-    sex: 'F',
-    context: '',
-    reason: '',
-    initialMessage: '',
-    diagnosis: '',
-    fallback: '',
-    behavior: '',
-    facts: []
-  };
+  loading = false;
+  error = '';
+  clinicalCase?: ClinicalCase;
 
   associatedStudents: Array<{ name: string; status: string; canReview: boolean }> = [];
-  isLoading = false;
-  loadError = '';
 
   constructor(
     private userContext: UserContext,
@@ -63,14 +30,22 @@ export class ClinicalCaseDetailPage implements OnInit {
   }
 
   ngOnInit(): void {
-    this.isLoading = true;
-    const caseId = this.route.snapshot.paramMap.get('id') ?? '1';
+    const caseId = this.route.snapshot.paramMap.get('id');
+    if (!caseId) {
+      this.error = 'No se encontró el caso clínico solicitado.';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
 
     this.clinicalCaseService.getClinicalCaseById(caseId).subscribe((clinicalCase) => {
       if (clinicalCase) {
-        this.clinicalCase = this.mapClinicalCase(clinicalCase);
+        this.clinicalCase = clinicalCase;
+      } else {
+        this.error = 'No se encontró el caso clínico solicitado.';
       }
-      this.isLoading = false;
+      this.loading = false;
     });
 
     this.simulationAssignmentService.getAssignmentContext(caseId).subscribe((context) => {
@@ -80,26 +55,15 @@ export class ClinicalCaseDetailPage implements OnInit {
     });
   }
 
-  private mapClinicalCase(clinicalCase: ClinicalCase): ClinicalCaseDetailView {
-    return {
-      id: clinicalCase.id,
-      patientName: clinicalCase.patientName,
-      title: `Caso ${clinicalCase.patientName}`,
-      age: clinicalCase.age,
-      sex: clinicalCase.sex,
-      context: clinicalCase.context,
-      reason: clinicalCase.reason,
-      initialMessage: clinicalCase.initialMessage,
-      diagnosis: clinicalCase.expectedDiagnosis ?? '',
-      fallback: clinicalCase.fallbackResponse ?? '',
-      behavior: clinicalCase.behaviorGuidelines ?? '',
-      facts: clinicalCase.facts.map((fact) => ({
-        category: fact.category,
-        title: fact.title,
-        trigger: fact.trigger,
-        visibility: fact.visibility === 'INITIAL' ? 'Inicial' : 'Bajo pregunta'
-      }))
-    };
+  get pageTitle(): string {
+    if (!this.clinicalCase) {
+      return 'Detalle del caso';
+    }
+    return `Caso ${this.clinicalCase.patientName}`;
+  }
+
+  getFactVisibilityLabel(visibility: 'INITIAL' | 'ON_QUESTION'): 'Inicial' | 'Bajo pregunta' {
+    return this.clinicalCaseService.getFactVisibilityLabel(visibility);
   }
 
   private mapStudent(student: SimulationStudent): { name: string; status: string; canReview: boolean } {

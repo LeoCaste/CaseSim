@@ -12,7 +12,11 @@ import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-c
 import { ClinicalCaseDetailPage } from './features/clinical-cases/pages/clinical-case-detail-page/clinical-case-detail-page';
 import { AssignSimulationPage } from './features/clinical-cases/pages/assign-simulation-page/assign-simulation-page';
 import { StudentSessionDetailPage } from './features/student/pages/student-session-detail-page/student-session-detail-page';
+import { rootSessionRedirectGuard } from './core/guards/root-session-redirect.guard';
+import { roleAuthorizationCanActivate, roleAuthorizationCanMatch } from './core/guards/role-authorization.guard';
 
+const PROFESSOR_ONLY = { roles: ['professor'] };
+const STUDENT_ONLY = { roles: ['student'] };
 
 export const routes: Routes = [
   {
@@ -22,7 +26,8 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'login'
+    canActivate: [rootSessionRedirectGuard],
+    component: LoginPage
   },
   {
     path: '',
@@ -30,51 +35,87 @@ export const routes: Routes = [
     children: [
       {
         path: 'interview',
-        component: InterviewPage
+        component: InterviewPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: STUDENT_ONLY
       },
       {
         path: 'student/dashboard',
-        component: StudentDashboardPage
+        component: StudentDashboardPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: STUDENT_ONLY
       },
       {
         path: 'student/waiting-room',
-        component: WaitingRoomPage
+        component: WaitingRoomPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: STUDENT_ONLY
       },
       {
         path: 'student/session-detail',
-        component: StudentSessionDetailPage
+        component: StudentSessionDetailPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: STUDENT_ONLY
       },
       {
         path: 'clinical-cases',
-        component: ClinicalCaseListPage
+        component: ClinicalCaseListPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'clinical-cases/new',
-        component: ClinicalCaseFormPage
+        component: ClinicalCaseFormPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'clinical-cases/:id/assign',
-        component: AssignSimulationPage
+        component: AssignSimulationPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'clinical-cases/:id/edit',
-        component: ClinicalCaseFormPage
+        component: ClinicalCaseFormPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'clinical-cases/:id',
-        component: ClinicalCaseDetailPage
+        component: ClinicalCaseDetailPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'professor/review',
-        component: ProfessorReviewPage
+        component: ProfessorReviewPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'professor/dashboard',
-        component: ProfessorDashboardPage
+        component: ProfessorDashboardPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
       },
       {
         path: 'session-completed',
-        component: SessionCompletedPage
+        component: SessionCompletedPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: STUDENT_ONLY
       }
     ]
   }

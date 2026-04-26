@@ -4,38 +4,38 @@
       <p>{{ clinicalCase.title }}</p>
       <h2>{{ clinicalCase.patientName }}</h2>
       <span>
-        {{ clinicalCase.age }} años · Sexo {{ clinicalCase.sex }}
+        {{ clinicalCase.age ?? '-' }} años · Sexo {{ clinicalCase.sex ?? '-' }}
       </span>
     </div>
 
     <span
       class="case-status"
-      [class.ready]="clinicalCase.status === 'Listo'"
-      [class.draft]="clinicalCase.status !== 'Listo'"
+      [class.ready]="clinicalCase.status === 'READY'"
+      [class.draft]="clinicalCase.status !== 'READY'"
     >
-      {{ clinicalCase.status }}
+      {{ statusLabel }}
     </span>
   </header>
 
   <section class="case-reason">
     <span>Motivo de consulta</span>
-    <p>{{ clinicalCase.reason }}</p>
+    <p>{{ clinicalCase.reason ?? '-' }}</p>
   </section>
 
   <dl class="case-stats">
     <div>
       <dt>Carácter</dt>
-      <dd>{{ clinicalCase.difficulty }}</dd>
+      <dd>Formativo</dd>
     </div>
 
     <div>
       <dt>Duración</dt>
-      <dd>{{ clinicalCase.estimatedTime }}</dd>
+      <dd>{{ estimatedTimeLabel }}</dd>
     </div>
 
     <div>
       <dt>Hechos clínicos</dt>
-      <dd>{{ clinicalCase.facts }}</dd>
+      <dd>{{ clinicalCase.factsCount }}</dd>
     </div>
   </dl>
 

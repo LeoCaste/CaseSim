@@ -1,26 +1,20 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 
-import { ClinicalCase, ClinicalCaseSummary } from '../models/clinical-case.model';
-
-export interface ClinicalCaseCardView {
-  id: string;
-  patientName: string;
-  title: string;
-  age: number;
-  sex: string;
-  reason: string;
-  status: 'Listo' | 'Borrador' | 'Archivado';
-  difficulty: string;
-  estimatedTime: string;
-  facts: number;
-}
+import {
+  ClinicalCase,
+  ClinicalCaseStatus,
+  ClinicalCaseSummary,
+  ClinicalCaseUpsertPayload,
+  ClinicalFactVisibility
+} from '../models/clinical-case.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ClinicalCaseService {
-  private readonly clinicalCases: ClinicalCase[] = [
+  private clinicalCases: ClinicalCase[] = [
     {
       id: '1',
       title: 'Entrevista respiratoria',
@@ -85,6 +79,11 @@ export class ClinicalCaseService {
   ];
 
   getClinicalCases(): Observable<ClinicalCaseSummary[]> {
+    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    if (!environment.useMocks) {
+      return of([]);
+    }
+
     return of(
       this.clinicalCases.map((clinicalCase) => ({
         id: clinicalCase.id,
@@ -92,46 +91,54 @@ export class ClinicalCaseService {
         patientName: clinicalCase.patientName,
         status: clinicalCase.status,
         estimatedTimeMinutes: clinicalCase.estimatedTimeMinutes,
-        factsCount: clinicalCase.factsCount
-      }))
-    );
-  }
-
-  getClinicalCaseCards(): Observable<ClinicalCaseCardView[]> {
-    return of(
-      this.clinicalCases.map<ClinicalCaseCardView>((clinicalCase) => ({
-        id: clinicalCase.id,
-        patientName: clinicalCase.patientName,
-        title: clinicalCase.title,
+        factsCount: clinicalCase.factsCount,
         age: clinicalCase.age,
         sex: clinicalCase.sex,
-        reason: clinicalCase.reason,
-        status: this.mapCaseStatusToCardStatus(clinicalCase.status),
-        difficulty: 'Formativo',
-        estimatedTime:
-          clinicalCase.estimatedTimeMinutes === undefined
-            ? 'Sin límite de tiempo'
-            : `${clinicalCase.estimatedTimeMinutes} minutos`,
-        facts: clinicalCase.factsCount
+        reason: clinicalCase.reason
       }))
     );
   }
 
-  private mapCaseStatusToCardStatus(status: ClinicalCase['status']): ClinicalCaseCardView['status'] {
-    if (status === 'READY') {
-      return 'Listo';
+  getClinicalCaseById(id: string): Observable<ClinicalCase | undefined> {
+    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    if (!environment.useMocks) {
+      return of(undefined);
     }
 
-    if (status === 'DRAFT') {
-      return 'Borrador';
-    }
-
-    return 'Archivado';
+    return of(this.clinicalCases.find((item) => item.id === id));
   }
 
-  getClinicalCaseById(caseId: string): Observable<ClinicalCase | null> {
-    const clinicalCase = this.clinicalCases.find((item) => item.id === caseId) ?? null;
-    return of(clinicalCase);
+  createClinicalCase(payload: ClinicalCaseUpsertPayload): Observable<ClinicalCase> {
+    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    const createdCase: ClinicalCase = {
+      id: this.nextId(),
+      ...payload,
+      factsCount: payload.facts.length
+    };
+
+    this.clinicalCases = [createdCase, ...this.clinicalCases];
+    return of(createdCase);
+  }
+
+  updateClinicalCase(id: string, payload: ClinicalCaseUpsertPayload): Observable<ClinicalCase> {
+    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    const updatedCase: ClinicalCase = {
+      id,
+      ...payload,
+      factsCount: payload.facts.length
+    };
+
+    this.clinicalCases = this.clinicalCases.map((clinicalCase) =>
+      clinicalCase.id === id ? updatedCase : clinicalCase
+    );
+
+    return of(updatedCase);
+  }
+
+  deleteClinicalCase(id: string): Observable<void> {
+    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    this.clinicalCases = this.clinicalCases.filter((clinicalCase) => clinicalCase.id !== id);
+    return of(void 0);
   }
 
   getCaseDraft(): Observable<ClinicalCase> {
@@ -174,7 +181,25 @@ export class ClinicalCaseService {
     });
   }
 
-  upsertClinicalCase(payload: ClinicalCase): Observable<ClinicalCase> {
-    return of(payload);
+  getStatusLabel(status: ClinicalCaseStatus): 'Listo' | 'Borrador' | 'Archivado' {
+    if (status === 'READY') return 'Listo';
+    if (status === 'DRAFT') return 'Borrador';
+    return 'Archivado';
+  }
+
+  getFactVisibilityLabel(visibility: ClinicalFactVisibility): 'Inicial' | 'Bajo pregunta' {
+    return visibility === 'INITIAL' ? 'Inicial' : 'Bajo pregunta';
+  }
+
+  private nextId(): string {
+    const maxNumericId = this.clinicalCases.reduce((max, item) => {
+      const numericId = Number(item.id);
+      if (Number.isNaN(numericId)) {
+        return max;
+      }
+      return Math.max(max, numericId);
+    }, 0);
+
+    return String(maxNumericId + 1);
   }
 }
