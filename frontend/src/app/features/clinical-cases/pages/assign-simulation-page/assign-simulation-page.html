@@ -1,0 +1,131 @@
+<section class="assign-page">
+  <header class="assign-header">
+    <div>
+      <p class="assign-header__eyebrow">Asignar simulación</p>
+      <h1>{{ clinicalCase.title }}</h1>
+      <p>
+        Caso {{ clinicalCase.patientName }} · {{ clinicalCase.reason }}
+      </p>
+    </div>
+
+    <div class="assign-header__actions">
+      <a routerLink="/clinical-cases" class="cs-button secondary">
+        Cancelar
+      </a>
+
+      <button class="cs-button primary" type="button">
+        Crear simulación
+      </button>
+    </div>
+  </header>
+
+  <section class="assign-layout">
+    <main class="assign-main">
+      <section class="assign-card">
+        <header>
+          <p>Configuración</p>
+          <h2>Datos de la simulación</h2>
+        </header>
+
+        <div class="form-grid two">
+          <label>
+            Nombre de la simulación
+            <input type="text" value="Entrevista respiratoria" />
+          </label>
+
+          <label>
+            Modalidad
+            <select
+              [(ngModel)]="settings.mode"
+              (change)="onModeChange()"
+            >
+              <option>Sin límite de tiempo</option>
+              <option>Con límite de tiempo</option>
+            </select>
+          </label>
+
+          <label *ngIf="settings.mode === 'Con límite de tiempo'">
+            Duración máxima
+            <select [(ngModel)]="settings.duration">
+              <option>15 minutos</option>
+              <option>20 minutos</option>
+              <option>30 minutos</option>
+            </select>
+          </label>
+
+          <label>
+            Disponibilidad
+            <select [(ngModel)]="settings.availability">
+              <option>Disponible inmediatamente</option>
+              <option>Programar fecha de inicio</option>
+              <option>Guardar como borrador</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="assign-card">
+        <header>
+          <p>Participantes</p>
+          <h2>Estudiantes asignados</h2>
+        </header>
+
+        <div class="student-list">
+          <label class="student-row" *ngFor="let student of students">
+            <input type="checkbox" [(ngModel)]="student.selected" />
+            <span>{{ student.name }}</span>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <aside class="assign-side">
+      <section class="assign-card">
+        <header>
+          <p>Resumen</p>
+          <h2>Simulación a crear</h2>
+        </header>
+
+        <dl class="summary-list">
+          <div>
+            <dt>Caso clínico</dt>
+            <dd>{{ clinicalCase.patientName }}</dd>
+          </div>
+
+          <div>
+            <dt>Simulación</dt>
+            <dd>{{ clinicalCase.title }}</dd>
+          </div>
+
+          <div>
+            <dt>Participantes</dt>
+            <dd>Seleccionados manualmente</dd>
+          </div>
+
+          <div>
+            <dt>Modalidad</dt>
+            <dd>{{ settings.mode }}</dd>
+          </div>
+
+          <div *ngIf="settings.mode === 'Con límite de tiempo'">
+            <dt>Duración máxima</dt>
+            <dd>{{ settings.duration }}</dd>
+          </div>
+
+          <div>
+            <dt>Disponibilidad</dt>
+            <dd>{{ settings.availability }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="assign-note">
+        <strong>Nota de prototipo</strong>
+        <p>
+          En la versión con backend, esta acción creará sesiones individuales
+          para cada estudiante asignado.
+        </p>
+      </section>
+    </aside>
+  </section>
+</section>

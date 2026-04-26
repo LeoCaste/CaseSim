@@ -20,9 +20,12 @@
         Editar
       </a>
 
-      <button class="cs-button primary" type="button">
+      <a
+        [routerLink]="['/clinical-cases', clinicalCase.id, 'assign']"
+        class="cs-button primary"
+      >
         Asignar a simulación
-      </button>
+      </a>
     </div>
   </header>
 

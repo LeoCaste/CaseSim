@@ -10,7 +10,7 @@ import { WaitingRoomPage } from './features/student/pages/waiting-room-page/wait
 import { ClinicalCaseListPage } from './features/clinical-cases/pages/clinical-case-list-page/clinical-case-list-page';
 import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-case-form-page/clinical-case-form-page';
 import { ClinicalCaseDetailPage } from './features/clinical-cases/pages/clinical-case-detail-page/clinical-case-detail-page';
-
+import { AssignSimulationPage } from './features/clinical-cases/pages/assign-simulation-page/assign-simulation-page';
 
 export const routes: Routes = [
   {
@@ -36,6 +36,10 @@ export const routes: Routes = [
       {
         path: 'clinical-cases',
         component: ClinicalCaseListPage,
+      },
+      {
+        path: 'clinical-cases/:id/assign',
+        component: AssignSimulationPage
       },
       {
         path: 'clinical-cases/new',
