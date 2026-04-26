@@ -13,7 +13,11 @@
         Cancelar
       </a>
 
-      <button class="cs-button primary" type="button">
+      <button
+        class="cs-button primary"
+        type="button"
+        (click)="createSimulation()"
+      >
         Crear simulación
       </button>
     </div>
@@ -37,7 +41,7 @@
             Modalidad
             <select
               [(ngModel)]="settings.mode"
-              (change)="onModeChange()"
+              (change)="onModeChange($event)"
             >
               <option>Sin límite de tiempo</option>
               <option>Con límite de tiempo</option>

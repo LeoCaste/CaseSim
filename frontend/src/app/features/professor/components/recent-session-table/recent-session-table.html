@@ -33,15 +33,14 @@
       <td>{{ session.duration }}</td>
 
       <td>
-        <!-- Caso habilitado -->
         <a
           *ngIf="session.status === 'Completada'"
+          routerLink="/professor/review"
           class="review-link"
         >
           Revisar
         </a>
 
-        <!-- Caso deshabilitado -->
         <span
           *ngIf="session.status !== 'Completada'"
           class="review-link disabled"

@@ -1,4 +1,5 @@
 import { Component, Input } from '@angular/core';
+import { Router } from '@angular/router';
 
 export interface DiagnosisReview {
   finalDiagnosis: string;
@@ -9,8 +10,14 @@ export interface DiagnosisReview {
   selector: 'app-evaluation-panel',
   imports: [],
   templateUrl: './evaluation-panel.html',
-  styleUrl: './evaluation-panel.css',
+  styleUrl: './evaluation-panel.css'
 })
 export class EvaluationPanel {
   @Input({ required: true }) diagnosis!: DiagnosisReview;
+
+  constructor(private router: Router) {}
+
+  finishReview(): void {
+    this.router.navigate(['/professor/dashboard']);
+  }
 }

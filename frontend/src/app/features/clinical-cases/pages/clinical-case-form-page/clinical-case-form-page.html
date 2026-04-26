@@ -2,7 +2,7 @@
   <header class="case-form-header">
     <div>
       <p class="case-form-header__eyebrow">Caso clínico</p>
-      <h1>Crear caso simulado</h1>
+      <h1>{{ pageTitle }}</h1>
       <p>
         Define la información base del paciente, sus antecedentes y el comportamiento
         que tendrá durante la entrevista clínica simulada.
@@ -15,7 +15,7 @@
       </a>
 
       <button class="cs-button primary" type="button">
-        Guardar caso
+        {{ saveLabel }}
       </button>
     </div>
   </header>
@@ -96,12 +96,12 @@
           <span
             class="fact-visibility"
             [ngClass]="{
-          'initial': fact.visibility === 'Inicial',
-          'guided': fact.visibility === 'Bajo pregunta'
-        }"
+              'initial': fact.visibility === 'Inicial',
+              'guided': fact.visibility === 'Bajo pregunta'
+            }"
           >
-        {{ fact.visibility }}
-      </span>
+            {{ fact.visibility }}
+          </span>
         </article>
       </div>
 
@@ -161,11 +161,9 @@
 
       <label>
         Estilo de respuesta
-        <textarea>
-Responde de forma natural, breve y coherente.
+        <textarea>Responde de forma natural, breve y coherente.
 No entrega información que no se le haya preguntado.
-Puede mostrar leve preocupación por su estado.
-    </textarea>
+Puede mostrar leve preocupación por su estado.</textarea>
       </label>
     </section>
 
@@ -175,7 +173,7 @@ Puede mostrar leve preocupación por su estado.
       </a>
 
       <button class="cs-button primary" type="button">
-        Guardar caso
+        {{ saveLabel }}
       </button>
     </footer>
   </form>
