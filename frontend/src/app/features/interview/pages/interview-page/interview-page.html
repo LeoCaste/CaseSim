@@ -31,28 +31,18 @@
 
     <div class="interview-layout">
       <main class="conversation-panel">
-        <section class="clinical-message patient">
+        <section
+          class="clinical-message"
+          *ngFor="let message of messages"
+          [class.patient]="message.role === 'Paciente'"
+          [class.student]="message.role === 'Estudiante'"
+        >
           <div class="message-meta">
-            <span>Paciente</span>
-            <time>6:00 AM</time>
+            <span>{{ message.role }}</span>
+            <time>{{ message.time }}</time>
           </div>
-          <p>Vengo por tos seca y agotamiento desde hace cinco días.</p>
-        </section>
 
-        <section class="clinical-message student">
-          <div class="message-meta">
-            <span>Estudiante</span>
-            <time>6:01 AM</time>
-          </div>
-          <p>Gracias por comentarlo. ¿Desde cuándo nota que la tos empeora?</p>
-        </section>
-
-        <section class="clinical-message patient">
-          <div class="message-meta">
-            <span>Paciente</span>
-            <time>6:02 AM</time>
-          </div>
-          <p>Empeora en la noche y me cuesta dormir bien.</p>
+          <p>{{ message.content }}</p>
         </section>
       </main>
 
@@ -85,10 +75,15 @@
         <textarea
           id="clinical-intervention"
           placeholder="Escribe tu intervención clínica..."
+          [(ngModel)]="clinicalIntervention"
         ></textarea>
 
         <div class="intervention-actions">
-          <button class="cs-button primary" type="button">
+          <button
+            class="cs-button primary"
+            type="button"
+            (click)="sendIntervention()"
+          >
             Enviar intervención
           </button>
 

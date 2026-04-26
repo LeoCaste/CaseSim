@@ -13,10 +13,13 @@ import { UserContext } from '../../../../core/services/user-context';
 export class AssignSimulationPage {
   clinicalCase = {
     id: 1,
-    title: 'Entrevista respiratoria',
+    title: 'Caso Catalina Paz Soto',
     patientName: 'Catalina Paz Soto',
-    reason: 'Tos seca persistente y fatiga de 5 días'
+    reason: 'tos seca y fatiga'
   };
+
+  showCreateConfirmation = false;
+  isCreateSuccess = false;
 
   students = [
     { name: 'Diego Muñoz', selected: true },
@@ -48,6 +51,20 @@ export class AssignSimulationPage {
   }
 
   createSimulation(): void {
-    this.router.navigate(['/professor/dashboard']);
+    this.showCreateConfirmation = true;
+    this.isCreateSuccess = false;
+  }
+
+  cancelCreateSimulation(): void {
+    this.showCreateConfirmation = false;
+    this.isCreateSuccess = false;
+  }
+
+  confirmCreateSimulation(): void {
+    this.isCreateSuccess = true;
+
+    setTimeout(() => {
+      this.router.navigate(['/professor/dashboard']);
+    }, 900);
   }
 }

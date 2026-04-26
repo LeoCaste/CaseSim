@@ -4,7 +4,7 @@
       <p class="assign-header__eyebrow">Asignar simulación</p>
       <h1>{{ clinicalCase.title }}</h1>
       <p>
-        Caso {{ clinicalCase.patientName }} · {{ clinicalCase.reason }}
+        Paciente simulado: {{ clinicalCase.patientName }} · Motivo de consulta: {{ clinicalCase.reason }}
       </p>
     </div>
 
@@ -93,7 +93,7 @@
         <dl class="summary-list">
           <div>
             <dt>Caso clínico</dt>
-            <dd>{{ clinicalCase.patientName }}</dd>
+            <dd>{{ clinicalCase.title }}</dd>
           </div>
 
           <div>
@@ -131,5 +131,22 @@
         </p>
       </section>
     </aside>
+  </section>
+
+  <section *ngIf="showCreateConfirmation" class="modal-overlay" role="dialog" aria-modal="true" aria-live="polite">
+    <article class="modal-card">
+      <p class="modal-title" *ngIf="!isCreateSuccess">¿Crear esta simulación?</p>
+      <p class="modal-title modal-title--success" *ngIf="isCreateSuccess">Simulación creada correctamente.</p>
+
+      <div class="modal-actions" *ngIf="!isCreateSuccess">
+        <button class="cs-button secondary" type="button" (click)="cancelCreateSimulation()">
+          Cancelar
+        </button>
+
+        <button class="cs-button primary" type="button" (click)="confirmCreateSimulation()">
+          Crear simulación
+        </button>
+      </div>
+    </article>
   </section>
 </section>

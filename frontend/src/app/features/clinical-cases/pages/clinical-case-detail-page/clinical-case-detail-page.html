@@ -2,9 +2,9 @@
   <header class="case-detail-header">
     <div>
       <p class="case-detail-header__eyebrow">Detalle del caso</p>
-      <h1>{{ clinicalCase.patientName }}</h1>
+      <h1>{{ clinicalCase.title }}</h1>
       <p>
-        {{ clinicalCase.title }} · {{ clinicalCase.age }} años · Sexo {{ clinicalCase.sex }}
+        Paciente simulado: {{ clinicalCase.patientName }} · {{ clinicalCase.age }} años · Sexo {{ clinicalCase.sex }}
       </p>
     </div>
 
@@ -67,7 +67,7 @@
         </header>
 
         <div class="detail-block">
-          <span>Motivo principal</span>
+          <span>Motivo de consulta</span>
           <p>{{ clinicalCase.reason }}</p>
         </div>
 
@@ -105,6 +105,43 @@
     </main>
 
     <aside class="detail-side">
+      <section class="detail-card">
+        <header>
+          <p>Seguimiento</p>
+          <h2>Estudiantes asociados al caso</h2>
+        </header>
+
+        <div class="students-list">
+          <article class="student-item" *ngFor="let student of associatedStudents">
+            <div>
+              <h3>{{ student.name }}</h3>
+              <p>{{ student.status }}</p>
+            </div>
+
+            <a
+              *ngIf="student.canReview"
+              routerLink="/professor/review"
+              class="review-link"
+            >
+              Revisar
+            </a>
+
+            <button
+              *ngIf="!student.canReview"
+              class="review-link disabled"
+              type="button"
+              disabled
+            >
+              Revisar
+            </button>
+          </article>
+        </div>
+
+        <p class="students-note">
+          Las sesiones en curso o pendientes no se revisan hasta completar la entrevista clínica.
+        </p>
+      </section>
+
       <section class="detail-card">
         <header>
           <p>Comportamiento</p>

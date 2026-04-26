@@ -2,52 +2,50 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
 import { ActivityCard } from '../../components/activity-card/activity-card';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-student-dashboard-page',
-  imports: [CommonModule, ActivityCard],
+  imports: [CommonModule, ActivityCard, RouterLink],
   templateUrl: './student-dashboard-page.html',
-  styleUrl: './student-dashboard-page.css',
+  styleUrl: './student-dashboard-page.css'
 })
 export class StudentDashboardPage {
   activities = [
     {
-      title: 'Entrevista respiratoria',
-      course: 'Semiología · Tercer año',
-      professor: 'Dr. Fernández',
+      title: 'Caso de prueba respiratorio',
+      course: 'Caso de prueba',
+      professor: 'Equipo docente',
       patient: 'Catalina Paz Soto',
       status: 'Disponible',
       statusType: 'success',
       duration: 'Sin límite de tiempo',
-      description:
-        'Realiza una anamnesis clínica y concluye la atención cuando tengas una hipótesis diagnóstica.',
+      description: 'Realiza una anamnesis clínica y concluye la atención cuando tengas una hipótesis diagnóstica.',
       actionLabel: 'Iniciar entrevista',
-      route: '/student/waiting-room',
+      route: '/student/waiting-room'
     },
     {
-      title: 'Caso cardiovascular',
-      course: 'Medicina Interna',
-      professor: 'Dra. Morales',
+      title: 'Caso de prueba cardiovascular',
+      course: 'Caso de prueba',
+      professor: 'Equipo docente',
       patient: 'Roberto Alarcón',
       status: 'Pendiente',
       statusType: 'neutral',
       duration: '20 minutos',
-      description: 'Actividad asignada. Estará disponible cuando el profesor habilite la sesión.',
+      description: 'Actividad de prueba pendiente de habilitación.',
       actionLabel: 'No disponible',
-      route: null,
-    },
+      route: null
+    }
+  ];
+
+  history = [
     {
-      title: 'Entrevista respiratoria completada',
-      course: 'Semiología · Tercer año',
-      professor: 'Dr. Fernández',
+      title: 'Caso de prueba respiratorio',
       patient: 'Catalina Paz Soto',
-      status: 'Completada',
-      statusType: 'warning',
-      duration: 'Registrada',
-      description: 'Tu entrevista fue registrada y queda disponible para revisión del profesor.',
-      actionLabel: 'Ver estado',
-      route: '/session-completed',
-    },
+      status: 'Registrada',
+      date: '25/04/2026',
+      route: '/student/session-detail'
+    }
   ];
 
   constructor(private userContext: UserContext) {

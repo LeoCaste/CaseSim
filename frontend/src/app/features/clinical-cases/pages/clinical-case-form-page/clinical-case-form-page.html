@@ -4,8 +4,8 @@
       <p class="case-form-header__eyebrow">Caso clínico</p>
       <h1>{{ pageTitle }}</h1>
       <p>
-        Define la información base del paciente, sus antecedentes y el comportamiento
-        que tendrá durante la entrevista clínica simulada.
+        Paciente simulado: {{ patientName }}. Define su contexto clínico y cómo
+        responderá durante la entrevista simulada.
       </p>
     </div>
 
@@ -14,7 +14,7 @@
         Cancelar
       </a>
 
-      <button class="cs-button primary" type="button">
+      <button class="cs-button primary" type="button" (click)="openSaveConfirmation()">
         {{ saveLabel }}
       </button>
     </div>
@@ -172,9 +172,26 @@ Puede mostrar leve preocupación por su estado.</textarea>
         Cancelar
       </a>
 
-      <button class="cs-button primary" type="button">
+      <button class="cs-button primary" type="button" (click)="openSaveConfirmation()">
         {{ saveLabel }}
       </button>
     </footer>
   </form>
+
+  <section *ngIf="showSaveModal" class="modal-overlay" role="dialog" aria-modal="true" aria-live="polite">
+    <article class="modal-card">
+      <p class="modal-title" *ngIf="!isSaveSuccess">¿Guardar este caso clínico?</p>
+      <p class="modal-title modal-title--success" *ngIf="isSaveSuccess">Caso guardado correctamente.</p>
+
+      <div class="modal-actions" *ngIf="!isSaveSuccess">
+        <button class="cs-button secondary" type="button" (click)="cancelSaveConfirmation()">
+          Cancelar
+        </button>
+
+        <button class="cs-button primary" type="button" (click)="confirmSaveCase()">
+          Confirmar guardado
+        </button>
+      </div>
+    </article>
+  </section>
 </section>

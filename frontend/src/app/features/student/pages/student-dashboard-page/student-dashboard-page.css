@@ -53,6 +53,63 @@
   gap: 18px;
 }
 
+.history-section {
+  margin-top: 28px;
+}
+
+.history-section header {
+  margin-bottom: 14px;
+}
+
+.history-section h2 {
+  margin: 0 0 4px;
+  color: var(--cs-primary-dark);
+  font-size: 22px;
+}
+
+.history-section p {
+  margin: 0;
+  color: var(--cs-text-muted);
+}
+
+.history-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+}
+
+.history-card span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cs-success);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-card h3 {
+  margin: 0 0 4px;
+  color: var(--cs-primary-dark);
+  font-size: 18px;
+}
+
+.history-link {
+  color: var(--cs-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.history-link:hover {
+  text-decoration: none;
+}
+
 @media (max-width: 1100px) {
   .activities-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

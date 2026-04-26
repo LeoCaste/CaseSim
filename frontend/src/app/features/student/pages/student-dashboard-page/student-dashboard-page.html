@@ -2,7 +2,7 @@
   <header class="student-dashboard__header">
     <div>
       <p class="student-dashboard__eyebrow">Panel estudiante</p>
-      <h1>Actividades asignadas</h1>
+      <h1>Simulaciones disponibles</h1>
       <p>
         Selecciona una simulación clínica disponible para iniciar o continuar tu entrevista.
       </p>
@@ -22,5 +22,24 @@
       *ngFor="let activity of activities"
       [activity]="activity"
     ></app-activity-card>
+  </section>
+
+  <section class="history-section">
+    <header>
+      <h2>Historial de entrevistas</h2>
+      <p>Revisa las simulaciones que ya fueron registradas.</p>
+    </header>
+
+    <article class="history-card" *ngFor="let item of history">
+      <div>
+        <span>{{ item.status }}</span>
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.patient }} · {{ item.date }}</p>
+      </div>
+
+      <a [routerLink]="item.route" class="history-link">
+        Ver estado
+      </a>
+    </article>
   </section>
 </section>

@@ -13,11 +13,11 @@ export class ClinicalCaseDetailPage {
   clinicalCase = {
     id: 1,
     patientName: 'Catalina Paz Soto',
-    title: 'Entrevista respiratoria',
+    title: 'Caso Catalina Paz Soto',
     age: 22,
     sex: 'F',
     context: 'Consulta ambulatoria',
-    reason: 'Tos seca persistente y fatiga de 5 días.',
+    reason: 'tos seca y fatiga',
     initialMessage: 'Vengo porque tengo una tos seca que no se me pasa y me siento muy agotada.',
     diagnosis: 'Neumonía atípica probable',
     fallback: 'No estoy segura, no sabría decir.',
@@ -44,6 +44,12 @@ export class ClinicalCaseDetailPage {
       },
     ],
   };
+
+  associatedStudents = [
+    { name: 'Diego Muñoz', status: 'Completada', canReview: true },
+    { name: 'Valentina Ríos', status: 'En curso', canReview: false },
+    { name: 'Matías Soto', status: 'Pendiente', canReview: false },
+  ];
 
   constructor(private userContext: UserContext) {
     this.userContext.setRole('professor');

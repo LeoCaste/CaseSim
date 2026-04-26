@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { AppShell } from './layout/app-shell/app-shell';
 import { LoginPage } from './features/auth/pages/login-page/login-page';
-import { VisualKitPage } from './features/visual-kit/pages/visual-kit-page/visual-kit-page';
 import { InterviewPage } from './features/interview/pages/interview-page/interview-page';
 import { SessionCompletedPage } from './features/interview/pages/session-completed-page/session-completed-page';
 import { StudentDashboardPage } from './features/student/pages/student-dashboard-page/student-dashboard-page';
@@ -12,6 +11,7 @@ import { ClinicalCaseListPage } from './features/clinical-cases/pages/clinical-c
 import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-case-form-page/clinical-case-form-page';
 import { ClinicalCaseDetailPage } from './features/clinical-cases/pages/clinical-case-detail-page/clinical-case-detail-page';
 import { AssignSimulationPage } from './features/clinical-cases/pages/assign-simulation-page/assign-simulation-page';
+import { StudentSessionDetailPage } from './features/student/pages/student-session-detail-page/student-session-detail-page';
 
 
 export const routes: Routes = [
@@ -21,12 +21,13 @@ export const routes: Routes = [
   },
   {
     path: '',
+    pathMatch: 'full',
+    redirectTo: 'login'
+  },
+  {
+    path: '',
     component: AppShell,
     children: [
-      {
-        path: 'visual-kit',
-        component: VisualKitPage
-      },
       {
         path: 'interview',
         component: InterviewPage
@@ -38,6 +39,10 @@ export const routes: Routes = [
       {
         path: 'student/waiting-room',
         component: WaitingRoomPage
+      },
+      {
+        path: 'student/session-detail',
+        component: StudentSessionDetailPage
       },
       {
         path: 'clinical-cases',
@@ -70,11 +75,6 @@ export const routes: Routes = [
       {
         path: 'session-completed',
         component: SessionCompletedPage
-      },
-      {
-        path: '',
-        redirectTo: 'login',
-        pathMatch: 'full'
       }
     ]
   }

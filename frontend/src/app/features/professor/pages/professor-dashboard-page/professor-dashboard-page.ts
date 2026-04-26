@@ -1,14 +1,14 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
-
+import { RouterLink } from '@angular/router';
 import { ProfessorCourseCard } from '../../components/professor-course-card/professor-course-card';
 import { ProfessorActivitySummary } from '../../components/professor-activity-summary/professor-activity-summary';
 import { RecentSessionTable } from '../../components/recent-session-table/recent-session-table';
 
 @Component({
   selector: 'app-professor-dashboard-page',
-  imports: [CommonModule, ProfessorCourseCard, ProfessorActivitySummary, RecentSessionTable],
+  imports: [CommonModule, ProfessorCourseCard, ProfessorActivitySummary, RecentSessionTable, RouterLink,],
   templateUrl: './professor-dashboard-page.html',
   styleUrl: './professor-dashboard-page.css',
 })
@@ -24,7 +24,7 @@ export class ProfessorDashboardPage {
     {
       name: 'Entrevista respiratoria',
       caseName: 'Catalina Paz Soto',
-      course: 'Semiología · Tercer año',
+      course: 'Caso de prueba',
       students: 32,
       completedSessions: 18,
     },
@@ -33,7 +33,7 @@ export class ProfessorDashboardPage {
   activities = [
     {
       title: 'Entrevista respiratoria',
-      course: 'Semiología · Tercer año',
+      course: 'Caso de prueba',
       caseName: 'Catalina Paz Soto',
       status: 'Activa',
       completed: 18,
@@ -41,7 +41,7 @@ export class ProfessorDashboardPage {
     },
     {
       title: 'Caso cardiovascular',
-      course: 'Medicina Interna',
+      course: 'Caso de prueba',
       caseName: 'Roberto Alarcón',
       status: 'Borrador',
       completed: 0,

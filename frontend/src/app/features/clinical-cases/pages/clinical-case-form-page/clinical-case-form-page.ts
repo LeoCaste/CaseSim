@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
 
 interface ClinicalFact {
@@ -18,6 +18,9 @@ interface ClinicalFact {
 })
 export class ClinicalCaseFormPage {
   isEditMode = false;
+  patientName = 'Catalina Paz Soto';
+  showSaveModal = false;
+  isSaveSuccess = false;
 
   clinicalFacts: ClinicalFact[] = [
     {
@@ -42,14 +45,35 @@ export class ClinicalCaseFormPage {
 
   constructor(
     private userContext: UserContext,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     this.userContext.setRole('professor');
     this.isEditMode = this.route.snapshot.paramMap.has('id');
   }
 
   get pageTitle(): string {
-    return this.isEditMode ? 'Editar caso simulado' : 'Crear caso simulado';
+    return this.isEditMode
+      ? `Editar caso ${this.patientName}`
+      : `Caso ${this.patientName}`;
+  }
+
+  openSaveConfirmation(): void {
+    this.showSaveModal = true;
+    this.isSaveSuccess = false;
+  }
+
+  cancelSaveConfirmation(): void {
+    this.showSaveModal = false;
+    this.isSaveSuccess = false;
+  }
+
+  confirmSaveCase(): void {
+    this.isSaveSuccess = true;
+
+    setTimeout(() => {
+      this.router.navigate(['/clinical-cases']);
+    }, 900);
   }
 
   get saveLabel(): string {

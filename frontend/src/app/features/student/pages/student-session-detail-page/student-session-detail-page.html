@@ -1,0 +1,69 @@
+<section class="student-session-page">
+  <header class="session-header">
+    <div>
+      <p class="session-header__eyebrow">Sesión registrada</p>
+      <h1>Caso Catalina Paz Soto</h1>
+      <p>Tu entrevista quedó registrada correctamente.</p>
+    </div>
+
+    <a routerLink="/student/dashboard" class="cs-button secondary">
+      Volver al panel
+    </a>
+  </header>
+
+  <section class="session-layout">
+    <main class="session-card">
+      <header>
+        <p>Transcripción</p>
+        <h2>Entrevista clínica</h2>
+      </header>
+
+      <div class="message-list">
+        <article
+          class="session-message"
+          *ngFor="let message of messages"
+          [class.patient]="message.role === 'Paciente'"
+          [class.student]="message.role === 'Estudiante'"
+        >
+          <div class="message-meta">
+            <span>{{ message.role }}</span>
+            <time>{{ message.time }}</time>
+          </div>
+
+          <p>{{ message.content }}</p>
+        </article>
+      </div>
+    </main>
+
+    <aside class="session-side">
+      <section class="session-card">
+        <header>
+          <p>Diagnóstico enviado</p>
+          <h2>Respuesta final</h2>
+        </header>
+
+        <div class="session-block">
+          <span>Diagnóstico presuntivo</span>
+          <p>Neumonía atípica probable</p>
+        </div>
+
+        <div class="session-block">
+          <span>Razonamiento clínico</span>
+          <p>Tos seca, fatiga y evolución subaguda orientan a cuadro respiratorio compatible.</p>
+        </div>
+      </section>
+
+      <section class="session-card">
+        <header>
+          <p>Cuadernillo</p>
+          <h2>Notas registradas</h2>
+        </header>
+
+        <div class="session-block">
+          <span>Notas clínicas</span>
+          <p>Paciente con tos seca persistente, fatiga y empeoramiento nocturno.</p>
+        </div>
+      </section>
+    </aside>
+  </section>
+</section>

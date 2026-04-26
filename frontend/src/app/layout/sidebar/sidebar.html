@@ -1,9 +1,5 @@
 <aside class="sidebar">
   <nav>
-    <a routerLink="/visual-kit" routerLinkActive="active">
-      Visual Kit
-    </a>
-
     <ng-container *ngIf="userContext.getRole() === 'student'">
       <a routerLink="/student/dashboard" routerLinkActive="active">
         Panel estudiante
@@ -20,7 +16,7 @@
       </a>
 
       <a routerLink="/professor/review" routerLinkActive="active">
-        Revisión docente
+        Revisión clínica
       </a>
 
       <a routerLink="/clinical-cases" routerLinkActive="active">
