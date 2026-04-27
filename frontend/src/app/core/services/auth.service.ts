@@ -41,18 +41,19 @@ export class AuthService {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const adminMatch = normalizedEmail === 'admin@casesim.cl';
     const professorMatch = /^[a-z]+\.[a-z]+@ufrontera\.cl$/.test(normalizedEmail);
     const studentMatch = /^[a-z]\.[a-z]+\d*@ufromail\.cl$/.test(normalizedEmail);
 
-    if (!professorMatch && !studentMatch) {
+    if (!adminMatch && !professorMatch && !studentMatch) {
       return of(null);
     }
 
     this.currentUser = {
-      id: professorMatch ? 'prof-01' : 'stud-01',
-      fullName: professorMatch ? 'Docente CaseSim' : 'Estudiante CaseSim',
+      id: adminMatch ? 'admin-01' : professorMatch ? 'prof-01' : 'stud-01',
+      fullName: adminMatch ? 'Administrador CaseSim' : professorMatch ? 'Docente CaseSim' : 'Estudiante CaseSim',
       email: normalizedEmail,
-      role: professorMatch ? 'professor' : 'student'
+      role: adminMatch ? 'admin' : professorMatch ? 'professor' : 'student'
     };
 
     this.persistUser(this.currentUser);

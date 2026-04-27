@@ -43,11 +43,12 @@ class LlmPatientResponseServiceTest {
     private final SimulationActivityRepository simulationActivityRepository = mock(SimulationActivityRepository.class);
     private final SimulationSessionRepository simulationSessionRepository = mock(SimulationSessionRepository.class);
     private final SessionRevealedFactRepository sessionRevealedFactRepository = mock(SessionRevealedFactRepository.class);
+    private final LlmUsageRepository llmUsageRepository = mock(LlmUsageRepository.class);
     private final ResponseSafetyFilter responseSafetyFilter = mock(ResponseSafetyFilter.class);
     private final MockPatientResponseService mockPatientResponseService = new MockPatientResponseService();
 
     private final PromptBuilderService promptBuilderService = new PromptBuilderService();
-    private final LlmUsageService llmUsageService = new LlmUsageService();
+    private final LlmUsageService llmUsageService = new LlmUsageService(llmUsageRepository);
 
     private LlmPatientResponseService service;
     private SimulationSession session;
@@ -125,6 +126,7 @@ class LlmPatientResponseServiceTest {
         level3Fact = new ClinicalCaseFact(UUID.randomUUID(), caseId, "GENERAL", "antecedente", "Tuve cirugía hace 2 años", 3, null, false, 2);
 
         when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any())).thenReturn(List.of());
+        when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(simulationActivityRepository.findById(activity.getId())).thenReturn(Optional.of(activity));
         when(clinicalCaseRepository.findById(clinicalCase.getId())).thenReturn(Optional.of(clinicalCase));
         when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of(level1Fact, level2Fact, level3Fact));

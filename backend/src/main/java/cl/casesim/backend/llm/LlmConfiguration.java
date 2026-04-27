@@ -12,7 +12,6 @@ import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
 
 @Configuration
 @EnableConfigurationProperties(LlmProperties.class)
@@ -31,11 +30,6 @@ public class LlmConfiguration {
     @Bean
     public ResponseSafetyFilter responseSafetyFilter() {
         return new ResponseSafetyFilter();
-    }
-
-    @Bean
-    public LlmUsageService llmUsageService() {
-        return new LlmUsageService();
     }
 
     @Bean
@@ -78,18 +72,8 @@ public class LlmConfiguration {
 
     @Bean
     public PatientResponseService patientResponseService(
-            LlmProperties llmProperties,
-            LlmPatientResponseService llmPatientResponseService,
-            MockPatientResponseService mockPatientResponseService
+            LlmPatientResponseService llmPatientResponseService
     ) {
-        if (!llmProperties.isEnabled()) {
-            return mockPatientResponseService;
-        }
-
-        if (!StringUtils.hasText(llmProperties.getApiKey())) {
-            return mockPatientResponseService;
-        }
-
         return llmPatientResponseService;
     }
 }

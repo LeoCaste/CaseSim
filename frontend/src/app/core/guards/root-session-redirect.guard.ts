@@ -12,7 +12,11 @@ export const rootSessionRedirectGuard: CanActivateFn = () => {
 
   userContext.setUser(user);
 
-  if (user?.role === 'professor' || user?.role === 'admin') {
+  if (user?.role === 'admin') {
+    return router.createUrlTree(['/admin/llm-config']);
+  }
+
+  if (user?.role === 'professor') {
     return router.createUrlTree(['/professor/dashboard']);
   }
 

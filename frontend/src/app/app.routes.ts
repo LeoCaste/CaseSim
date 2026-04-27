@@ -12,11 +12,14 @@ import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-c
 import { ClinicalCaseDetailPage } from './features/clinical-cases/pages/clinical-case-detail-page/clinical-case-detail-page';
 import { AssignSimulationPage } from './features/clinical-cases/pages/assign-simulation-page/assign-simulation-page';
 import { StudentSessionDetailPage } from './features/student/pages/student-session-detail-page/student-session-detail-page';
+import { AdminLlmConfigPage } from './features/admin/pages/admin-llm-config-page/admin-llm-config-page';
+import { AdminLlmUsagePage } from './features/admin/pages/admin-llm-usage-page/admin-llm-usage-page';
 import { rootSessionRedirectGuard } from './core/guards/root-session-redirect.guard';
 import { roleAuthorizationCanActivate, roleAuthorizationCanMatch } from './core/guards/role-authorization.guard';
 
 const PROFESSOR_ONLY = { roles: ['professor'] };
 const STUDENT_ONLY = { roles: ['student'] };
+const ADMIN_ONLY = { roles: ['admin'] };
 
 export const routes: Routes = [
   {
@@ -116,6 +119,20 @@ export const routes: Routes = [
         canActivate: [roleAuthorizationCanActivate],
         canMatch: [roleAuthorizationCanMatch],
         data: STUDENT_ONLY
+      },
+      {
+        path: 'admin/llm-config',
+        component: AdminLlmConfigPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: ADMIN_ONLY
+      },
+      {
+        path: 'admin/llm-usage',
+        component: AdminLlmUsagePage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: ADMIN_ONLY
       }
     ]
   }

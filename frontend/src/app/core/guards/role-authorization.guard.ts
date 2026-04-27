@@ -12,7 +12,15 @@ function redirectForCurrentSession(userRole: UserRole | null, router: Router): U
     return router.createUrlTree(['/login']);
   }
 
-  return router.createUrlTree([userRole === 'student' ? '/student/dashboard' : '/professor/dashboard']);
+  if (userRole === 'student') {
+    return router.createUrlTree(['/student/dashboard']);
+  }
+
+  if (userRole === 'admin') {
+    return router.createUrlTree(['/admin/llm-config']);
+  }
+
+  return router.createUrlTree(['/professor/dashboard']);
 }
 
 function readAllowedRoles(route: Pick<Route, 'data'>): UserRole[] {

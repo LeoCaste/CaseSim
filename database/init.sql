@@ -137,14 +137,26 @@ CREATE TABLE sesion_hecho_revelado (
 
 CREATE TABLE uso_llm (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    sesion_id UUID NOT NULL REFERENCES sesion_simulacion(id) ON DELETE CASCADE,
+    sesion_id UUID REFERENCES sesion_simulacion(id) ON DELETE CASCADE,
     proveedor VARCHAR(80) NOT NULL,
     modelo VARCHAR(100) NOT NULL,
     prompt_tokens INT DEFAULT 0,
     completion_tokens INT DEFAULT 0,
     total_tokens INT DEFAULT 0,
     latencia_ms INT,
+    fallback_usado BOOLEAN NOT NULL DEFAULT FALSE,
+    error_detalle TEXT,
     creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE llm_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider VARCHAR(80) NOT NULL,
+    model VARCHAR(120) NOT NULL,
+    base_url TEXT NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    api_key_secret TEXT,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE evento_seguridad (

@@ -1,0 +1,59 @@
+<section class="admin-llm-usage">
+  <header class="admin-llm-usage__header">
+    <p class="admin-llm-usage__eyebrow">Administración</p>
+    <h1>Métricas LLM</h1>
+    <p>Revisión operativa de consumo, latencia y comportamiento de fallback.</p>
+  </header>
+
+  <p *ngIf="loadError" class="admin-llm-usage__error">{{ loadError }}</p>
+  <p *ngIf="isLoading" class="admin-llm-usage__loading">Cargando métricas...</p>
+
+  <section *ngIf="!isLoading && summary" class="admin-llm-usage__summary-grid">
+    <article class="admin-llm-usage__summary-card">
+      <span>Total llamadas</span>
+      <strong>{{ summary.totalCalls }}</strong>
+    </article>
+    <article class="admin-llm-usage__summary-card">
+      <span>Total tokens</span>
+      <strong>{{ summary.totalTokens }}</strong>
+    </article>
+    <article class="admin-llm-usage__summary-card">
+      <span>Latencia promedio (ms)</span>
+      <strong>{{ summary.avgLatencyMs ?? '-' }}</strong>
+    </article>
+    <article class="admin-llm-usage__summary-card">
+      <span>Fallbacks</span>
+      <strong>{{ summary.fallbackCount }}</strong>
+    </article>
+    <article class="admin-llm-usage__summary-card">
+      <span>Errores</span>
+      <strong>{{ summary.errorCount }}</strong>
+    </article>
+  </section>
+
+  <section *ngIf="!isLoading" class="admin-llm-usage__table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tokens input</th>
+          <th>Tokens output</th>
+          <th>Calls</th>
+          <th>Avg latency (ms)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of usage">
+          <td>{{ item.date | date: 'dd/MM/yyyy' }}</td>
+          <td>{{ item.tokensInput }}</td>
+          <td>{{ item.tokensOutput }}</td>
+          <td>{{ item.calls }}</td>
+          <td>{{ item.avgLatencyMs ?? '-' }}</td>
+        </tr>
+        <tr *ngIf="usage.length === 0">
+          <td colspan="5">Sin datos de uso disponibles.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</section>

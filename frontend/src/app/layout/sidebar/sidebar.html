@@ -23,5 +23,15 @@
         Casos clínicos
       </a>
     </ng-container>
+
+    <ng-container *ngIf="userContext.getRole() === 'admin'">
+      <a routerLink="/admin/llm-config" routerLinkActive="active">
+        Configuración LLM
+      </a>
+
+      <a routerLink="/admin/llm-usage" routerLinkActive="active">
+        Métricas LLM
+      </a>
+    </ng-container>
   </nav>
 </aside>

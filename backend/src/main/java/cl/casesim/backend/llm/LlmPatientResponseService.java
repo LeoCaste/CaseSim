@@ -83,9 +83,24 @@ public class LlmPatientResponseService implements PatientResponseService {
 
     @Override
     public String generateResponse(SimulationSession session, String userMessage) {
+        long startedAt = System.currentTimeMillis();
+        int estimatedPromptTokens = llmUsageService.estimateTokens(userMessage);
+        String resolvedModel = llmProperties.getModel();
+        String resolvedProvider = llmProperties.getProvider();
+
         if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
-            llmUsageService.markFallbackCall();
-            return mockPatientResponseService.generateResponse(session, userMessage);
+            String fallback = mockPatientResponseService.generateResponse(session, userMessage);
+            llmUsageService.registerCall(
+                    session.getId(),
+                    resolvedProvider,
+                    resolvedModel,
+                    estimatedPromptTokens,
+                    llmUsageService.estimateTokens(fallback),
+                    (int) (System.currentTimeMillis() - startedAt),
+                    true,
+                    "LLM deshabilitado o API key no configurada."
+            );
+            return fallback;
         }
 
         try {
@@ -98,18 +113,40 @@ public class LlmPatientResponseService implements PatientResponseService {
                     userMessage
             );
 
-            llmUsageService.markLlmCall();
+            estimatedPromptTokens = promptMessages.stream()
+                    .map(LlmClient.ChatPromptMessage::content)
+                    .mapToInt(llmUsageService::estimateTokens)
+                    .sum();
+
             String llmResponse = llmClient.generateChatCompletion(promptMessages);
             String safeResponse = responseSafetyFilter.applyOrFallback(llmResponse);
+            boolean fallbackUsed = ResponseSafetyFilter.SAFE_FALLBACK.equals(safeResponse);
 
-            if (ResponseSafetyFilter.SAFE_FALLBACK.equals(safeResponse)) {
-                llmUsageService.markFallbackCall();
-            }
+            llmUsageService.registerCall(
+                    session.getId(),
+                    resolvedProvider,
+                    resolvedModel,
+                    estimatedPromptTokens,
+                    llmUsageService.estimateTokens(safeResponse),
+                    (int) (System.currentTimeMillis() - startedAt),
+                    fallbackUsed,
+                    null
+            );
 
             return safeResponse;
         } catch (RuntimeException ex) {
-            llmUsageService.markFallbackCall();
-            return responseSafetyFilter.applyOrFallback(LLM_ERROR_FALLBACK);
+            String fallback = responseSafetyFilter.applyOrFallback(LLM_ERROR_FALLBACK);
+            llmUsageService.registerCall(
+                    session.getId(),
+                    resolvedProvider,
+                    resolvedModel,
+                    estimatedPromptTokens,
+                    llmUsageService.estimateTokens(fallback),
+                    (int) (System.currentTimeMillis() - startedAt),
+                    true,
+                    ex.getMessage()
+            );
+            return fallback;
         }
     }
 
