@@ -6,6 +6,7 @@ import cl.casesim.backend.sessions.dto.CreateSessionRequest;
 import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
 import cl.casesim.backend.sessions.dto.SessionResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,9 +30,10 @@ public class SessionController {
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public SessionResponse createSession(@Valid @RequestBody CreateSessionRequest request) {
-        return sessionService.createSession(request);
+    public ResponseEntity<SessionResponse> createSession(@Valid @RequestBody CreateSessionRequest request) {
+        SessionService.CreateSessionResult result = sessionService.createSession(request);
+        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(result.session());
     }
 
     @GetMapping("/{id}")

@@ -8,6 +8,7 @@ import cl.casesim.backend.sessions.dto.CreateChatMessageRequest;
 import cl.casesim.backend.sessions.dto.CreateSessionRequest;
 import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
 import cl.casesim.backend.sessions.dto.SessionResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,10 @@ public class SessionService {
     private static final String USER_ROLE = "USER";
     private static final String ASSISTANT_ROLE = "ASSISTANT";
     private static final String SESSION_IN_PROGRESS = "EN_CURSO";
+    private static final String SESSION_PENDING = "PENDIENTE";
+    private static final String SESSION_FINISHED = "FINALIZADA";
+    private static final String SESSION_EXPIRED = "EXPIRADA";
+    private static final String FINALIZED_SESSION_CONFLICT_MESSAGE = "Ya existe una sesión finalizada para esta actividad y estudiante. Use otra actividad o estudiante para una nueva sesión.";
 
     private final SimulationSessionRepository simulationSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -37,8 +42,16 @@ public class SessionService {
     }
 
     @Transactional
-    public SessionResponse createSession(CreateSessionRequest request) {
+    public CreateSessionResult createSession(CreateSessionRequest request) {
         LocalDateTime now = LocalDateTime.now();
+
+        SimulationSession existingSession = simulationSessionRepository
+                .findByActividadIdAndEstudianteId(request.activityId(), request.studentId())
+                .orElse(null);
+
+        if (existingSession != null) {
+            return resolveExistingSession(existingSession, now);
+        }
 
         SimulationSession session = new SimulationSession(
                 UUID.randomUUID(),
@@ -49,8 +62,16 @@ public class SessionService {
                 now
         );
 
-        SimulationSession savedSession = simulationSessionRepository.save(session);
-        return toSessionResponse(savedSession);
+        try {
+            SimulationSession savedSession = simulationSessionRepository.save(session);
+            return new CreateSessionResult(toSessionResponse(savedSession), true);
+        } catch (DataIntegrityViolationException ex) {
+            SimulationSession persistedSession = simulationSessionRepository
+                    .findByActividadIdAndEstudianteId(request.activityId(), request.studentId())
+                    .orElseThrow(() -> ex);
+
+            return resolveExistingSession(persistedSession, now);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -179,5 +200,28 @@ public class SessionService {
         if (!SESSION_IN_PROGRESS.equals(session.getEstado())) {
             throw new ConflictException(message);
         }
+    }
+
+    private CreateSessionResult resolveExistingSession(SimulationSession existingSession, LocalDateTime now) {
+        String estado = existingSession.getEstado();
+
+        if (SESSION_IN_PROGRESS.equals(estado)) {
+            return new CreateSessionResult(toSessionResponse(existingSession), false);
+        }
+
+        if (SESSION_PENDING.equals(estado)) {
+            existingSession.iniciarEnCurso(now);
+            SimulationSession updatedSession = simulationSessionRepository.save(existingSession);
+            return new CreateSessionResult(toSessionResponse(updatedSession), false);
+        }
+
+        if (SESSION_FINISHED.equals(estado) || SESSION_EXPIRED.equals(estado)) {
+            throw new ConflictException(FINALIZED_SESSION_CONFLICT_MESSAGE);
+        }
+
+        throw new ConflictException("No se puede crear una sesión para estado actual: " + estado + ".");
+    }
+
+    public record CreateSessionResult(SessionResponse session, boolean created) {
     }
 }

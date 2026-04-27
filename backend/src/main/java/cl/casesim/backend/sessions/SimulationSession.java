@@ -108,6 +108,13 @@ public class SimulationSession {
         this.finalizadaEn = finalizadaEn;
     }
 
+    public void iniciarEnCurso(LocalDateTime iniciadaEn) {
+        this.estado = "EN_CURSO";
+        if (this.iniciadaEn == null) {
+            this.iniciadaEn = iniciadaEn;
+        }
+    }
+
     public void registrarDiagnosticoFinal(
             String diagnosticoFinal,
             String razonamientoFinal,
