@@ -102,4 +102,22 @@ public class SimulationSession {
     public LocalDateTime getCreadaEn() {
         return creadaEn;
     }
+
+    public void completar(LocalDateTime finalizadaEn) {
+        this.estado = "FINALIZADA";
+        this.finalizadaEn = finalizadaEn;
+    }
+
+    public void registrarDiagnosticoFinal(
+            String diagnosticoFinal,
+            String razonamientoFinal,
+            Integer turnoDiagnostico,
+            LocalDateTime finalizadaEn
+    ) {
+        this.diagnosticoFinal = diagnosticoFinal;
+        this.razonamientoFinal = razonamientoFinal;
+        this.turnoDiagnostico = turnoDiagnostico;
+        this.estado = "FINALIZADA";
+        this.finalizadaEn = finalizadaEn;
+    }
 }

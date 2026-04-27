@@ -3,7 +3,7 @@ package cl.casesim.backend.sessions.dto;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record SimulationSessionResponse(
+public record SessionResponse(
         UUID id,
         UUID activityId,
         UUID studentId,

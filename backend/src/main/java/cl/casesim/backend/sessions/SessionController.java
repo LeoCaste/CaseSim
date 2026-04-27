@@ -3,7 +3,8 @@ package cl.casesim.backend.sessions;
 import cl.casesim.backend.sessions.dto.ChatMessageResponse;
 import cl.casesim.backend.sessions.dto.CreateChatMessageRequest;
 import cl.casesim.backend.sessions.dto.CreateSessionRequest;
-import cl.casesim.backend.sessions.dto.SimulationSessionResponse;
+import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
+import cl.casesim.backend.sessions.dto.SessionResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,12 +30,12 @@ public class SessionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SimulationSessionResponse createSession(@Valid @RequestBody CreateSessionRequest request) {
+    public SessionResponse createSession(@Valid @RequestBody CreateSessionRequest request) {
         return sessionService.createSession(request);
     }
 
     @GetMapping("/{id}")
-    public SimulationSessionResponse getSessionById(@PathVariable("id") UUID id) {
+    public SessionResponse getSessionById(@PathVariable("id") UUID id) {
         return sessionService.getSessionById(id);
     }
 
@@ -50,5 +51,18 @@ public class SessionController {
             @Valid @RequestBody CreateChatMessageRequest request
     ) {
         return sessionService.createMessages(id, request);
+    }
+
+    @PostMapping("/{id}/complete")
+    public SessionResponse completeSession(@PathVariable("id") UUID id) {
+        return sessionService.completeSession(id);
+    }
+
+    @PostMapping("/{id}/final-diagnosis")
+    public SessionResponse registerFinalDiagnosis(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody FinalDiagnosisRequest request
+    ) {
+        return sessionService.registerFinalDiagnosis(id, request);
     }
 }
