@@ -29,10 +29,22 @@ export class StudentDashboardPage implements OnInit {
     this.isLoading = true;
     this.loadError = '';
 
-    this.studentSessionService.getDashboardData().subscribe((data) => {
-      this.activities = data.activities;
-      this.history = data.history;
-      this.isLoading = false;
+    this.studentSessionService.getDashboardData().subscribe({
+      next: (data) => {
+        this.activities = data.activities;
+        this.history = data.history;
+        this.isLoading = false;
+      },
+      error: () => {
+        this.activities = [];
+        this.history = [];
+        this.loadError = 'No fue posible cargar las actividades. Intenta nuevamente.';
+        this.isLoading = false;
+      }
     });
+  }
+
+  onStartActivity(activityId: string): void {
+    this.studentSessionService.setCurrentActivityId(activityId);
   }
 }

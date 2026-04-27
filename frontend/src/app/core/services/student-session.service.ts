@@ -22,33 +22,54 @@ export interface StudentDashboardData {
 export class StudentSessionService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly currentSessionStorageKey = 'casesim.currentSessionId';
+  private readonly currentActivityStorageKey = 'casesim.currentActivityId';
 
   constructor(private http: HttpClient) {}
 
-  getDashboardData(): Observable<StudentDashboardData> {
+  getActivities(): Observable<StudentActivity[]> {
     if (environment.useMocks) {
-      return of(this.getMockDashboardData());
+      return of(this.getMockDashboardData().activities);
     }
 
     return this.http
-      .get<BackendClinicalCaseResponse[]>(`${this.apiBaseUrl}/clinical-cases`)
-      .pipe(
-        map((clinicalCases) => ({
-          activities: clinicalCases.map((item, index) => this.mapBackendCaseToActivity(item, index)),
-          history: this.getCurrentSessionId()
-            ? [
-                {
-                  title: 'Entrevista clínica reciente',
-                  patient: clinicalCases[0]?.patientName ?? 'Paciente simulado',
-                  status: 'Registrada',
-                  date: new Date().toLocaleDateString('es-CL'),
-                  route: '/student/session-detail'
-                }
-              ]
-            : []
-        })),
-        catchError(() => of(this.getMockDashboardData()))
-      );
+      .get<BackendStudentActivityResponse[]>(`${this.apiBaseUrl}/student/activities`)
+      .pipe(map((activities) => activities.map((activity) => this.mapBackendActivityToFrontend(activity))));
+  }
+
+  getDashboardData(): Observable<StudentDashboardData> {
+    return this.getActivities().pipe(
+      map((activities) => ({
+        activities,
+        history: this.getCurrentSessionId()
+          ? [
+              {
+                title: 'Entrevista clínica reciente',
+                patient: activities[0]?.patient ?? 'Paciente simulado',
+                status: 'Registrada',
+                date: new Date().toLocaleDateString('es-CL'),
+                route: '/student/session-detail'
+              }
+            ]
+          : []
+      }))
+    );
+  }
+
+  setCurrentActivityId(activityId: string): void {
+    if (typeof window === 'undefined' || !this.looksLikeUuid(activityId)) {
+      return;
+    }
+
+    window.localStorage.setItem(this.currentActivityStorageKey, activityId);
+  }
+
+  getCurrentActivityId(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const activityId = window.localStorage.getItem(this.currentActivityStorageKey);
+    return activityId && this.looksLikeUuid(activityId) ? activityId : null;
   }
 
   getStudentSessionDetail(sessionId: string): Observable<StudentSession> {
@@ -166,23 +187,83 @@ export class StudentSessionService {
     };
   }
 
-  private mapBackendCaseToActivity(
-    clinicalCase: BackendClinicalCaseResponse,
-    index: number
-  ): StudentActivity {
+  private mapBackendActivityToFrontend(activity: BackendStudentActivityResponse): StudentActivity {
+    const statusRaw = this.readFirstString(
+      activity.status,
+      activity.estado,
+      activity.sessionStatus,
+      activity.estadoSesion,
+      activity.assignmentStatus,
+      activity.estadoAsignacion
+    );
+    const isAvailable = this.resolveIsAvailable(statusRaw);
+
+    const durationMinutes = this.readFirstNumber(activity.durationMinutes, activity.tiempoLimiteMinutos);
+
+    const title = this.readFirstString(activity.title, activity.titulo) ?? 'Actividad clínica';
+    const description =
+      this.readFirstString(activity.description, activity.descripcion) ??
+      'Realiza una anamnesis clínica y concluye cuando tengas una hipótesis diagnóstica.';
+
+    const course = this.readFirstString(activity.courseName, activity.nombreCurso) ?? 'Curso';
+    const professor = this.readFirstString(activity.professorName, activity.nombreProfesor) ?? 'Equipo docente';
+    const patient = this.readFirstString(activity.patientName, activity.nombrePaciente) ?? 'Paciente simulado';
+
+    const status =
+      this.readFirstString(activity.statusLabel, activity.estadoLabel) ?? (isAvailable ? 'Disponible' : 'Pendiente');
+
+    const actionLabel = this.readFirstString(activity.actionLabel, activity.etiquetaAccion) ?? 'Iniciar entrevista';
+
+    const duration =
+      this.readFirstString(activity.durationLabel, activity.duracionLabel) ??
+      (durationMinutes && durationMinutes > 0 ? `${durationMinutes} minutos` : 'Sin límite de tiempo');
+
+    const activityId = this.readFirstString(activity.activityId, activity.id);
+    const hasValidActivityId = !!activityId && this.looksLikeUuid(activityId);
+    const canStart = isAvailable && hasValidActivityId;
+
     return {
-      id: clinicalCase.id,
-      title: clinicalCase.title,
-      course: 'Caso de prueba',
-      professor: 'Equipo docente',
-      patient: clinicalCase.patientName,
-      status: 'Disponible',
-      statusType: 'success',
-      duration: 'Sin límite de tiempo',
-      description: clinicalCase.description || 'Simulación clínica disponible.',
-      actionLabel: 'Iniciar entrevista',
-      route: index === 0 ? '/student/waiting-room' : '/student/waiting-room'
+      id: activityId ?? '',
+      title,
+      course,
+      professor,
+      patient,
+      status,
+      statusType: canStart ? 'success' : 'neutral',
+      duration,
+      description,
+      actionLabel: canStart ? actionLabel : 'No disponible',
+      route: canStart ? '/student/waiting-room' : null
     };
+  }
+
+  private resolveIsAvailable(statusRaw: string | null): boolean {
+    if (!statusRaw) {
+      return true;
+    }
+
+    const normalized = statusRaw.toUpperCase();
+    return ['AVAILABLE', 'DISPONIBLE', 'PENDIENTE', 'EN_CURSO', 'IN_PROGRESS'].includes(normalized);
+  }
+
+  private readFirstString(...values: Array<string | null | undefined>): string | null {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  private readFirstNumber(...values: Array<number | null | undefined>): number | null {
+    for (const value of values) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   private mapBackendMessage(message: BackendChatMessageResponse): {
@@ -232,11 +313,33 @@ export class StudentSessionService {
   }
 }
 
-interface BackendClinicalCaseResponse {
-  id: string;
-  title: string;
-  description: string;
-  patientName: string;
+interface BackendStudentActivityResponse {
+  activityId?: string;
+  id?: string;
+  title?: string;
+  titulo?: string;
+  description?: string;
+  descripcion?: string;
+  patientName?: string;
+  nombrePaciente?: string;
+  courseName?: string;
+  nombreCurso?: string;
+  professorName?: string;
+  nombreProfesor?: string;
+  status?: string;
+  estado?: string;
+  sessionStatus?: string;
+  estadoSesion?: string;
+  assignmentStatus?: string;
+  estadoAsignacion?: string;
+  statusLabel?: string;
+  estadoLabel?: string;
+  actionLabel?: string;
+  etiquetaAccion?: string;
+  durationMinutes?: number;
+  tiempoLimiteMinutos?: number;
+  durationLabel?: string;
+  duracionLabel?: string;
 }
 
 interface BackendSessionResponse {

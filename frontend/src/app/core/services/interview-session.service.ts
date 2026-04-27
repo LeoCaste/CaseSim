@@ -4,6 +4,7 @@ import { catchError, forkJoin, map, Observable, of, switchMap, tap } from 'rxjs'
 
 import { DiagnosisReview, SessionMessage } from '../models/student-session.model';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 export interface InterviewSessionData {
   id: string;
@@ -26,8 +27,12 @@ export interface InterviewNotebookState {
 export class InterviewSessionService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly currentSessionStorageKey = 'casesim.currentSessionId';
+  private readonly currentActivityStorageKey = 'casesim.currentActivityId';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
 
   getInterviewSession(): Observable<InterviewSessionData> {
     if (environment.useMocks) {
@@ -35,8 +40,8 @@ export class InterviewSessionService {
     }
 
     const payload: CreateSessionRequest = {
-      activityId: environment.demoActivityId,
-      studentId: environment.demoStudentId
+      activityId: this.getCurrentActivityId() ?? environment.demoActivityId,
+      studentId: this.authService.getCurrentUser()?.id ?? environment.demoStudentId
     };
 
     return this.http.post<BackendSessionResponse>(`${this.apiBaseUrl}/sessions`, payload).pipe(
@@ -204,6 +209,15 @@ export class InterviewSessionService {
     }
 
     return window.localStorage.getItem(this.currentSessionStorageKey);
+  }
+
+  private getCurrentActivityId(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const activityId = window.localStorage.getItem(this.currentActivityStorageKey);
+    return activityId && this.looksLikeUuid(activityId) ? activityId : null;
   }
 
   private resolveSessionId(sessionId: string): string | null {

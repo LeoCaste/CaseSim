@@ -30,6 +30,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/simulations").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/student/activities").hasRole("ESTUDIANTE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/clinical-cases/**").hasAnyRole("ESTUDIANTE", "PROFESOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")

@@ -53,6 +53,12 @@
   gap: 18px;
 }
 
+.student-dashboard__error {
+  margin: 0;
+  color: #b42318;
+  font-weight: 700;
+}
+
 .history-section {
   margin-top: 28px;
 }

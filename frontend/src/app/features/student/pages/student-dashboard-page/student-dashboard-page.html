@@ -18,9 +18,12 @@
   </section>
 
   <section class="activities-grid">
+    <p *ngIf="loadError" class="student-dashboard__error">{{ loadError }}</p>
+
     <app-activity-card
       *ngFor="let activity of activities"
       [activity]="activity"
+      (startRequested)="onStartActivity($event)"
     ></app-activity-card>
   </section>
 
