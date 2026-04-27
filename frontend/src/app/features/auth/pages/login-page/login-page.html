@@ -22,8 +22,18 @@
         />
       </label>
 
-      <p class="login-help">
-        Utiliza tu correo institucional para acceder.
+      <label *ngIf="useMocks">
+        Contraseña
+        <input
+          type="password"
+          name="password"
+          placeholder="contraseña"
+          autocomplete="current-password"
+        />
+      </label>
+
+      <p class="login-help" *ngIf="useMocks">
+        Modo mock habilitado para desarrollo local.
       </p>
 
       <p class="login-error" *ngIf="error">

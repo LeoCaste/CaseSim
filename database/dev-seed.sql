@@ -32,23 +32,23 @@ INSERT INTO usuario (id, nombre, email, password_hash, activo)
 VALUES
     (
         '00000000-0000-0000-0000-000000000101',
-        'Profesora Demo',
-        'profesor.demo@casesim.local',
-        '$2a$10$7QJ7w3vQh8YjQ5Q3sD7m5eY7H9pR8mX4Vj8g2fDk2mQnT1pL0u9Ka',
+        'Profesor Demo',
+        'profesor.demo@ufrontera.cl',
+        '$2a$10$dXJ3SW6G7P50lGmMkkmwe.5W5n1p5MNDoAuCEi0aKBslrHonghE2e',
         TRUE
     ),
     (
         '00000000-0000-0000-0000-000000000102',
-        'Estudiante Demo',
-        'estudiante.demo@casesim.local',
-        '$2a$10$7QJ7w3vQh8YjQ5Q3sD7m5eY7H9pR8mX4Vj8g2fDk2mQnT1pL0u9Ka',
+        'Estudiante Demo 01',
+        'estudiante.demo01@ufromail.cl',
+        '$2a$10$dXJ3SW6G7P50lGmMkkmwe.5W5n1p5MNDoAuCEi0aKBslrHonghE2e',
         TRUE
     ),
     (
         '00000000-0000-0000-0000-000000000103',
         'Administrador Demo',
-        'admin.demo@casesim.local',
-        '$2a$10$7QJ7w3vQh8YjQ5Q3sD7m5eY7H9pR8mX4Vj8g2fDk2mQnT1pL0u9Ka',
+        'admin.demo@ufrontera.cl',
+        '$2a$10$dXJ3SW6G7P50lGmMkkmwe.5W5n1p5MNDoAuCEi0aKBslrHonghE2e',
         TRUE
     )
 ON CONFLICT (id) DO UPDATE

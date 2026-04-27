@@ -12,7 +12,7 @@ function redirectForCurrentSession(userRole: UserRole | null, router: Router): U
     return router.createUrlTree(['/login']);
   }
 
-  return router.createUrlTree([userRole === 'professor' ? '/professor/dashboard' : '/student/dashboard']);
+  return router.createUrlTree([userRole === 'student' ? '/student/dashboard' : '/professor/dashboard']);
 }
 
 function readAllowedRoles(route: Pick<Route, 'data'>): UserRole[] {
@@ -21,7 +21,17 @@ function readAllowedRoles(route: Pick<Route, 'data'>): UserRole[] {
     return [];
   }
 
-  return configuredRoles.filter((role): role is UserRole => role === 'student' || role === 'professor');
+  return configuredRoles.filter(
+    (role): role is UserRole => role === 'student' || role === 'professor' || role === 'admin'
+  );
+}
+
+function isRoleAllowed(userRole: UserRole, allowedRoles: UserRole[]): boolean {
+  if (allowedRoles.includes(userRole)) {
+    return true;
+  }
+
+  return userRole === 'admin' && allowedRoles.includes('professor');
 }
 
 function authorizeRoute(route: Pick<Route, 'data'>): boolean | UrlTree {
@@ -37,7 +47,7 @@ function authorizeRoute(route: Pick<Route, 'data'>): boolean | UrlTree {
   }
 
   const allowedRoles = readAllowedRoles(route);
-  if (allowedRoles.length === 0 || allowedRoles.includes(user.role)) {
+  if (allowedRoles.length === 0 || isRoleAllowed(user.role, allowedRoles)) {
     return true;
   }
 

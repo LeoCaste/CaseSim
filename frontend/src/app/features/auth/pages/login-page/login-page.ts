@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserContext } from '../../../../core/services/user-context';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-login-page',
@@ -13,6 +14,7 @@ import { UserContext } from '../../../../core/services/user-context';
   styleUrl: './login-page.css'
 })
 export class LoginPage {
+  readonly useMocks = environment.useMocks;
   email = '';
   error = '';
   isLoading = false;
@@ -31,12 +33,12 @@ export class LoginPage {
       this.isLoading = false;
 
       if (!user) {
-        this.error = 'Correo institucional no válido.';
+        this.error = 'Credenciales inválidas.';
         return;
       }
 
       this.userContext.setUser(user);
-      this.router.navigate([user.role === 'professor' ? '/professor/dashboard' : '/student/dashboard']);
+      this.router.navigate([user.role === 'professor' || user.role === 'admin' ? '/professor/dashboard' : '/student/dashboard']);
     });
   }
 }

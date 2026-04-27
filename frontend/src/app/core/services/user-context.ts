@@ -28,6 +28,14 @@ export class UserContext {
   }
 
   getRoleLabel(): string {
-    return this.role === 'student' ? 'Estudiante' : 'Profesor';
+    if (this.role === 'student') {
+      return 'Estudiante';
+    }
+
+    if (this.role === 'admin') {
+      return 'Administrador';
+    }
+
+    return 'Profesor';
   }
 }
