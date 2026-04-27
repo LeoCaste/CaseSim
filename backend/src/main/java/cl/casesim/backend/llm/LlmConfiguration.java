@@ -1,0 +1,77 @@
+package cl.casesim.backend.llm;
+
+import cl.casesim.backend.sessions.ChatMessageRepository;
+import cl.casesim.backend.sessions.MockPatientResponseService;
+import cl.casesim.backend.sessions.PatientResponseService;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
+
+@Configuration
+@EnableConfigurationProperties(LlmProperties.class)
+public class LlmConfiguration {
+
+    @Bean
+    public MockPatientResponseService mockPatientResponseService() {
+        return new MockPatientResponseService();
+    }
+
+    @Bean
+    public PromptBuilderService promptBuilderService() {
+        return new PromptBuilderService();
+    }
+
+    @Bean
+    public ResponseSafetyFilter responseSafetyFilter() {
+        return new ResponseSafetyFilter();
+    }
+
+    @Bean
+    public LlmUsageService llmUsageService() {
+        return new LlmUsageService();
+    }
+
+    @Bean
+    public LlmClient llmClient(LlmProperties llmProperties) {
+        return new OpenAiLlmClient(llmProperties);
+    }
+
+    @Bean
+    public LlmPatientResponseService llmPatientResponseService(
+            LlmProperties llmProperties,
+            LlmClient llmClient,
+            PromptBuilderService promptBuilderService,
+            ResponseSafetyFilter responseSafetyFilter,
+            ChatMessageRepository chatMessageRepository,
+            MockPatientResponseService mockPatientResponseService,
+            LlmUsageService llmUsageService
+    ) {
+        return new LlmPatientResponseService(
+                llmProperties,
+                llmClient,
+                promptBuilderService,
+                responseSafetyFilter,
+                chatMessageRepository,
+                mockPatientResponseService,
+                llmUsageService
+        );
+    }
+
+    @Bean
+    public PatientResponseService patientResponseService(
+            LlmProperties llmProperties,
+            LlmPatientResponseService llmPatientResponseService,
+            MockPatientResponseService mockPatientResponseService
+    ) {
+        if (!llmProperties.isEnabled()) {
+            return mockPatientResponseService;
+        }
+
+        if (!StringUtils.hasText(llmProperties.getApiKey())) {
+            return mockPatientResponseService;
+        }
+
+        return llmPatientResponseService;
+    }
+}
