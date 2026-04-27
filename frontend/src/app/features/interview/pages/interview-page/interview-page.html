@@ -31,6 +31,9 @@
 
     <div class="interview-layout">
       <main class="conversation-panel" #conversationPanel>
+        <p class="conversation-state" *ngIf="isLoading">Cargando sesión clínica...</p>
+        <p class="submission-error" *ngIf="loadError">{{ loadError }}</p>
+
         <section
           class="clinical-message"
           *ngFor="let message of messages"
@@ -43,6 +46,15 @@
           </div>
 
           <p>{{ message.content }}</p>
+        </section>
+
+        <section class="clinical-message patient loading" *ngIf="isSendingMessage">
+          <div class="message-meta">
+            <span>Paciente</span>
+            <time>Ahora</time>
+          </div>
+
+          <p>Paciente simulado redactando respuesta...</p>
         </section>
       </main>
 
@@ -81,6 +93,7 @@
           placeholder="Escribe tu intervención clínica..."
           [(ngModel)]="clinicalIntervention"
           (keydown)="onInterventionKeydown($event)"
+          [disabled]="isSendingMessage || isSubmittingFinalDiagnosis"
         ></textarea>
 
         <div class="intervention-actions">
@@ -88,19 +101,25 @@
             class="cs-button primary"
             type="button"
             (click)="sendIntervention()"
+            [disabled]="isSendingMessage || isSubmittingFinalDiagnosis"
           >
-            Enviar mensaje
+            {{ isSendingMessage ? 'Enviando...' : 'Enviar mensaje' }}
           </button>
 
           <button
             class="cs-button danger secondary-danger"
             type="button"
             (click)="openFinalDiagnosisModal()"
+            [disabled]="isSendingMessage || isSubmittingFinalDiagnosis"
           >
-            Concluir atención
+            {{ isSubmittingFinalDiagnosis ? 'Finalizando...' : 'Diagnóstico final' }}
           </button>
         </div>
       </div>
+
+      <p class="submission-error" *ngIf="finalDiagnosisError">
+        {{ finalDiagnosisError }}
+      </p>
     </footer>
   </article>
 

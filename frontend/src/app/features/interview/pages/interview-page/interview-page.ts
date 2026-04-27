@@ -26,7 +26,7 @@ export class InterviewPage implements OnInit {
   finalDiagnosis = '';
   finalReasoning = '';
   session: InterviewSessionData = {
-    id: 'sess-01',
+    id: '',
     patientName: 'Catalina Paz Soto',
     age: 22,
     sex: 'F',
@@ -35,7 +35,10 @@ export class InterviewPage implements OnInit {
     messages: []
   };
   isLoading = false;
+  isSendingMessage = false;
+  isSubmittingFinalDiagnosis = false;
   loadError = '';
+  finalDiagnosisError = '';
 
   messages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }> = [];
 
@@ -49,25 +52,42 @@ export class InterviewPage implements OnInit {
 
   ngOnInit(): void {
     this.isLoading = true;
-    this.interviewSessionService.getInterviewSession().subscribe((session) => {
-      this.session = session;
-      this.messages = session.messages.map((message) => this.mapMessage(message));
-      this.isLoading = false;
-      this.scrollConversationToBottom();
+    this.loadError = '';
+
+    this.interviewSessionService.getInterviewSession().subscribe({
+      next: (session) => {
+        this.session = session;
+        this.messages = session.messages.map((message) => this.mapMessage(message));
+        this.isLoading = false;
+        this.scrollConversationToBottom();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.loadError = 'No fue posible cargar la entrevista. Recarga la página para reintentar.';
+      }
     });
   }
 
   sendIntervention(): void {
     const content = this.clinicalIntervention.trim();
 
-    if (!content) {
+    if (!content || this.isSendingMessage || this.isSubmittingFinalDiagnosis) {
       return;
     }
 
-    this.interviewSessionService.sendMessage(this.session.id, content).subscribe((newMessages) => {
-      this.messages = [...this.messages, ...newMessages.map((message) => this.mapMessage(message))];
-      this.clinicalIntervention = '';
-      this.scrollConversationToBottom();
+    this.isSendingMessage = true;
+
+    this.interviewSessionService.sendMessage(this.session.id, content).subscribe({
+      next: (newMessages) => {
+        this.messages = [...this.messages, ...newMessages.map((message) => this.mapMessage(message))];
+        this.clinicalIntervention = '';
+        this.isSendingMessage = false;
+        this.scrollConversationToBottom();
+      },
+      error: () => {
+        this.isSendingMessage = false;
+        this.loadError = 'No fue posible enviar el mensaje. Intenta nuevamente.';
+      }
     });
   }
 
@@ -91,6 +111,7 @@ export class InterviewPage implements OnInit {
 
   confirmFinalDiagnosis(diagnosis: { diagnosis: string; reasoning: string }): void {
     this.showFinalDiagnosisModal = false;
+    this.finalDiagnosisError = '';
 
     this.finalDiagnosis = diagnosis.diagnosis;
     this.finalReasoning = diagnosis.reasoning;
@@ -106,17 +127,30 @@ export class InterviewPage implements OnInit {
       }
     };
 
-    console.log('Final diagnosis payload (mock):', payload);
-
     const diagnosisReview: DiagnosisReview = {
       finalDiagnosis: payload.finalDiagnosis.diagnosis,
       reasoning: payload.finalDiagnosis.reasoning
     };
 
+    this.isSubmittingFinalDiagnosis = true;
+
     this.interviewSessionService
       .submitFinalDiagnosis(this.session.id, diagnosisReview, payload.notebook)
-      .subscribe(() => {
-        this.router.navigate(['/session-completed']);
+      .subscribe({
+        next: (success) => {
+          this.isSubmittingFinalDiagnosis = false;
+
+          if (!success) {
+            this.finalDiagnosisError = 'No fue posible enviar el diagnóstico final. Intenta nuevamente.';
+            return;
+          }
+
+          this.router.navigate(['/session-completed']);
+        },
+        error: () => {
+          this.isSubmittingFinalDiagnosis = false;
+          this.finalDiagnosisError = 'No fue posible enviar el diagnóstico final. Intenta nuevamente.';
+        }
       });
   }
 

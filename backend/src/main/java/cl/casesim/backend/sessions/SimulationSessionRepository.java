@@ -12,6 +12,8 @@ import java.util.UUID;
 
 public interface SimulationSessionRepository extends JpaRepository<SimulationSession, UUID> {
 
+    Optional<SimulationSession> findByIdAndEstudianteId(UUID id, UUID estudianteId);
+
     Optional<SimulationSession> findByActividadIdAndEstudianteId(UUID actividadId, UUID estudianteId);
 
     @Query("""

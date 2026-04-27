@@ -10,6 +10,8 @@ public record SessionResponse(
         String status,
         LocalDateTime startedAt,
         LocalDateTime finishedAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String finalDiagnosis,
+        String finalReasoning
 ) {
 }

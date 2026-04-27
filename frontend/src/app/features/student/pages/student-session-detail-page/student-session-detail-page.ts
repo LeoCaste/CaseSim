@@ -28,12 +28,27 @@ export class StudentSessionDetailPage implements OnInit {
 
   ngOnInit(): void {
     this.isLoading = true;
-    this.studentSessionService.getStudentSessionDetail('sess-01').subscribe((session) => {
-      this.title = session.title;
-      this.messages = session.messages.map((message) => this.mapMessage(message));
-      this.diagnosis = session.diagnosis;
-      this.notes = session.notes;
+    this.loadError = '';
+
+    const sessionId = this.studentSessionService.getCurrentSessionId();
+    if (!sessionId) {
       this.isLoading = false;
+      this.loadError = 'No hay sesión reciente para mostrar.';
+      return;
+    }
+
+    this.studentSessionService.getStudentSessionDetail(sessionId).subscribe({
+      next: (session) => {
+        this.title = session.title;
+        this.messages = session.messages.map((message) => this.mapMessage(message));
+        this.diagnosis = session.diagnosis;
+        this.notes = session.notes;
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.loadError = 'No fue posible cargar el detalle de la sesión.';
+      }
     });
   }
 

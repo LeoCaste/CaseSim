@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, forkJoin, map, Observable, of } from 'rxjs';
+import { forkJoin, map, Observable, of, throwError } from 'rxjs';
 
 import { StudentActivity, StudentSession } from '../models/student-session.model';
 import { environment } from '../../../environments/environment';
@@ -79,7 +79,7 @@ export class StudentSessionService {
 
     const resolvedSessionId = this.resolveSessionId(sessionId);
     if (!resolvedSessionId) {
-      return of(this.getMockStudentSession());
+      return throwError(() => new Error('No hay una sesión activa para mostrar detalle.'));
     }
 
     return forkJoin({
@@ -98,14 +98,17 @@ export class StudentSessionService {
           notes: '',
           hypothesis: '',
           diagnosis: {
-            finalDiagnosis: '',
-            reasoning: ''
+            finalDiagnosis: session.finalDiagnosis ?? '',
+            reasoning: session.finalReasoning ?? ''
           },
           messages: messages.map((message) => this.mapBackendMessage(message))
         };
-      }),
-      catchError(() => of(this.getMockStudentSession()))
+      })
     );
+  }
+
+  getCurrentSessionId(): string | null {
+    return this.readCurrentSessionId();
   }
 
   private getMockDashboardData(): StudentDashboardData {
@@ -292,7 +295,7 @@ export class StudentSessionService {
     });
   }
 
-  private getCurrentSessionId(): string | null {
+  private readCurrentSessionId(): string | null {
     if (typeof window === 'undefined') {
       return null;
     }
@@ -305,7 +308,7 @@ export class StudentSessionService {
       return sessionId;
     }
 
-    return this.getCurrentSessionId();
+    return this.readCurrentSessionId();
   }
 
   private looksLikeUuid(value: string): boolean {
@@ -346,6 +349,8 @@ interface BackendSessionResponse {
   id: string;
   status: string;
   finishedAt: string | null;
+  finalDiagnosis?: string | null;
+  finalReasoning?: string | null;
 }
 
 interface BackendChatMessageResponse {

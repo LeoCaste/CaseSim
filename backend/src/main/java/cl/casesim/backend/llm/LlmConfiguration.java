@@ -1,8 +1,14 @@
 package cl.casesim.backend.llm;
 
+import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
+import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
+import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
 import cl.casesim.backend.sessions.ChatMessageRepository;
 import cl.casesim.backend.sessions.MockPatientResponseService;
 import cl.casesim.backend.sessions.PatientResponseService;
+import cl.casesim.backend.sessions.SessionRevealedFactRepository;
+import cl.casesim.backend.sessions.SimulationSessionRepository;
+import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,7 +51,13 @@ public class LlmConfiguration {
             ResponseSafetyFilter responseSafetyFilter,
             ChatMessageRepository chatMessageRepository,
             MockPatientResponseService mockPatientResponseService,
-            LlmUsageService llmUsageService
+            LlmUsageService llmUsageService,
+            SimulationActivityRepository simulationActivityRepository,
+            SimulationSessionRepository simulationSessionRepository,
+            ClinicalCaseRepository clinicalCaseRepository,
+            ClinicalCaseFactRepository clinicalCaseFactRepository,
+            ClinicalCasePersonalityRepository clinicalCasePersonalityRepository,
+            SessionRevealedFactRepository sessionRevealedFactRepository
     ) {
         return new LlmPatientResponseService(
                 llmProperties,
@@ -54,7 +66,13 @@ public class LlmConfiguration {
                 responseSafetyFilter,
                 chatMessageRepository,
                 mockPatientResponseService,
-                llmUsageService
+                llmUsageService,
+                simulationActivityRepository,
+                simulationSessionRepository,
+                clinicalCaseRepository,
+                clinicalCaseFactRepository,
+                clinicalCasePersonalityRepository,
+                sessionRevealedFactRepository
         );
     }
 

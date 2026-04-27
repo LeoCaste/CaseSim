@@ -42,4 +42,8 @@ public class ClinicalCasePersonality {
     public String getRasgo() {
         return rasgo;
     }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
 }

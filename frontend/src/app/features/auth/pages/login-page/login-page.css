@@ -110,6 +110,11 @@
   cursor: pointer;
 }
 
+.login-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .login-examples {
   display: flex;
   align-items: center;

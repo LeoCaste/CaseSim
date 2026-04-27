@@ -65,6 +65,10 @@ public class ClinicalCaseFact {
     @Column(name = "orden")
     private Integer orden;
 
+    public UUID getId() {
+        return id;
+    }
+
     public UUID getCasoId() {
         return casoId;
     }

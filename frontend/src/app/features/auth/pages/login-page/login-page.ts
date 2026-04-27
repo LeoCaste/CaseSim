@@ -5,7 +5,6 @@ import { Router } from '@angular/router';
 
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserContext } from '../../../../core/services/user-context';
-import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-login-page',
@@ -14,7 +13,6 @@ import { environment } from '../../../../../environments/environment';
   styleUrl: './login-page.css'
 })
 export class LoginPage {
-  readonly useMocks = environment.useMocks;
   email = '';
   error = '';
   isLoading = false;
@@ -26,10 +24,17 @@ export class LoginPage {
   ) {}
 
   login(): void {
+    const normalizedEmail = this.email.trim();
+
+    if (!normalizedEmail) {
+      this.error = 'El correo institucional es obligatorio.';
+      return;
+    }
+
     this.error = '';
     this.isLoading = true;
 
-    this.authService.login(this.email).subscribe((user) => {
+    this.authService.login(normalizedEmail).subscribe((user) => {
       this.isLoading = false;
 
       if (!user) {

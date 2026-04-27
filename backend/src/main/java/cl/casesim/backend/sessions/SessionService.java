@@ -3,6 +3,7 @@ package cl.casesim.backend.sessions;
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ConflictException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
+import cl.casesim.backend.llm.ResponseSafetyFilter;
 import cl.casesim.backend.sessions.dto.ChatMessageResponse;
 import cl.casesim.backend.sessions.dto.CreateSessionRequest;
 import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
@@ -30,23 +31,26 @@ public class SessionService {
     private final SimulationSessionRepository simulationSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final PatientResponseService patientResponseService;
+    private final ResponseSafetyFilter responseSafetyFilter;
 
     public SessionService(
             SimulationSessionRepository simulationSessionRepository,
             ChatMessageRepository chatMessageRepository,
-            PatientResponseService patientResponseService
+            PatientResponseService patientResponseService,
+            ResponseSafetyFilter responseSafetyFilter
     ) {
         this.simulationSessionRepository = simulationSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.patientResponseService = patientResponseService;
+        this.responseSafetyFilter = responseSafetyFilter;
     }
 
     @Transactional
-    public CreateSessionResult createSession(CreateSessionRequest request) {
+    public CreateSessionResult createSession(CreateSessionRequest request, UUID authenticatedStudentId) {
         LocalDateTime now = LocalDateTime.now();
 
         SimulationSession existingSession = simulationSessionRepository
-                .findByActividadIdAndEstudianteId(request.activityId(), request.studentId())
+                .findByActividadIdAndEstudianteId(request.activityId(), authenticatedStudentId)
                 .orElse(null);
 
         if (existingSession != null) {
@@ -56,7 +60,7 @@ public class SessionService {
         SimulationSession session = new SimulationSession(
                 UUID.randomUUID(),
                 request.activityId(),
-                request.studentId(),
+                authenticatedStudentId,
                 SESSION_IN_PROGRESS,
                 now,
                 now
@@ -67,7 +71,7 @@ public class SessionService {
             return new CreateSessionResult(toSessionResponse(savedSession), true);
         } catch (DataIntegrityViolationException ex) {
             SimulationSession persistedSession = simulationSessionRepository
-                    .findByActividadIdAndEstudianteId(request.activityId(), request.studentId())
+                    .findByActividadIdAndEstudianteId(request.activityId(), authenticatedStudentId)
                     .orElseThrow(() -> ex);
 
             return resolveExistingSession(persistedSession, now);
@@ -75,14 +79,13 @@ public class SessionService {
     }
 
     @Transactional(readOnly = true)
-    public SessionResponse getSessionById(UUID sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
-        return toSessionResponse(session);
+    public SessionResponse getSessionById(UUID sessionId, UUID authenticatedStudentId) {
+        return toSessionResponse(getOwnedSessionOrThrow(sessionId, authenticatedStudentId));
     }
 
     @Transactional(readOnly = true)
-    public List<ChatMessageResponse> getMessagesBySession(UUID sessionId) {
-        getSessionOrThrow(sessionId);
+    public List<ChatMessageResponse> getMessagesBySession(UUID sessionId, UUID authenticatedStudentId) {
+        getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
 
         return chatMessageRepository.findBySesionIdOrderByNumeroTurnoAsc(sessionId)
                 .stream()
@@ -91,57 +94,57 @@ public class SessionService {
     }
 
     @Transactional
-    public List<ChatMessageResponse> createMessages(UUID sessionId, SendMessageRequest request) {
-        SimulationSession session = getSessionOrThrow(sessionId);
+    public List<ChatMessageResponse> createMessages(UUID sessionId, SendMessageRequest request, UUID authenticatedStudentId) {
+        SimulationSession session = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
         assertSessionInProgressForMessages(session);
 
-        if (request.content() == null || request.content().trim().isEmpty()) {
+        String userContent = request.content() == null ? "" : request.content().trim();
+        if (userContent.isEmpty()) {
             throw new BadRequestException("El contenido del mensaje no puede estar vacío.");
         }
 
         int nextTurnNumber = chatMessageRepository.findMaxNumeroTurnoBySesionId(sessionId) + 1;
 
-        ChatMessage userMessage = new ChatMessage(
+        ChatMessage savedUserMessage = chatMessageRepository.save(new ChatMessage(
                 UUID.randomUUID(),
                 sessionId,
                 USER_ROLE,
-                request.content().trim(),
+                userContent,
                 nextTurnNumber,
                 LocalDateTime.now()
+        ));
+
+        String assistantContent = responseSafetyFilter.applyOrFallback(
+                patientResponseService.generateResponse(session, userContent)
         );
 
-        ChatMessage assistantMessage = new ChatMessage(
+        ChatMessage savedAssistantMessage = chatMessageRepository.save(new ChatMessage(
                 UUID.randomUUID(),
                 sessionId,
                 ASSISTANT_ROLE,
-                patientResponseService.generateResponse(session, request.content().trim()),
+                assistantContent,
                 nextTurnNumber + 1,
                 LocalDateTime.now()
-        );
-
-        ChatMessage savedUserMessage = chatMessageRepository.save(userMessage);
-        ChatMessage savedAssistantMessage = chatMessageRepository.save(assistantMessage);
+        ));
 
         return List.of(toChatMessageResponse(savedUserMessage), toChatMessageResponse(savedAssistantMessage));
     }
 
     @Transactional
-    public SessionResponse completeSession(UUID sessionId) {
-        SimulationSession session = getSessionOrThrow(sessionId);
+    public SessionResponse completeSession(UUID sessionId, UUID authenticatedStudentId) {
+        SimulationSession session = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
         assertSessionInProgress(session, "No se puede cerrar la sesión porque su estado actual es " + session.getEstado() + ".");
 
         session.completar(LocalDateTime.now());
-        SimulationSession updatedSession = simulationSessionRepository.save(session);
-        return toSessionResponse(updatedSession);
+        return toSessionResponse(simulationSessionRepository.save(session));
     }
 
     @Transactional
-    public SessionResponse registerFinalDiagnosis(UUID sessionId, FinalDiagnosisRequest request) {
-        SimulationSession session = getSessionOrThrow(sessionId);
+    public SessionResponse registerFinalDiagnosis(UUID sessionId, FinalDiagnosisRequest request, UUID authenticatedStudentId) {
+        SimulationSession session = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
         assertSessionInProgress(session, "No se puede registrar diagnóstico final porque la sesión está en estado " + session.getEstado() + ".");
 
         int turnoDiagnostico = chatMessageRepository.findMaxNumeroTurnoBySesionId(sessionId);
-
         session.registrarDiagnosticoFinal(
                 request.diagnosis().trim(),
                 request.reasoning().trim(),
@@ -149,12 +152,11 @@ public class SessionService {
                 LocalDateTime.now()
         );
 
-        SimulationSession updatedSession = simulationSessionRepository.save(session);
-        return toSessionResponse(updatedSession);
+        return toSessionResponse(simulationSessionRepository.save(session));
     }
 
-    private SimulationSession getSessionOrThrow(UUID sessionId) {
-        return simulationSessionRepository.findById(sessionId)
+    private SimulationSession getOwnedSessionOrThrow(UUID sessionId, UUID authenticatedStudentId) {
+        return simulationSessionRepository.findByIdAndEstudianteId(sessionId, authenticatedStudentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sesión no encontrada con id: " + sessionId));
     }
 
@@ -166,7 +168,9 @@ public class SessionService {
                 session.getEstado(),
                 session.getIniciadaEn(),
                 session.getFinalizadaEn(),
-                session.getCreadaEn()
+                session.getCreadaEn(),
+                session.getDiagnosticoFinal(),
+                session.getRazonamientoFinal()
         );
     }
 

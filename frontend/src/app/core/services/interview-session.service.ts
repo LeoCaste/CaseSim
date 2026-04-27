@@ -1,10 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, forkJoin, map, Observable, of, switchMap, tap } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 
 import { DiagnosisReview, SessionMessage } from '../models/student-session.model';
 import { environment } from '../../../environments/environment';
-import { AuthService } from './auth.service';
 
 export interface InterviewSessionData {
   id: string;
@@ -29,22 +28,19 @@ export class InterviewSessionService {
   private readonly currentSessionStorageKey = 'casesim.currentSessionId';
   private readonly currentActivityStorageKey = 'casesim.currentActivityId';
 
-  constructor(
-    private http: HttpClient,
-    private authService: AuthService
-  ) {}
+  constructor(private http: HttpClient) {}
 
   getInterviewSession(): Observable<InterviewSessionData> {
     if (environment.useMocks) {
       return of(this.getMockInterviewSession());
     }
 
-    const payload: CreateSessionRequest = {
-      activityId: this.getCurrentActivityId() ?? environment.demoActivityId,
-      studentId: this.authService.getCurrentUser()?.id ?? environment.demoStudentId
-    };
+    const activityId = this.getCurrentActivityId();
+    if (!activityId) {
+      return throwError(() => new Error('No se encontró una actividad seleccionada para iniciar la entrevista.'));
+    }
 
-    return this.http.post<BackendSessionResponse>(`${this.apiBaseUrl}/sessions`, payload).pipe(
+    return this.http.post<BackendSessionResponse>(`${this.apiBaseUrl}/sessions`, { activityId }).pipe(
       tap((session) => this.saveCurrentSessionId(session.id)),
       switchMap((session) =>
         forkJoin({
@@ -57,7 +53,7 @@ export class InterviewSessionService {
         id: session.id,
         messages: messages.map((message) => this.mapBackendMessage(message))
       })),
-      catchError(() => of(this.getMockInterviewSession()))
+      catchError(() => throwError(() => new Error('No fue posible iniciar la entrevista.')))
     );
   }
 
@@ -82,33 +78,14 @@ export class InterviewSessionService {
     const resolvedSessionId = this.resolveSessionId(sessionId);
 
     if (!resolvedSessionId) {
-      return of<SessionMessage[]>([
-        {
-          id: `m-sys-${Date.now()}`,
-          role: 'SYSTEM',
-          timestamp: 'Ahora',
-          content: 'No fue posible identificar la sesión activa.'
-        }
-      ]);
+      return throwError(() => new Error('No fue posible identificar la sesión activa.'));
     }
 
     return this.http
       .post<BackendChatMessageResponse[]>(`${this.apiBaseUrl}/sessions/${resolvedSessionId}/messages`, {
         content
       })
-      .pipe(
-        map((messages) => messages.map((message) => this.mapBackendMessage(message))),
-        catchError(() =>
-          of<SessionMessage[]>([
-            {
-              id: `m-sys-${Date.now()}`,
-              role: 'SYSTEM',
-              timestamp: 'Ahora',
-              content: 'No fue posible enviar el mensaje. Intenta nuevamente.'
-            }
-          ])
-        )
-      );
+      .pipe(map((messages) => messages.map((message) => this.mapBackendMessage(message))));
   }
 
   submitFinalDiagnosis(
@@ -231,11 +208,6 @@ export class InterviewSessionService {
   private looksLikeUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
   }
-}
-
-interface CreateSessionRequest {
-  activityId: string;
-  studentId: string;
 }
 
 interface BackendSessionResponse {
