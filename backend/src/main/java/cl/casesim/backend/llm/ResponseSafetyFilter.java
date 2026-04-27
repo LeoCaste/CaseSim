@@ -7,14 +7,26 @@ import java.util.regex.Pattern;
 
 public class ResponseSafetyFilter {
 
-    public static final String SAFE_FALLBACK = "Entiendo. Cuénteme un poco más sobre eso.";
+    public static final String SAFE_FALLBACK = "No entiendo a qué se refiere. Yo venía porque tengo tos y me siento muy cansada.";
 
     private static final List<Pattern> BLOCK_PATTERNS = List.of(
-            Pattern.compile("\\bdiagn[oó]stic", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("\\bevalu(a|aci[oó]n|arte)", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("instrucciones? internas?", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("(soy|como)\\s+una\\s+ia", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("(soy|como)\\s+un\\s+modelo", Pattern.CASE_INSENSITIVE)
+            Pattern.compile("(soy|como)\\s+(una\\s+)?(ia|i\\.?a\\.?|inteligencia\\s+artificial)", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("como\\s+modelo\\s+de\\s+lenguaje", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("mi\\s+prompt", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("instrucciones?\\s+internas?", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("api\\s*key", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\b(token|clave)\\s*(api)?\\b", Pattern.CASE_INSENSITIVE),
+
+            Pattern.compile("```"),
+            Pattern.compile("\\b(public\\s+class|public\\s+static\\s+void|private\\s+final|import\\s+java|function\\s*\\(|def\\s+\\w+\\s*\\(|SELECT\\s+.+\\s+FROM)\\b", Pattern.CASE_INSENSITIVE),
+
+            Pattern.compile("\\bdiagn[oó]stic(o|a)?\\b", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\bevalu(a|aci[oó]n|arte|aci[oó]n\\s+del\\s+estudiante|aci[oó]n\\s+del\\s+alumno)\\b", Pattern.CASE_INSENSITIVE),
+
+            Pattern.compile("razonamiento\\s+cl[ií]nico", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("diagn[oó]stico\\s+diferencial", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("hip[oó]tesis\\s+diagn[oó]stica", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("plan\\s+terap[eé]utico", Pattern.CASE_INSENSITIVE)
     );
 
     public String applyOrFallback(String content) {
