@@ -13,6 +13,12 @@ export interface ClinicalFact {
   visibility: ClinicalFactVisibility;
 }
 
+export interface ClinicalCasePersonality {
+  tone: string;
+  detailLevel: string;
+  behaviorNotes: string;
+}
+
 export interface ClinicalCaseSummary {
   id: string;
   title: string;
@@ -34,6 +40,7 @@ export interface ClinicalCase extends ClinicalCaseSummary {
   expectedDiagnosis?: string;
   fallbackResponse?: string;
   behaviorGuidelines?: string;
+  personality: ClinicalCasePersonality;
   facts: ClinicalFact[];
 }
 
@@ -50,5 +57,6 @@ export interface ClinicalCaseUpsertPayload {
   expectedDiagnosis?: string;
   fallbackResponse?: string;
   behaviorGuidelines?: string;
+  personality: ClinicalCasePersonality;
   facts: ClinicalFact[];
 }

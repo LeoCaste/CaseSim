@@ -105,6 +105,8 @@
               {{ getFactVisibilityLabel(fact.visibility) }}
             </strong>
           </article>
+
+          <p *ngIf="clinicalCase.facts.length === 0">Este caso no tiene antecedentes clínicos cargados.</p>
         </div>
       </section>
     </main>
@@ -154,8 +156,18 @@
         </header>
 
         <div class="detail-block">
+          <span>Tono</span>
+          <p>{{ personalityTone }}</p>
+        </div>
+
+        <div class="detail-block">
+          <span>Nivel de detalle</span>
+          <p>{{ personalityDetailLevel }}</p>
+        </div>
+
+        <div class="detail-block">
           <span>Estilo de respuesta</span>
-          <p>{{ clinicalCase.behaviorGuidelines }}</p>
+          <p>{{ personalityBehaviorNotes }}</p>
         </div>
 
         <div class="detail-block">

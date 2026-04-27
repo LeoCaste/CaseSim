@@ -1,6 +1,7 @@
 package cl.casesim.backend.clinicalcases.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record ClinicalCaseResponse(
@@ -13,6 +14,15 @@ public record ClinicalCaseResponse(
         String chiefComplaint,
         String noInformationPhrase,
         boolean active,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        List<ClinicalCaseFactResponse> facts,
+        List<String> personality
 ) {
+
+    public record ClinicalCaseFactResponse(
+            String key,
+            String content,
+            Integer revealLevel
+    ) {
+    }
 }

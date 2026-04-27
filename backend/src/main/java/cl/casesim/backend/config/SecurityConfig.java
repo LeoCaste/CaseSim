@@ -30,7 +30,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
-                        .requestMatchers("/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clinical-cases/**").hasAnyRole("ESTUDIANTE", "PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
                         .requestMatchers("/api/v1/sessions/**").hasAnyRole("ESTUDIANTE", "PROFESOR", "ADMIN")
                         .anyRequest().authenticated()
                 )

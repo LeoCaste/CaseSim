@@ -28,7 +28,7 @@ export class ClinicalCaseListPage implements OnInit {
     this.loading = true;
     this.error = '';
 
-    this.clinicalCaseService.getClinicalCases().subscribe({
+    this.clinicalCaseService.getAll().subscribe({
       next: (cases) => {
         this.cases = cases;
         this.loading = false;

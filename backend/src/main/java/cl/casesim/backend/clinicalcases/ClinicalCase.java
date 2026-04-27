@@ -12,8 +12,36 @@ import java.util.UUID;
 @Table(name = "caso_clinico")
 public class ClinicalCase {
 
+    private static final String DEFAULT_NO_INFORMATION_PHRASE = "No tengo información asociada a eso.";
+
     protected ClinicalCase() {
         // Constructor requerido por JPA
+    }
+
+    public ClinicalCase(
+            UUID id,
+            String titulo,
+            String descripcion,
+            String pacienteNombre,
+            Integer pacienteEdad,
+            String pacienteSexo,
+            String motivoConsulta,
+            String fraseSinInformacion,
+            boolean activo,
+            UUID creadoPor,
+            LocalDateTime creadoEn
+    ) {
+        this.id = id;
+        this.titulo = titulo;
+        this.descripcion = descripcion;
+        this.pacienteNombre = pacienteNombre;
+        this.pacienteEdad = pacienteEdad;
+        this.pacienteSexo = pacienteSexo;
+        this.motivoConsulta = motivoConsulta;
+        this.fraseSinInformacion = fraseSinInformacion;
+        this.activo = activo;
+        this.creadoPor = creadoPor;
+        this.creadoEn = creadoEn;
     }
 
     @Id
@@ -92,5 +120,32 @@ public class ClinicalCase {
 
     public LocalDateTime getCreadoEn() {
         return creadoEn;
+    }
+
+    public void actualizarDatos(
+            String titulo,
+            String descripcion,
+            String pacienteNombre,
+            Integer pacienteEdad,
+            String pacienteSexo,
+            String motivoConsulta,
+            String fraseSinInformacion,
+            boolean activo
+    ) {
+        this.titulo = titulo;
+        this.descripcion = descripcion;
+        this.pacienteNombre = pacienteNombre;
+        this.pacienteEdad = pacienteEdad;
+        this.pacienteSexo = pacienteSexo;
+        this.motivoConsulta = motivoConsulta;
+        this.fraseSinInformacion = fraseSinInformacion;
+        this.activo = activo;
+    }
+
+    public void desactivar() {
+        this.activo = false;
+        if (this.fraseSinInformacion == null || this.fraseSinInformacion.trim().isEmpty()) {
+            this.fraseSinInformacion = DEFAULT_NO_INFORMATION_PHRASE;
+        }
     }
 }

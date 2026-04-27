@@ -39,7 +39,7 @@ export class ClinicalCaseDetailPage implements OnInit {
     this.loading = true;
     this.error = '';
 
-    this.clinicalCaseService.getClinicalCaseById(caseId).subscribe((clinicalCase) => {
+    this.clinicalCaseService.getById(caseId).subscribe((clinicalCase) => {
       if (clinicalCase) {
         this.clinicalCase = clinicalCase;
       } else {
@@ -64,6 +64,18 @@ export class ClinicalCaseDetailPage implements OnInit {
 
   getFactVisibilityLabel(visibility: 'INITIAL' | 'ON_QUESTION'): 'Inicial' | 'Bajo pregunta' {
     return this.clinicalCaseService.getFactVisibilityLabel(visibility);
+  }
+
+  get personalityTone(): string {
+    return this.clinicalCase?.personality.tone || 'Natural y colaborador';
+  }
+
+  get personalityDetailLevel(): string {
+    return this.clinicalCase?.personality.detailLevel || 'Responder solo lo preguntado';
+  }
+
+  get personalityBehaviorNotes(): string {
+    return this.clinicalCase?.personality.behaviorNotes || this.clinicalCase?.behaviorGuidelines || '';
   }
 
   private mapStudent(student: SimulationStudent): { name: string; status: string; canReview: boolean } {

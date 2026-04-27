@@ -23,6 +23,8 @@ export class ClinicalCaseFormPage implements OnInit {
   isEditMode = false;
   showSaveModal = false;
   isSaveSuccess = false;
+  isSaving = false;
+  saveError = '';
   isLoading = false;
   loadError = '';
   private caseId?: string;
@@ -42,6 +44,11 @@ export class ClinicalCaseFormPage implements OnInit {
     expectedDiagnosis: '',
     fallbackResponse: '',
     behaviorGuidelines: '',
+    personality: {
+      tone: 'Natural y colaborador',
+      detailLevel: 'Responder solo lo preguntado',
+      behaviorNotes: ''
+    },
     facts: []
   };
 
@@ -76,7 +83,7 @@ export class ClinicalCaseFormPage implements OnInit {
       return;
     }
 
-    this.clinicalCaseService.getClinicalCaseById(this.caseId).subscribe((clinicalCase) => {
+    this.clinicalCaseService.getById(this.caseId).subscribe((clinicalCase) => {
       if (clinicalCase) {
         this.caseFormState = clinicalCase;
       } else {
@@ -97,11 +104,17 @@ export class ClinicalCaseFormPage implements OnInit {
   openSaveConfirmation(): void {
     this.showSaveModal = true;
     this.isSaveSuccess = false;
+    this.saveError = '';
   }
 
   cancelSaveConfirmation(): void {
+    if (this.isSaving) {
+      return;
+    }
+
     this.showSaveModal = false;
     this.isSaveSuccess = false;
+    this.saveError = '';
   }
 
   saveCase(): void {
@@ -126,19 +139,32 @@ export class ClinicalCaseFormPage implements OnInit {
       expectedDiagnosis: this.caseFormState.expectedDiagnosis,
       fallbackResponse: this.caseFormState.fallbackResponse,
       behaviorGuidelines: this.caseFormState.behaviorGuidelines,
+      personality: this.caseFormState.personality,
       facts
     };
 
     const save$ = this.isEditMode && this.caseId
-      ? this.clinicalCaseService.updateClinicalCase(this.caseId, payload)
-      : this.clinicalCaseService.createClinicalCase(payload);
+      ? this.clinicalCaseService.update(this.caseId, payload)
+      : this.clinicalCaseService.create(payload);
 
-    save$.subscribe();
-    this.isSaveSuccess = true;
+    this.isSaving = true;
+    this.saveError = '';
 
-    setTimeout(() => {
-      this.router.navigate(['/clinical-cases']);
-    }, 900);
+    save$.subscribe({
+      next: () => {
+        this.isSaving = false;
+        this.isSaveSuccess = true;
+
+        setTimeout(() => {
+          this.router.navigate(['/clinical-cases']);
+        }, 900);
+      },
+      error: () => {
+        this.isSaving = false;
+        this.isSaveSuccess = false;
+        this.saveError = 'No fue posible guardar el caso clínico. Revisa los datos e inténtalo nuevamente.';
+      }
+    });
   }
 
   get saveLabel(): string {
@@ -146,6 +172,12 @@ export class ClinicalCaseFormPage implements OnInit {
   }
 
   private syncFromFormState(): void {
+    this.caseFormState.personality = this.caseFormState.personality ?? {
+      tone: 'Natural y colaborador',
+      detailLevel: 'Responder solo lo preguntado',
+      behaviorNotes: this.caseFormState.behaviorGuidelines ?? ''
+    };
+
     this.clinicalFacts = this.caseFormState.facts.map((fact) => ({
       ...fact,
       visibilityLabel: this.mapVisibilityToLabel(fact.visibility)

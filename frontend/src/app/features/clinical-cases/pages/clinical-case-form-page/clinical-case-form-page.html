@@ -22,6 +22,7 @@
 
   <p *ngIf="isLoading">Cargando casos clínicos...</p>
   <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
+  <p *ngIf="!isLoading && !loadError && saveError">{{ saveError }}</p>
 
   <form class="case-form" *ngIf="!isLoading && !loadError">
     <section class="form-card">
@@ -122,8 +123,8 @@
       <div class="form-grid two">
         <label>
           Tono
-          <select>
-            <option selected>Natural y colaborador</option>
+          <select [(ngModel)]="caseFormState.personality.tone" name="personalityTone">
+            <option>Natural y colaborador</option>
             <option>Ansioso</option>
             <option>Reservado</option>
             <option>Confundido</option>
@@ -132,8 +133,8 @@
 
         <label>
           Nivel de detalle
-          <select>
-            <option selected>Responder solo lo preguntado</option>
+          <select [(ngModel)]="caseFormState.personality.detailLevel" name="personalityDetailLevel">
+            <option>Responder solo lo preguntado</option>
             <option>Dar contexto moderado</option>
             <option>Respuestas breves</option>
           </select>
@@ -142,7 +143,7 @@
 
       <label>
         Notas de comportamiento
-        <textarea [(ngModel)]="caseFormState.behaviorGuidelines" name="behaviorGuidelines"></textarea>
+        <textarea [(ngModel)]="caseFormState.personality.behaviorNotes" name="personalityBehaviorNotes"></textarea>
       </label>
     </section>
 
@@ -185,11 +186,11 @@
       <p class="modal-title modal-title--success" *ngIf="isSaveSuccess">Caso guardado correctamente.</p>
 
       <div class="modal-actions" *ngIf="!isSaveSuccess">
-        <button class="cs-button secondary" type="button" (click)="cancelSaveConfirmation()">
+        <button class="cs-button secondary" type="button" (click)="cancelSaveConfirmation()" [disabled]="isSaving">
           Cancelar
         </button>
 
-        <button class="cs-button primary" type="button" (click)="saveCase()">
+        <button class="cs-button primary" type="button" (click)="saveCase()" [disabled]="isSaving">
           Confirmar guardado
         </button>
       </div>
