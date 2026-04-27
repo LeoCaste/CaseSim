@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +17,8 @@ import { DiagnosisReview, SessionMessage } from '../../../../core/models/student
   styleUrl: './interview-page.css'
 })
 export class InterviewPage implements OnInit {
+  @ViewChild('conversationPanel') private conversationPanel?: ElementRef<HTMLElement>;
+
   showFinalDiagnosisModal = false;
   clinicalIntervention = '';
   clinicalNotes = '';
@@ -51,6 +53,7 @@ export class InterviewPage implements OnInit {
       this.session = session;
       this.messages = session.messages.map((message) => this.mapMessage(message));
       this.isLoading = false;
+      this.scrollConversationToBottom();
     });
   }
 
@@ -64,7 +67,17 @@ export class InterviewPage implements OnInit {
     this.interviewSessionService.sendMessage(this.session.id, content).subscribe((newMessages) => {
       this.messages = [...this.messages, ...newMessages.map((message) => this.mapMessage(message))];
       this.clinicalIntervention = '';
+      this.scrollConversationToBottom();
     });
+  }
+
+  onInterventionKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    this.sendIntervention();
   }
 
   openFinalDiagnosisModal(): void {
@@ -113,5 +126,17 @@ export class InterviewPage implements OnInit {
       time: message.timestamp,
       content: message.content
     };
+  }
+
+  private scrollConversationToBottom(): void {
+    requestAnimationFrame(() => {
+      const panel = this.conversationPanel?.nativeElement;
+
+      if (!panel) {
+        return;
+      }
+
+      panel.scrollTop = panel.scrollHeight;
+    });
   }
 }

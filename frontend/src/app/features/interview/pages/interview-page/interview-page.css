@@ -1,8 +1,14 @@
 .interview-page {
   width: 100%;
+  height: calc(100dvh - 120px);
+  min-height: 0;
 }
 
 .interview-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
   background: var(--cs-surface);
   border: 1px solid var(--cs-border);
   border-radius: var(--cs-radius);
@@ -79,13 +85,17 @@
 
 .interview-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
-  min-height: 500px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .conversation-panel {
+  min-height: 0;
   padding: 24px;
   background: #fbfcfd;
+  overflow-y: auto;
 }
 
 .clinical-message {
@@ -128,9 +138,11 @@
 }
 
 .notebook-panel {
+  min-height: 0;
   padding: 20px;
   border-left: 1px solid var(--cs-border);
   background: var(--cs-surface);
+  overflow-y: auto;
 }
 
 .notebook-header h2 {
@@ -234,13 +246,23 @@
 }
 
 @media (max-width: 1000px) {
+  .interview-page {
+    height: calc(100dvh - 100px);
+  }
+
   .interview-layout {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  }
+
+  .conversation-panel {
+    max-height: none;
   }
 
   .notebook-panel {
     border-left: 0;
     border-top: 1px solid var(--cs-border);
+    max-height: none;
   }
 }
 

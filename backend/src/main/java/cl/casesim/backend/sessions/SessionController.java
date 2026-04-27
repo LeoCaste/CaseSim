@@ -1,9 +1,9 @@
 package cl.casesim.backend.sessions;
 
 import cl.casesim.backend.sessions.dto.ChatMessageResponse;
-import cl.casesim.backend.sessions.dto.CreateChatMessageRequest;
 import cl.casesim.backend.sessions.dto.CreateSessionRequest;
 import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
+import cl.casesim.backend.sessions.dto.SendMessageRequest;
 import cl.casesim.backend.sessions.dto.SessionResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -50,7 +50,7 @@ public class SessionController {
     @ResponseStatus(HttpStatus.CREATED)
     public List<ChatMessageResponse> createSessionMessages(
             @PathVariable("id") UUID id,
-            @Valid @RequestBody CreateChatMessageRequest request
+            @Valid @RequestBody SendMessageRequest request
     ) {
         return sessionService.createMessages(id, request);
     }

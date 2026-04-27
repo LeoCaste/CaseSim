@@ -6,12 +6,12 @@
     </div>
   </header>
 
-  <div class="transcript-list">
+  <div class="transcript-list" #transcriptList>
     <article
       *ngFor="let message of messages"
       class="transcript-message"
-      [class.patient]="message.role === 'Paciente'"
-      [class.student]="message.role === 'Estudiante'"
+      [class.patient]="isPatientMessage(message.role)"
+      [class.student]="isStudentMessage(message.role)"
     >
       <div class="message-meta">
         <span>{{ message.role }}</span>

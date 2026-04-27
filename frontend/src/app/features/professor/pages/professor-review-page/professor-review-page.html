@@ -26,20 +26,13 @@
   </section>
 
   <section class="review-layout">
-    <main class="review-main">
-      <app-session-transcript
-        [messages]="transcript"
-      ></app-session-transcript>
+    <main class="review-column review-column--transcript">
+      <app-session-transcript [messages]="transcript"></app-session-transcript>
     </main>
 
-    <aside class="review-side">
-      <app-student-notebook
-        [notebook]="notebook"
-      ></app-student-notebook>
-
-      <app-evaluation-panel
-        [diagnosis]="diagnosis"
-      ></app-evaluation-panel>
+    <aside class="review-column review-column--side">
+      <app-student-notebook [notebook]="notebook"></app-student-notebook>
+      <app-evaluation-panel [diagnosis]="diagnosis"></app-evaluation-panel>
     </aside>
   </section>
 </section>

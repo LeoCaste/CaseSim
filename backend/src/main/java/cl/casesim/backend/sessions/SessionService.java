@@ -4,9 +4,9 @@ import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ConflictException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
 import cl.casesim.backend.sessions.dto.ChatMessageResponse;
-import cl.casesim.backend.sessions.dto.CreateChatMessageRequest;
 import cl.casesim.backend.sessions.dto.CreateSessionRequest;
 import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
+import cl.casesim.backend.sessions.dto.SendMessageRequest;
 import cl.casesim.backend.sessions.dto.SessionResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -91,7 +91,7 @@ public class SessionService {
     }
 
     @Transactional
-    public List<ChatMessageResponse> createMessages(UUID sessionId, CreateChatMessageRequest request) {
+    public List<ChatMessageResponse> createMessages(UUID sessionId, SendMessageRequest request) {
         SimulationSession session = getSessionOrThrow(sessionId);
         assertSessionInProgressForMessages(session);
 

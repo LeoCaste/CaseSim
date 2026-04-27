@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { catchError, map, Observable, of } from 'rxjs';
 
 import {
   ClinicalCase,
@@ -14,6 +15,8 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root'
 })
 export class ClinicalCaseService {
+  private readonly apiBaseUrl = environment.apiBaseUrl;
+
   private clinicalCases: ClinicalCase[] = [
     {
       id: '1',
@@ -78,10 +81,16 @@ export class ClinicalCaseService {
     }
   ];
 
+  constructor(private http: HttpClient) {}
+
   getClinicalCases(): Observable<ClinicalCaseSummary[]> {
-    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
     if (!environment.useMocks) {
-      return of([]);
+      return this.http
+        .get<BackendClinicalCaseResponse[]>(`${this.apiBaseUrl}/clinical-cases`)
+        .pipe(
+          map((response) => response.map((item) => this.mapBackendCaseToSummary(item))),
+          catchError(() => of([]))
+        );
     }
 
     return of(
@@ -100,16 +109,21 @@ export class ClinicalCaseService {
   }
 
   getClinicalCaseById(id: string): Observable<ClinicalCase | undefined> {
-    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
     if (!environment.useMocks) {
-      return of(undefined);
+      return this.http
+        .get<BackendClinicalCaseResponse>(`${this.apiBaseUrl}/clinical-cases/${id}`)
+        .pipe(
+          map((response) => this.mapBackendCaseToDetail(response)),
+          catchError(() => of(undefined))
+        );
     }
 
     return of(this.clinicalCases.find((item) => item.id === id));
   }
 
   createClinicalCase(payload: ClinicalCaseUpsertPayload): Observable<ClinicalCase> {
-    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    // En FASE 6 solo se integra lectura de casos contra backend.
+    // Se mantiene comportamiento mock para no romper el flujo de profesor.
     const createdCase: ClinicalCase = {
       id: this.nextId(),
       ...payload,
@@ -121,7 +135,7 @@ export class ClinicalCaseService {
   }
 
   updateClinicalCase(id: string, payload: ClinicalCaseUpsertPayload): Observable<ClinicalCase> {
-    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    // En FASE 6 solo se integra lectura de casos contra backend.
     const updatedCase: ClinicalCase = {
       id,
       ...payload,
@@ -136,7 +150,7 @@ export class ClinicalCaseService {
   }
 
   deleteClinicalCase(id: string): Observable<void> {
-    // Cuando environment.useMocks === false, este método se reemplaza por HttpClient.
+    // En FASE 6 solo se integra lectura de casos contra backend.
     this.clinicalCases = this.clinicalCases.filter((clinicalCase) => clinicalCase.id !== id);
     return of(void 0);
   }
@@ -202,4 +216,56 @@ export class ClinicalCaseService {
 
     return String(maxNumericId + 1);
   }
+
+  private mapBackendCaseToSummary(response: BackendClinicalCaseResponse): ClinicalCaseSummary {
+    return {
+      id: response.id,
+      title: response.title,
+      patientName: response.patientName,
+      status: 'READY',
+      estimatedTimeMinutes: undefined,
+      factsCount: 0,
+      age: response.patientAge,
+      sex: this.mapSex(response.patientSex),
+      reason: response.chiefComplaint
+    };
+  }
+
+  private mapBackendCaseToDetail(response: BackendClinicalCaseResponse): ClinicalCase {
+    const summary = this.mapBackendCaseToSummary(response);
+    return {
+      ...summary,
+      age: response.patientAge ?? 0,
+      sex: this.mapSex(response.patientSex),
+      context: 'Consulta clínica',
+      reason: response.chiefComplaint,
+      initialMessage: response.chiefComplaint,
+      expectedDiagnosis: undefined,
+      fallbackResponse: response.noInformationPhrase,
+      behaviorGuidelines: response.description,
+      facts: []
+    };
+  }
+
+  private mapSex(patientSex: string | null | undefined): 'F' | 'M' | 'X' {
+    if (!patientSex) return 'X';
+
+    const normalized = patientSex.trim().toUpperCase();
+    if (normalized.startsWith('F')) return 'F';
+    if (normalized.startsWith('M')) return 'M';
+    return 'X';
+  }
+}
+
+interface BackendClinicalCaseResponse {
+  id: string;
+  title: string;
+  description: string;
+  patientName: string;
+  patientAge: number;
+  patientSex: string;
+  chiefComplaint: string;
+  noInformationPhrase: string;
+  active: boolean;
+  createdAt: string;
 }

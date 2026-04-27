@@ -1,5 +1,9 @@
 .review-page {
   width: 100%;
+  height: calc(100dvh - 120px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .review-header {
@@ -71,24 +75,59 @@
 
 .review-layout {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.85fr);
+  column-gap: 6px;
+  row-gap: 12px;
+  min-height: 0;
 }
 
-.review-main,
-.review-side {
+.review-column {
   min-width: 0;
+  min-height: 0;
 }
 
-.review-side {
+.review-column--transcript {
+  display: flex;
+  overflow: hidden;
+}
+
+.review-column--transcript > app-session-transcript {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+.review-column--side {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  overflow-y: auto;
+}
+
+.review-column--side > app-student-notebook,
+.review-column--side > app-evaluation-panel {
+  display: block;
+  width: 100%;
 }
 
 @media (max-width: 1100px) {
+  .review-page {
+    height: auto;
+  }
+
   .review-layout {
     grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
+
+  .review-column--transcript {
+    min-height: clamp(320px, 56dvh, 560px);
+  }
+
+  .review-column--side {
+    overflow-y: visible;
   }
 }
 

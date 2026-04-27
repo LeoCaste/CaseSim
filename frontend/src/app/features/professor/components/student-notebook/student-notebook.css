@@ -1,3 +1,8 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
 .notebook-review-card {
   background: var(--cs-surface);
   border: 1px solid var(--cs-border);

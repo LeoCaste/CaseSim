@@ -30,7 +30,7 @@
     </section>
 
     <div class="interview-layout">
-      <main class="conversation-panel">
+      <main class="conversation-panel" #conversationPanel>
         <section
           class="clinical-message"
           *ngFor="let message of messages"
@@ -80,6 +80,7 @@
           id="clinical-intervention"
           placeholder="Escribe tu intervención clínica..."
           [(ngModel)]="clinicalIntervention"
+          (keydown)="onInterventionKeydown($event)"
         ></textarea>
 
         <div class="intervention-actions">
@@ -88,7 +89,7 @@
             type="button"
             (click)="sendIntervention()"
           >
-            Enviar intervención
+            Enviar mensaje
           </button>
 
           <button
