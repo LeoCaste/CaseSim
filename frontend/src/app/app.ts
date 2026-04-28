@@ -15,6 +15,8 @@ export class App {
 
   constructor(authService: AuthService, userContext: UserContext) {
     userContext.setUser(authService.getCurrentUser());
-    authService.me().subscribe((user) => userContext.setUser(user));
+    authService.ensureInitialized().subscribe(() => {
+      userContext.setUser(authService.getCurrentUser());
+    });
   }
 }

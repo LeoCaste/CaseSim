@@ -1,5 +1,4 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { UserContext } from '../../core/services/user-context';
 
@@ -12,14 +11,12 @@ import { UserContext } from '../../core/services/user-context';
 export class Topbar {
   constructor(
     public userContext: UserContext,
-    private authService: AuthService,
-    private router: Router
+    private authService: AuthService
   ) {}
 
   logout(): void {
     this.authService.logout().subscribe(() => {
       this.userContext.setUser(null);
-      this.router.navigate(['/login']);
     });
   }
 }

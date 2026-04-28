@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, forkJoin, map, Observable, of, timeout } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, throwError, timeout } from 'rxjs';
 
 import {
   LlmConfig,
@@ -56,7 +56,7 @@ export class AdminLlmService {
         .pipe(
           timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
-          catchError(() => of(this.mockConfig))
+          catchError(() => throwError(() => new Error('No fue posible cargar configuración LLM.')))
         );
     }
 
@@ -122,7 +122,7 @@ export class AdminLlmService {
       }).pipe(
         timeout(this.requestTimeoutMs),
         map((response) => response.map((item) => this.mapUsageItem(item))),
-        catchError(() => of(this.getMockUsageSnapshot(filters)))
+        catchError(() => throwError(() => new Error('No fue posible cargar uso LLM.')))
       );
     }
 
@@ -136,7 +136,7 @@ export class AdminLlmService {
       }).pipe(
         timeout(this.requestTimeoutMs),
         map((response) => this.mapSummary(response)),
-        catchError(() => of(this.buildMockSummary(this.getMockUsageSnapshot(filters))))
+        catchError(() => throwError(() => new Error('No fue posible cargar resumen LLM.')))
       );
     }
 

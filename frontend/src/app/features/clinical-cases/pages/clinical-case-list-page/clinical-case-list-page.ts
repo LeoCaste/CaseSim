@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
@@ -19,12 +19,17 @@ export class ClinicalCaseListPage implements OnInit {
 
   constructor(
     private userContext: UserContext,
-    private clinicalCaseService: ClinicalCaseService
+    private clinicalCaseService: ClinicalCaseService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {
+    this.loadCases();
+  }
+
+  private loadCases(): void {
     this.loading = true;
     this.error = '';
 
@@ -32,10 +37,13 @@ export class ClinicalCaseListPage implements OnInit {
       next: (cases) => {
         this.cases = cases;
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: () => {
+        this.cases = [];
         this.error = 'No fue posible cargar los casos clínicos.';
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }

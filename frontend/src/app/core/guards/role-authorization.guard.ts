@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, CanMatchFn, Route, Router, UrlTree } from '@angular/router';
+import { map, Observable } from 'rxjs';
 
 import { UserRole } from '../models/auth-user.model';
 import { AuthService } from '../services/auth.service';
@@ -42,24 +43,29 @@ function isRoleAllowed(userRole: UserRole, allowedRoles: UserRole[]): boolean {
   return userRole === 'admin' && allowedRoles.includes('professor');
 }
 
-function authorizeRoute(route: Pick<Route, 'data'>): boolean | UrlTree {
+function authorizeRoute(route: Pick<Route, 'data'>): Observable<boolean | UrlTree> {
   const authService = inject(AuthService);
   const userContext = inject(UserContext);
   const router = inject(Router);
 
-  const user = authService.getCurrentUser();
-  userContext.setUser(user);
+  return authService.ensureInitialized().pipe(
+    map(() => {
+      const user = authService.getCurrentUser();
+      const isValidatedSession = authService.isSessionValidated();
+      userContext.setUser(user);
 
-  if (!user) {
-    return redirectForCurrentSession(null, router);
-  }
+      if (!user || !isValidatedSession) {
+        return redirectForCurrentSession(null, router);
+      }
 
-  const allowedRoles = readAllowedRoles(route);
-  if (allowedRoles.length === 0 || isRoleAllowed(user.role, allowedRoles)) {
-    return true;
-  }
+      const allowedRoles = readAllowedRoles(route);
+      if (allowedRoles.length === 0 || isRoleAllowed(user.role, allowedRoles)) {
+        return true;
+      }
 
-  return redirectForCurrentSession(user.role, router);
+      return redirectForCurrentSession(user.role, router);
+    })
+  );
 }
 
 export const roleAuthorizationCanActivate: CanActivateFn = (route) => authorizeRoute(route.routeConfig ?? {});

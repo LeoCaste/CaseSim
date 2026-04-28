@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, finalize, map, Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, finalize, map, Observable, of, shareReplay, tap, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 
 import { AuthUser } from '../models/auth-user.model';
 import { AuthLoginRequest, AuthPreCheckRequest } from '../models/auth-flow.model';
@@ -16,10 +18,55 @@ export class AuthService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private currentUser: AuthUser | null = null;
   private token: string | null = null;
+  private initialized = false;
+  private initializing$: Observable<void> | null = null;
+  private sessionValidated = false;
+  private readonly authReadySubject = new BehaviorSubject<boolean>(false);
+  private readonly backendAvailableSubject = new BehaviorSubject<boolean>(true);
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private router: Router
+  ) {
     this.currentUser = this.loadStoredUser();
     this.token = this.loadStoredToken();
+  }
+
+  ensureInitialized(): Observable<void> {
+    if (this.initialized) {
+      return of(void 0);
+    }
+
+    if (this.initializing$) {
+      return this.initializing$;
+    }
+
+    if (!this.token) {
+      this.initialized = true;
+      this.sessionValidated = false;
+      this.backendAvailableSubject.next(true);
+      this.authReadySubject.next(true);
+      return of(void 0);
+    }
+
+    this.initializing$ = this.me().pipe(
+      map(() => void 0),
+      tap(() => {
+        this.initialized = true;
+        this.authReadySubject.next(true);
+      }),
+      catchError(() => {
+        this.initialized = true;
+        this.authReadySubject.next(true);
+        return of(void 0);
+      }),
+      finalize(() => {
+        this.initializing$ = null;
+      }),
+      shareReplay(1)
+    );
+
+    return this.initializing$;
   }
 
   preCheck(email: string): Observable<{ requiresPassword: boolean }> {
@@ -52,6 +99,7 @@ export class AuthService {
             const user = this.mapBackendUser(response.user);
             this.currentUser = user;
             this.token = response.token;
+            this.sessionValidated = true;
             this.persistUser(user);
             this.persistToken(response.token);
             return user;
@@ -82,6 +130,7 @@ export class AuthService {
     };
 
     this.token = 'mock-token';
+    this.sessionValidated = true;
 
     this.persistUser(this.currentUser);
     this.persistToken(this.token);
@@ -92,6 +141,7 @@ export class AuthService {
   me(): Observable<AuthUser | null> {
     if (!environment.useMocks) {
       if (!this.token) {
+        this.backendAvailableSubject.next(true);
         return of(null);
       }
 
@@ -100,11 +150,25 @@ export class AuthService {
           const backendUser = 'user' in response ? response.user : response;
           const user = this.mapBackendUser(backendUser);
           this.currentUser = user;
+          this.sessionValidated = true;
           this.persistUser(user);
+          this.backendAvailableSubject.next(true);
           return user;
         }),
-        catchError(() => {
-          this.clearAuthState();
+        catchError((error) => {
+          if (this.isUnauthorizedError(error)) {
+            this.clearSessionAndRedirectToLogin();
+            this.backendAvailableSubject.next(true);
+            return of(null);
+          }
+
+          if (this.token && this.currentUser) {
+            this.sessionValidated = true;
+            this.backendAvailableSubject.next(!this.isNetworkError(error));
+            return of(this.currentUser);
+          }
+
+          this.backendAvailableSubject.next(false);
           return of(null);
         })
       );
@@ -126,7 +190,7 @@ export class AuthService {
       return this.http.post<void>(`${this.apiBaseUrl}/auth/logout`, {}).pipe(
         catchError(() => of(void 0)),
         finalize(() => {
-          this.clearAuthState();
+          this.clearSessionAndRedirectToLogin();
         }),
         map(() => {
           return void 0;
@@ -134,12 +198,36 @@ export class AuthService {
       );
     }
 
-    this.clearAuthState();
+    this.clearSessionAndRedirectToLogin();
     return of(void 0);
   }
 
   getToken(): string | null {
     return this.token;
+  }
+
+  isAuthReady(): boolean {
+    return this.authReadySubject.value;
+  }
+
+  isBackendAvailable(): boolean {
+    return this.backendAvailableSubject.value;
+  }
+
+  isSessionValidated(): boolean {
+    return this.sessionValidated;
+  }
+
+  clearSessionByUnauthorized(): void {
+    this.clearSessionAndRedirectToLogin();
+    this.backendAvailableSubject.next(true);
+  }
+
+  clearSessionByConnectionFailure(): void {
+    if (this.token && this.currentUser) {
+      this.sessionValidated = true;
+    }
+    this.backendAvailableSubject.next(false);
   }
 
   private loadStoredUser(): AuthUser | null {
@@ -216,8 +304,22 @@ export class AuthService {
   private clearAuthState(): void {
     this.currentUser = null;
     this.token = null;
+    this.sessionValidated = false;
     this.clearStoredUser();
     this.clearStoredToken();
+  }
+
+  private clearSessionAndRedirectToLogin(): void {
+    this.clearAuthState();
+    void this.router.navigate(['/login']);
+  }
+
+  private isUnauthorizedError(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403);
+  }
+
+  private isNetworkError(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 0;
   }
 
   private inferMockRole(email: string): AuthUser['role'] | null {

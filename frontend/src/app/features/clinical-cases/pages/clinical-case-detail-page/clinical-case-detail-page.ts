@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
@@ -6,6 +6,7 @@ import { ClinicalCase } from '../../../../core/models/clinical-case.model';
 import { SimulationStudent } from '../../../../core/models/simulation.model';
 import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
 import { SimulationAssignmentService } from '../../../../core/services/simulation-assignment.service';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-clinical-case-detail-page',
@@ -24,7 +25,8 @@ export class ClinicalCaseDetailPage implements OnInit {
     private userContext: UserContext,
     private route: ActivatedRoute,
     private clinicalCaseService: ClinicalCaseService,
-    private simulationAssignmentService: SimulationAssignmentService
+    private simulationAssignmentService: SimulationAssignmentService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('professor');
   }
@@ -39,19 +41,34 @@ export class ClinicalCaseDetailPage implements OnInit {
     this.loading = true;
     this.error = '';
 
-    this.clinicalCaseService.getById(caseId).subscribe((clinicalCase) => {
-      if (clinicalCase) {
-        this.clinicalCase = clinicalCase;
-      } else {
-        this.error = 'No se encontró el caso clínico solicitado.';
-      }
-      this.loading = false;
-    });
+    this.clinicalCaseService
+      .getById(caseId)
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (clinicalCase) => {
+          if (clinicalCase) {
+            this.clinicalCase = clinicalCase;
+          } else {
+            this.error = 'No se encontró el caso clínico solicitado.';
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.error = 'No fue posible cargar el caso clínico.';
+          this.cdr.detectChanges();
+        }
+      });
 
     this.simulationAssignmentService.getAssignmentContext(caseId).subscribe((context) => {
       this.associatedStudents = context.students
         .filter((student) => student.selected ?? true)
         .map((student) => this.mapStudent(student));
+      this.cdr.detectChanges();
     });
   }
 

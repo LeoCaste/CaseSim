@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { forkJoin, map, Observable, of, throwError } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, throwError, timeout } from 'rxjs';
 
 import { StudentActivity, StudentSession } from '../models/student-session.model';
 import { environment } from '../../../environments/environment';
@@ -20,6 +20,7 @@ export interface StudentDashboardData {
   providedIn: 'root'
 })
 export class StudentSessionService {
+  private readonly requestTimeoutMs = 8000;
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly currentSessionStorageKey = 'casesim.currentSessionId';
   private readonly currentActivityStorageKey = 'casesim.currentActivityId';
@@ -33,7 +34,11 @@ export class StudentSessionService {
 
     return this.http
       .get<BackendStudentActivityResponse[]>(`${this.apiBaseUrl}/student/activities`)
-      .pipe(map((activities) => activities.map((activity) => this.mapBackendActivityToFrontend(activity))));
+      .pipe(
+        timeout(this.requestTimeoutMs),
+        map((activities) => activities.map((activity) => this.mapBackendActivityToFrontend(activity))),
+        catchError(() => throwError(() => new Error('No fue posible cargar las actividades.')))
+      );
   }
 
   getDashboardData(): Observable<StudentDashboardData> {

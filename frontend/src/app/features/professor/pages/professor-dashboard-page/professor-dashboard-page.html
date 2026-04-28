@@ -19,14 +19,20 @@
     </div>
   </header>
 
-  <section class="summary-grid">
+  <p *ngIf="isLoading">Cargando panel del profesor...</p>
+  <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
+  <p *ngIf="!isLoading && !loadError && summary.length === 0 && simulations.length === 0 && activities.length === 0 && sessions.length === 0">
+    No hay información disponible para mostrar.
+  </p>
+
+  <section class="summary-grid" *ngIf="!isLoading && !loadError">
     <article *ngFor="let item of summary" class="summary-card">
       <span>{{ item.label }}</span>
       <strong>{{ item.value }}</strong>
     </article>
   </section>
 
-  <section class="dashboard-grid">
+  <section class="dashboard-grid" *ngIf="!isLoading && !loadError">
     <div class="dashboard-column">
       <h2>Simulación activa</h2>
 
@@ -46,7 +52,7 @@
     </div>
   </section>
 
-  <section class="sessions-section">
+  <section class="sessions-section" *ngIf="!isLoading && !loadError">
     <div class="sessions-section__header">
       <div>
         <h2>Sesiones recientes</h2>

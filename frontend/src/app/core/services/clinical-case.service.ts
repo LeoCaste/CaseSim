@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of, throwError, timeout } from 'rxjs';
 
 import {
   ClinicalCase,
@@ -16,6 +16,7 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root'
 })
 export class ClinicalCaseService {
+  private readonly requestTimeoutMs = 8000;
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
   private clinicalCases: ClinicalCase[] = [
@@ -100,8 +101,9 @@ export class ClinicalCaseService {
       return this.http
         .get<BackendClinicalCaseResponse[]>(`${this.apiBaseUrl}/clinical-cases`)
         .pipe(
+          timeout(this.requestTimeoutMs),
           map((response) => response.map((item) => this.mapBackendCaseToSummary(item))),
-          catchError(() => of(this.mapMockCasesToSummary()))
+          catchError(() => throwError(() => new Error('No fue posible cargar los casos clínicos.')))
         );
     }
 
@@ -113,8 +115,9 @@ export class ClinicalCaseService {
       return this.http
         .get<BackendClinicalCaseResponse>(`${this.apiBaseUrl}/clinical-cases/${id}`)
         .pipe(
+          timeout(this.requestTimeoutMs),
           map((response) => this.mapBackendCaseToDetail(response)),
-          catchError(() => of(this.clinicalCases.find((item) => item.id === id)))
+          catchError(() => throwError(() => new Error('No fue posible cargar el caso clínico.')))
         );
     }
 

@@ -18,7 +18,11 @@
   </section>
 
   <section class="activities-grid">
+    <p *ngIf="isLoading" class="student-dashboard__loading">Cargando actividades...</p>
     <p *ngIf="loadError" class="student-dashboard__error">{{ loadError }}</p>
+    <p *ngIf="!isLoading && !loadError && activities.length === 0" class="student-dashboard__empty">
+      No hay actividades disponibles por ahora.
+    </p>
 
     <app-activity-card
       *ngFor="let activity of activities"

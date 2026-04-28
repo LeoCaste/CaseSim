@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -10,6 +10,7 @@ import {
   ClinicalFactVisibility
 } from '../../../../core/models/clinical-case.model';
 import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
+import { finalize } from 'rxjs';
 
 type FactVisibilityLabel = 'Inicial' | 'Bajo pregunta';
 
@@ -58,7 +59,8 @@ export class ClinicalCaseFormPage implements OnInit {
     private userContext: UserContext,
     private route: ActivatedRoute,
     private router: Router,
-    private clinicalCaseService: ClinicalCaseService
+    private clinicalCaseService: ClinicalCaseService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('professor');
     this.isEditMode = this.route.snapshot.paramMap.has('id');
@@ -69,11 +71,25 @@ export class ClinicalCaseFormPage implements OnInit {
     this.caseId = this.route.snapshot.paramMap.get('id') ?? undefined;
 
     if (!this.isEditMode) {
-      this.clinicalCaseService.getCaseDraft().subscribe((draft) => {
-        this.caseFormState = draft;
-        this.syncFromFormState();
-        this.isLoading = false;
-      });
+      this.clinicalCaseService
+        .getCaseDraft()
+        .pipe(
+          finalize(() => {
+            this.isLoading = false;
+            this.cdr.detectChanges();
+          })
+        )
+        .subscribe({
+          next: (draft) => {
+            this.caseFormState = draft;
+            this.syncFromFormState();
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.loadError = 'No fue posible cargar el borrador del caso clínico.';
+            this.cdr.detectChanges();
+          }
+        });
       return;
     }
 
@@ -83,15 +99,29 @@ export class ClinicalCaseFormPage implements OnInit {
       return;
     }
 
-    this.clinicalCaseService.getById(this.caseId).subscribe((clinicalCase) => {
-      if (clinicalCase) {
-        this.caseFormState = clinicalCase;
-      } else {
-        this.loadError = 'No se encontró el caso clínico solicitado.';
-      }
-      this.syncFromFormState();
-      this.isLoading = false;
-    });
+    this.clinicalCaseService
+      .getById(this.caseId)
+      .pipe(
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (clinicalCase) => {
+          if (clinicalCase) {
+            this.caseFormState = clinicalCase;
+          } else {
+            this.loadError = 'No se encontró el caso clínico solicitado.';
+          }
+          this.syncFromFormState();
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.loadError = 'No fue posible cargar el caso clínico.';
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   get pageTitle(): string {
@@ -150,21 +180,25 @@ export class ClinicalCaseFormPage implements OnInit {
     this.isSaving = true;
     this.saveError = '';
 
-    save$.subscribe({
-      next: () => {
-        this.isSaving = false;
-        this.isSaveSuccess = true;
-
-        setTimeout(() => {
-          this.router.navigate(['/clinical-cases']);
-        }, 900);
-      },
-      error: () => {
-        this.isSaving = false;
-        this.isSaveSuccess = false;
-        this.saveError = 'No fue posible guardar el caso clínico. Revisa los datos e inténtalo nuevamente.';
-      }
-    });
+    save$
+      .pipe(
+        finalize(() => {
+          this.isSaving = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.isSaveSuccess = true;
+          this.showSaveModal = false;
+          void this.router.navigate(['/clinical-cases']);
+        },
+        error: () => {
+          this.isSaveSuccess = false;
+          this.saveError = 'No fue posible guardar el caso clínico. Revisa los datos e inténtalo nuevamente.';
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   get saveLabel(): string {

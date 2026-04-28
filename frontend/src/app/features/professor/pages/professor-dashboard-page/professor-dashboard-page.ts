@@ -12,6 +12,7 @@ import {
   ProfessorSummaryItem
 } from '../../../../core/models/professor-dashboard.model';
 import { ProfessorDashboardService } from '../../../../core/services/professor-dashboard.service';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-professor-dashboard-page',
@@ -36,12 +37,29 @@ export class ProfessorDashboardPage implements OnInit {
 
   ngOnInit(): void {
     this.isLoading = true;
-    this.professorDashboardService.getDashboard().subscribe((dashboard) => {
-      this.summary = dashboard.summary;
-      this.simulations = dashboard.simulations;
-      this.activities = dashboard.activities;
-      this.sessions = dashboard.sessions;
-      this.isLoading = false;
-    });
+    this.loadError = '';
+
+    this.professorDashboardService
+      .getDashboard()
+      .pipe(
+        finalize(() => {
+          this.isLoading = false;
+        })
+      )
+      .subscribe({
+        next: (dashboard) => {
+          this.summary = dashboard.summary;
+          this.simulations = dashboard.simulations;
+          this.activities = dashboard.activities;
+          this.sessions = dashboard.sessions;
+        },
+        error: () => {
+          this.summary = [];
+          this.simulations = [];
+          this.activities = [];
+          this.sessions = [];
+          this.loadError = 'No fue posible cargar el panel del profesor.';
+        }
+      });
   }
 }

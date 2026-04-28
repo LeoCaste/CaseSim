@@ -73,6 +73,13 @@ export const routes: Routes = [
         data: PROFESSOR_ONLY
       },
       {
+        path: 'professor/clinical-cases',
+        component: ClinicalCaseListPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
+      },
+      {
         path: 'clinical-cases/new',
         component: ClinicalCaseFormPage,
         canActivate: [roleAuthorizationCanActivate],
