@@ -1,0 +1,87 @@
+<section class="admin-users">
+  <header class="admin-users__header">
+    <p class="admin-users__eyebrow">Administración</p>
+    <h1>Usuarios</h1>
+    <p>Gestión operativa de usuarios, rol y estado de acceso.</p>
+  </header>
+
+  <section class="admin-users__panel">
+    <div class="admin-users__panel-header">
+      <h2>{{ formMode === 'create' ? 'Crear usuario' : 'Editar usuario' }}</h2>
+      <button type="button" class="secondary" (click)="startCreate()">Crear usuario</button>
+    </div>
+
+    <form class="admin-users__form" (ngSubmit)="submitForm()">
+      <div class="admin-users__row">
+        <label for="name">Nombre</label>
+        <input id="name" name="name" type="text" [(ngModel)]="form.name" />
+      </div>
+
+      <div class="admin-users__row">
+        <label for="email">Correo electrónico</label>
+        <input id="email" name="email" type="email" [(ngModel)]="form.email" />
+      </div>
+
+      <div class="admin-users__row">
+        <label for="role">Rol</label>
+        <select id="role" name="role" [(ngModel)]="form.role" (ngModelChange)="onRoleChange($event)">
+          <option *ngFor="let option of roleOptions" [value]="option.code">
+            {{ getRoleLabel(option.code) }}
+          </option>
+        </select>
+      </div>
+
+      <div *ngIf="requiresPassword()" class="admin-users__row">
+        <label for="password">Contraseña (obligatoria para administrador)</label>
+        <input id="password" name="password" type="password" [(ngModel)]="form.password" />
+      </div>
+
+      <div class="admin-users__actions">
+        <button type="submit" [disabled]="isSubmitting">
+          {{ isSubmitting ? 'Guardando...' : (formMode === 'create' ? 'Crear usuario' : 'Guardar cambios') }}
+        </button>
+      </div>
+    </form>
+
+    <p *ngIf="formSuccess" class="admin-users__success">{{ formSuccess }}</p>
+    <p *ngIf="formError" class="admin-users__error">{{ formError }}</p>
+  </section>
+
+  <p *ngIf="loadError" class="admin-users__error">{{ loadError }}</p>
+  <p *ngIf="loading" class="admin-users__loading">Cargando usuarios...</p>
+
+  <section *ngIf="!loading" class="admin-users__table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users">
+          <td>{{ user.name }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ getRoleLabel(user.role) }}</td>
+          <td>
+            <span class="admin-users__status" [class.admin-users__status--inactive]="!user.active">
+              {{ user.active ? 'Activo' : 'Inactivo' }}
+            </span>
+          </td>
+          <td class="admin-users__table-actions">
+            <button type="button" class="secondary" (click)="startEdit(user)">Editar</button>
+            <button type="button" (click)="toggleStatus(user)" [disabled]="isTogglingUser(user.id)">
+              {{ isTogglingUser(user.id) ? 'Actualizando...' : (user.active ? 'Desactivar' : 'Activar') }}
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="users.length === 0">
+          <td colspan="5">Sin usuarios registrados.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</section>

@@ -4,6 +4,8 @@ import cl.casesim.backend.auth.dto.AuthUserResponse;
 import cl.casesim.backend.auth.dto.LoginRequest;
 import cl.casesim.backend.auth.dto.LoginResponse;
 import cl.casesim.backend.auth.dto.MeResponse;
+import cl.casesim.backend.auth.dto.PreCheckRequest;
+import cl.casesim.backend.auth.dto.PreCheckResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,11 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/pre-check")
+    public PreCheckResponse preCheck(@Valid @RequestBody PreCheckRequest request) {
+        return authService.preCheck(request);
     }
 
     @GetMapping("/me")

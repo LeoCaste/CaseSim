@@ -10,6 +10,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -45,6 +46,15 @@ public class AppUser {
         // Constructor requerido por JPA
     }
 
+    public AppUser(UUID id, String nombre, String email, String passwordHash, boolean activo, Set<Role> roles) {
+        this.id = Objects.requireNonNull(id, "id es obligatorio");
+        this.nombre = Objects.requireNonNull(nombre, "nombre es obligatorio");
+        this.email = Objects.requireNonNull(email, "email es obligatorio");
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash es obligatorio");
+        this.activo = activo;
+        this.roles = roles == null ? new HashSet<>() : new HashSet<>(roles);
+    }
+
     public UUID getId() {
         return id;
     }
@@ -67,5 +77,26 @@ public class AppUser {
 
     public Set<Role> getRoles() {
         return roles;
+    }
+
+    public void actualizarDatos(String nombre, String email, boolean activo, Set<Role> roles) {
+        this.nombre = Objects.requireNonNull(nombre, "nombre es obligatorio");
+        this.email = Objects.requireNonNull(email, "email es obligatorio");
+        this.activo = activo;
+        Set<Role> roleCopy = roles == null ? Set.of() : new HashSet<>(roles);
+        this.roles.clear();
+        this.roles.addAll(roleCopy);
+    }
+
+    public void actualizarPasswordHash(String passwordHash) {
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash es obligatorio");
+    }
+
+    public void desactivar() {
+        this.activo = false;
+    }
+
+    public void actualizarEstado(boolean activo) {
+        this.activo = activo;
     }
 }

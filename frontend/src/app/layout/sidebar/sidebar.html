@@ -25,6 +25,10 @@
     </ng-container>
 
     <ng-container *ngIf="userContext.getRole() === 'admin'">
+      <a routerLink="/admin/users" routerLinkActive="active">
+        Usuarios
+      </a>
+
       <a routerLink="/admin/llm-config" routerLinkActive="active">
         Configuración LLM
       </a>

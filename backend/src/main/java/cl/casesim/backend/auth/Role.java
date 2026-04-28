@@ -22,6 +22,11 @@ public class Role {
         // Constructor requerido por JPA
     }
 
+    public Role(UUID id, String nombre) {
+        this.id = id;
+        this.nombre = nombre;
+    }
+
     public UUID getId() {
         return id;
     }

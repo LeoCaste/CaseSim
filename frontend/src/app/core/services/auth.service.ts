@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, map, Observable, of, throwError } from 'rxjs';
 
 import { AuthUser } from '../models/auth-user.model';
+import { AuthLoginRequest, AuthPreCheckRequest, AuthPreCheckResponse } from '../models/auth-flow.model';
 import { environment } from '../../../environments/environment';
 
 const AUTH_STORAGE_KEY = 'casesim.auth.user';
@@ -21,11 +22,26 @@ export class AuthService {
     this.token = this.loadStoredToken();
   }
 
-  login(email: string): Observable<AuthUser | null> {
+  preCheck(email: string): Observable<AuthPreCheckResponse> {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!environment.useMocks) {
+      const payload: AuthPreCheckRequest = { email: normalizedEmail };
+      return this.http.post<AuthPreCheckResponse>(`${this.apiBaseUrl}/auth/pre-check`, payload);
+    }
+
+    const role = this.inferMockRole(normalizedEmail);
+    return of({ requiresPassword: role === 'admin' });
+  }
+
+  login(request: AuthLoginRequest): Observable<AuthUser> {
+    const normalizedEmail = request.email.trim().toLowerCase();
+
     if (!environment.useMocks) {
       return this.http
         .post<BackendLoginResponse>(`${this.apiBaseUrl}/auth/login`, {
-          email: email.trim()
+          email: normalizedEmail,
+          ...(request.password ? { password: request.password } : {})
         })
         .pipe(
           map((response) => {
@@ -35,28 +51,36 @@ export class AuthService {
             this.persistUser(user);
             this.persistToken(response.token);
             return user;
-          }),
-          catchError(() => of(null))
+          })
         );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const adminMatch = normalizedEmail === 'admin@casesim.cl';
-    const professorMatch = /^[a-z]+\.[a-z]+@ufrontera\.cl$/.test(normalizedEmail);
-    const studentMatch = /^[a-z]\.[a-z]+\d*@ufromail\.cl$/.test(normalizedEmail);
-
-    if (!adminMatch && !professorMatch && !studentMatch) {
-      return of(null);
+    const role = this.inferMockRole(normalizedEmail);
+    if (!role) {
+      return throwError(() => new Error('UNAUTHORIZED'));
     }
 
-    this.currentUser = {
-      id: adminMatch ? 'admin-01' : professorMatch ? 'prof-01' : 'stud-01',
-      fullName: adminMatch ? 'Administrador CaseSim' : professorMatch ? 'Docente CaseSim' : 'Estudiante CaseSim',
-      email: normalizedEmail,
-      role: adminMatch ? 'admin' : professorMatch ? 'professor' : 'student'
+    if (role === 'admin' && !request.password?.trim()) {
+      return throwError(() => new Error('UNAUTHORIZED'));
+    }
+
+    const roleLabelMap: Record<AuthUser['role'], string> = {
+      admin: 'Administrador',
+      professor: 'Docente',
+      student: 'Estudiante'
     };
 
+    this.currentUser = {
+      id: role === 'admin' ? 'admin-01' : role === 'professor' ? 'prof-01' : 'stud-01',
+      fullName: `${roleLabelMap[role]} CaseSim`,
+      email: normalizedEmail,
+      role
+    };
+
+    this.token = 'mock-token';
+
     this.persistUser(this.currentUser);
+    this.persistToken(this.token);
 
     return of(this.currentUser);
   }
@@ -188,6 +212,20 @@ export class AuthService {
     this.token = null;
     this.clearStoredUser();
     this.clearStoredToken();
+  }
+
+  private inferMockRole(email: string): AuthUser['role'] | null {
+    const institutionalEmail = /^[^@\s]+@(ufromail\.cl|ufrontera\.cl)$/i.test(email);
+    if (!institutionalEmail) {
+      return null;
+    }
+
+    const [localPart, domain] = email.split('@');
+    if (localPart.toLowerCase().includes('admin')) {
+      return 'admin';
+    }
+
+    return domain.toLowerCase() === 'ufrontera.cl' ? 'professor' : 'student';
   }
 
   private mapBackendUser(user: BackendUser): AuthUser {

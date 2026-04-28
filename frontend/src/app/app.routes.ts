@@ -14,6 +14,7 @@ import { AssignSimulationPage } from './features/clinical-cases/pages/assign-sim
 import { StudentSessionDetailPage } from './features/student/pages/student-session-detail-page/student-session-detail-page';
 import { AdminLlmConfigPage } from './features/admin/pages/admin-llm-config-page/admin-llm-config-page';
 import { AdminLlmUsagePage } from './features/admin/pages/admin-llm-usage-page/admin-llm-usage-page';
+import { AdminUsersPage } from './features/admin/pages/admin-users-page/admin-users-page';
 import { rootSessionRedirectGuard } from './core/guards/root-session-redirect.guard';
 import { roleAuthorizationCanActivate, roleAuthorizationCanMatch } from './core/guards/role-authorization.guard';
 
@@ -130,6 +131,13 @@ export const routes: Routes = [
       {
         path: 'admin/llm-usage',
         component: AdminLlmUsagePage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: ADMIN_ONLY
+      },
+      {
+        path: 'admin/users',
+        component: AdminUsersPage,
         canActivate: [roleAuthorizationCanActivate],
         canMatch: [roleAuthorizationCanMatch],
         data: ADMIN_ONLY
