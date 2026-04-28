@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +49,12 @@ class LlmPatientResponseServiceTest {
     private final MockPatientResponseService mockPatientResponseService = new MockPatientResponseService();
 
     private final PromptBuilderService promptBuilderService = new PromptBuilderService();
-    private final LlmUsageService llmUsageService = new LlmUsageService(llmUsageRepository);
+    private final LlmUsageService llmUsageService = new LlmUsageService(
+            llmUsageRepository,
+            new BigDecimal("0.00015"),
+            new BigDecimal("0.00060"),
+            new BigDecimal("950")
+    );
 
     private LlmPatientResponseService service;
     private SimulationSession session;

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,8 +33,8 @@ public class AdminUsersController {
     }
 
     @GetMapping
-    public List<AdminUserResponse> getUsers() {
-        return adminUsersService.getUsers();
+    public List<AdminUserResponse> getUsers(@RequestParam(name = "active", defaultValue = "true") String active) {
+        return adminUsersService.getUsers(active);
     }
 
     @GetMapping("/roles")
@@ -64,7 +65,7 @@ public class AdminUsersController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivateUser(@PathVariable UUID id) {
-        adminUsersService.deactivateUser(id);
+    public void deleteUser(@PathVariable UUID id) {
+        adminUsersService.deleteUser(id);
     }
 }

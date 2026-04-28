@@ -1,16 +1,20 @@
+export type LlmProvider = 'openai';
+
+export type LlmModel = 'gpt-4o-mini' | 'gpt-4.1-mini' | 'gpt-4.1';
+
 export interface LlmConfig {
-  provider: string;
-  model: string;
+  provider: LlmProvider | string;
+  model: LlmModel | string;
   baseUrl: string;
   enabled: boolean;
   apiKeyConfigured: boolean;
-  maskedApiKey: string;
+  maskedApiKey?: string | null;
   updatedAt: string | null;
 }
 
 export interface UpdateLlmConfigPayload {
-  provider: string;
-  model: string;
+  provider: LlmProvider | string;
+  model: LlmModel | string;
   baseUrl: string;
   enabled: boolean;
   apiKey?: string;
@@ -35,4 +39,16 @@ export interface LlmUsageSummary {
   avgLatencyMs: number | null;
   fallbackCount: number;
   errorCount: number;
+  estimatedCostUsd: number;
+  estimatedCostClp: number;
+  usdToClpRate: number;
+}
+
+export type LlmUsageStatusFilter = 'all' | 'error' | 'fallback';
+
+export interface LlmUsageFilters {
+  from?: string;
+  to?: string;
+  model?: string;
+  status?: LlmUsageStatusFilter;
 }

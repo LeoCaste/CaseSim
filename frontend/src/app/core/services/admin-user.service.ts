@@ -1,6 +1,6 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, map, Observable, of, throwError } from 'rxjs';
+import { catchError, map, Observable, of, throwError, TimeoutError, timeout } from 'rxjs';
 
 import {
   AdminUser,
@@ -17,6 +17,7 @@ import { environment } from '../../../environments/environment';
 })
 export class AdminUserService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
+  private readonly deleteTimeoutMs = 8000;
 
   private mockUsers: AdminUser[] = [
     {
@@ -56,16 +57,25 @@ export class AdminUserService {
     return of(uniqueRoles.map((code) => ({ code })));
   }
 
-  getUsers(): Observable<AdminUser[]> {
+  getUsers(active: 'true' | 'false' | 'all' = 'true'): Observable<AdminUser[]> {
     if (!environment.useMocks) {
-      return this.http.get<BackendAdminUserResponse[]>(`${this.apiBaseUrl}/admin/users`).pipe(
+      const params = new HttpParams().set('active', active);
+      return this.http.get<BackendAdminUserResponse[]>(`${this.apiBaseUrl}/admin/users`, { params }).pipe(
         map((response) => response.map((item) => this.mapBackendUser(item))),
         map((users) => this.sortUsers(users)),
         catchError((error) => throwError(() => this.toApiError(error, 'No fue posible cargar los usuarios.')))
       );
     }
 
-    return of(this.sortUsers(this.mockUsers));
+    const filteredUsers = this.mockUsers.filter((user) => {
+      if (active === 'all') {
+        return true;
+      }
+
+      return active === 'true' ? user.active : !user.active;
+    });
+
+    return of(this.sortUsers(filteredUsers));
   }
 
   createUser(payload: AdminUserCreatePayload): Observable<AdminUser> {
@@ -159,6 +169,25 @@ export class AdminUserService {
     return of(updatedUser);
   }
 
+  deleteUser(userId: string): Observable<void> {
+    if (!environment.useMocks) {
+      return this.http
+        .delete<void>(`${this.apiBaseUrl}/admin/users/${userId}`)
+        .pipe(
+          timeout(this.deleteTimeoutMs),
+          catchError((error) => throwError(() => this.toDeleteApiError(error)))
+        );
+    }
+
+    const exists = this.mockUsers.some((user) => user.id === userId);
+    if (!exists) {
+      return throwError(() => this.buildApiError(400, 'VALIDATION', 'Usuario no encontrado para eliminación.'));
+    }
+
+    this.mockUsers = this.mockUsers.filter((user) => user.id !== userId);
+    return of(void 0);
+  }
+
   private mapUpsertPayload(payload: AdminUserCreatePayload | AdminUserUpdatePayload): BackendAdminUserUpsertRequest {
     return {
       name: payload.name.trim(),
@@ -207,12 +236,30 @@ export class AdminUserService {
       if (error.status === 409) {
         return this.buildApiError(409, 'CONFLICT', backendMessage ?? 'La operación entra en conflicto con un usuario existente.');
       }
+
+      return this.buildApiError(error.status, 'UNKNOWN', backendMessage ?? defaultMessage);
     }
 
     return this.buildApiError(0, 'UNKNOWN', defaultMessage);
   }
 
+  private toDeleteApiError(error: unknown): AdminUserApiError {
+    if (error instanceof TimeoutError) {
+      return this.buildApiError(
+        408,
+        'UNKNOWN',
+        'La eliminación está tardando más de lo esperado. Revisa el estado del usuario y vuelve a intentar.'
+      );
+    }
+
+    return this.toApiError(error, 'No fue posible eliminar el usuario.');
+  }
+
   private extractBackendMessage(errorBody: unknown): string | null {
+    if (typeof errorBody === 'string' && errorBody.trim().length > 0) {
+      return errorBody.trim();
+    }
+
     if (!errorBody || typeof errorBody !== 'object') {
       return null;
     }

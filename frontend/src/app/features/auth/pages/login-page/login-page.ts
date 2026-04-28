@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { finalize, TimeoutError, timeout } from 'rxjs';
 
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserContext } from '../../../../core/services/user-context';
@@ -17,102 +18,133 @@ export class LoginPage {
   email = '';
   password = '';
   requiresPassword = false;
-  private preCheckedEmail: string | null = null;
+  private passwordRequiredForEmail: string | null = null;
 
-  error = '';
-  isLoading = false;
-  isPreChecking = false;
+  errorMessage = '';
+  isCheckingEmail = false;
+  isLoggingIn = false;
 
   constructor(
     private router: Router,
     private userContext: UserContext,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {}
 
-  onEmailChange(): void {
+  onEmailChange(nextEmail: string): void {
+    const normalizedEmail = this.normalizeEmail(nextEmail);
+
+    if (this.passwordRequiredForEmail === normalizedEmail) {
+      this.errorMessage = '';
+      return;
+    }
+
     this.requiresPassword = false;
     this.password = '';
-    this.preCheckedEmail = null;
-    this.error = '';
+    this.passwordRequiredForEmail = null;
+    this.errorMessage = '';
   }
 
   login(): void {
+    if (this.isCheckingEmail || this.isLoggingIn) {
+      return;
+    }
+
     const normalizedEmail = this.normalizeEmail(this.email);
 
     if (!normalizedEmail) {
-      this.error = 'El correo institucional es obligatorio.';
+      this.errorMessage = 'El correo institucional es obligatorio.';
       return;
     }
 
-    if (this.preCheckedEmail !== normalizedEmail) {
-      this.performPreCheckAndContinue(normalizedEmail);
+    const hasPassword = this.password.trim().length > 0;
+
+    if (this.requiresPassword || hasPassword) {
+      if (!hasPassword) {
+        this.errorMessage = 'La contraseña es obligatoria para este usuario.';
+        return;
+      }
+
+      this.submitLogin(normalizedEmail);
       return;
     }
 
-    if (this.requiresPassword && !this.password.trim()) {
-      this.error = 'La contraseña es obligatoria para este usuario.';
-      return;
-    }
-
-    this.submitLogin(normalizedEmail);
+    this.performPreCheckAndContinue(normalizedEmail);
   }
 
   private performPreCheckAndContinue(email: string): void {
-    this.error = '';
-    this.isLoading = true;
-    this.isPreChecking = true;
+    if (this.isCheckingEmail) {
+      return;
+    }
 
-    this.authService.preCheck(email).subscribe({
-      next: (response) => {
-        this.isLoading = false;
-        this.isPreChecking = false;
-        this.preCheckedEmail = email;
-        this.requiresPassword = response.requiresPassword;
+    this.errorMessage = '';
+    this.isCheckingEmail = true;
+    this.isLoggingIn = false;
 
-        if (response.requiresPassword) {
-          return;
+    this.authService
+      .preCheck(email)
+      .pipe(timeout(5000))
+      .subscribe({
+        next: (response) => {
+          this.requiresPassword = response.requiresPassword === true;
+          this.passwordRequiredForEmail = this.requiresPassword ? email : null;
+          this.isCheckingEmail = false;
+          this.isLoggingIn = false;
+
+          if (this.requiresPassword) {
+            this.cdr.detectChanges();
+            return;
+          }
+
+          this.submitLogin(email);
+        },
+        error: (error) => {
+          this.isCheckingEmail = false;
+          this.isLoggingIn = false;
+          this.requiresPassword = false;
+          this.passwordRequiredForEmail = null;
+          this.errorMessage = this.mapPreCheckError(error);
         }
-
-        this.submitLogin(email);
-      },
-      error: (error) => {
-        this.isLoading = false;
-        this.isPreChecking = false;
-        this.preCheckedEmail = email;
-        this.requiresPassword = true;
-        this.error = this.mapPreCheckError(error);
-      }
-    });
+      });
   }
 
   private submitLogin(email: string): void {
-    this.error = '';
-    this.isLoading = true;
+    this.errorMessage = '';
+    this.isCheckingEmail = false;
+    this.isLoggingIn = true;
 
     this.authService
       .login({
         email,
-        ...(this.requiresPassword ? { password: this.password.trim() } : {})
+        ...(this.password.trim().length > 0 ? { password: this.password } : {})
       })
+      .pipe(
+        finalize(() => {
+          this.isCheckingEmail = false;
+          this.isLoggingIn = false;
+        })
+      )
       .subscribe({
         next: (user) => {
-          this.isLoading = false;
           this.userContext.setUser(user);
           this.router.navigate([this.resolveDashboardRoute(user.role)]);
         },
         error: (error) => {
-          this.isLoading = false;
-          this.error = this.mapLoginError(error);
+          this.errorMessage = this.mapLoginError(error);
         }
       });
   }
 
   get submitButtonLabel(): string {
-    if (!this.isLoading) {
-      return 'Ingresar';
+    if (this.isCheckingEmail) {
+      return 'Validando correo...';
     }
 
-    return this.isPreChecking ? 'Validando correo...' : 'Ingresando...';
+    if (this.isLoggingIn) {
+      return 'Ingresando...';
+    }
+
+    return 'Ingresar';
   }
 
   private resolveDashboardRoute(role: 'student' | 'professor' | 'admin'): string {
@@ -128,6 +160,10 @@ export class LoginPage {
   }
 
   private mapPreCheckError(error: unknown): string {
+    if (error instanceof TimeoutError) {
+      return 'No se pudo validar el correo. Intenta nuevamente.';
+    }
+
     if (error instanceof HttpErrorResponse && error.status === 0) {
       return 'No fue posible validar el correo con el servidor. Si eres administrador, ingresa tu contraseña e intenta nuevamente.';
     }

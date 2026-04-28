@@ -8,7 +8,6 @@
   <section class="admin-users__panel">
     <div class="admin-users__panel-header">
       <h2>{{ formMode === 'create' ? 'Crear usuario' : 'Editar usuario' }}</h2>
-      <button type="button" class="secondary" (click)="startCreate()">Crear usuario</button>
     </div>
 
     <form class="admin-users__form" (ngSubmit)="submitForm()">
@@ -40,6 +39,9 @@
         <button type="submit" [disabled]="isSubmitting">
           {{ isSubmitting ? 'Guardando...' : (formMode === 'create' ? 'Crear usuario' : 'Guardar cambios') }}
         </button>
+        <button *ngIf="formMode === 'edit'" type="button" class="secondary" (click)="startCreate()" [disabled]="isSubmitting">
+          Cancelar edición
+        </button>
       </div>
     </form>
 
@@ -47,41 +49,57 @@
     <p *ngIf="formError" class="admin-users__error">{{ formError }}</p>
   </section>
 
-  <p *ngIf="loadError" class="admin-users__error">{{ loadError }}</p>
+  <div *ngIf="loadError" class="admin-users__feedback admin-users__feedback--error">
+    <p class="admin-users__error">{{ loadError }}</p>
+    <button type="button" class="secondary" (click)="fetchUsers(currentFilter)" [disabled]="loading">Reintentar</button>
+  </div>
   <p *ngIf="loading" class="admin-users__loading">Cargando usuarios...</p>
 
-  <section *ngIf="!loading" class="admin-users__table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Correo</th>
-          <th>Rol</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of users">
-          <td>{{ user.name }}</td>
-          <td>{{ user.email }}</td>
-          <td>{{ getRoleLabel(user.role) }}</td>
-          <td>
-            <span class="admin-users__status" [class.admin-users__status--inactive]="!user.active">
-              {{ user.active ? 'Activo' : 'Inactivo' }}
-            </span>
-          </td>
-          <td class="admin-users__table-actions">
-            <button type="button" class="secondary" (click)="startEdit(user)">Editar</button>
-            <button type="button" (click)="toggleStatus(user)" [disabled]="isTogglingUser(user.id)">
-              {{ isTogglingUser(user.id) ? 'Actualizando...' : (user.active ? 'Desactivar' : 'Activar') }}
-            </button>
-          </td>
-        </tr>
-        <tr *ngIf="users.length === 0">
-          <td colspan="5">Sin usuarios registrados.</td>
-        </tr>
-      </tbody>
-    </table>
+  <section class="admin-users__filters">
+    <span>Filtro:</span>
+    <button type="button" [class.is-active]="currentFilter === 'active'" (click)="onFilterChange('active')">Activos</button>
+    <button type="button" [class.is-active]="currentFilter === 'inactive'" (click)="onFilterChange('inactive')">Inactivos</button>
+    <button type="button" [class.is-active]="currentFilter === 'all'" (click)="onFilterChange('all')">Todos</button>
+  </section>
+
+  <section *ngIf="!loading && !loadError && users.length === 0" class="admin-users__empty">
+    <p>Sin usuarios registrados.</p>
+  </section>
+
+  <section *ngIf="!loading && !loadError && users.length > 0" class="admin-users__table-wrapper">
+    <div class="admin-users__table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users">
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ getRoleLabel(user.role) }}</td>
+            <td>
+              <span class="admin-users__status" [class.admin-users__status--inactive]="!user.active">
+                {{ user.active ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+            <td class="admin-users__table-actions">
+              <button type="button" class="secondary" (click)="startEdit(user)" [disabled]="isDeletingUser(user.id)">Editar</button>
+              <button type="button" (click)="toggleStatus(user)" [disabled]="isTogglingUser(user.id) || isDeletingUser(user.id)">
+                {{ isTogglingUser(user.id) ? 'Actualizando...' : (user.active ? 'Desactivar' : 'Reactivar') }}
+              </button>
+              <button type="button" class="danger" (click)="deleteUser(user)" [disabled]="isDeletingUser(user.id) || isTogglingUser(user.id)">
+                {{ isDeletingUser(user.id) ? 'Eliminando...' : 'Eliminar' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </section>

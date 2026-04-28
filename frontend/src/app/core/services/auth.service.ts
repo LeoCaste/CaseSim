@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of, throwError } from 'rxjs';
+import { catchError, finalize, map, Observable, of, throwError } from 'rxjs';
 
 import { AuthUser } from '../models/auth-user.model';
-import { AuthLoginRequest, AuthPreCheckRequest, AuthPreCheckResponse } from '../models/auth-flow.model';
+import { AuthLoginRequest, AuthPreCheckRequest } from '../models/auth-flow.model';
 import { environment } from '../../../environments/environment';
 
 const AUTH_STORAGE_KEY = 'casesim.auth.user';
@@ -22,12 +22,16 @@ export class AuthService {
     this.token = this.loadStoredToken();
   }
 
-  preCheck(email: string): Observable<AuthPreCheckResponse> {
+  preCheck(email: string): Observable<{ requiresPassword: boolean }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!environment.useMocks) {
       const payload: AuthPreCheckRequest = { email: normalizedEmail };
-      return this.http.post<AuthPreCheckResponse>(`${this.apiBaseUrl}/auth/pre-check`, payload);
+      return this.http.post<{ requiresPassword?: unknown }>(`${this.apiBaseUrl}/auth/pre-check`, payload).pipe(
+        map((response) => ({
+          requiresPassword: response.requiresPassword === true
+        }))
+      );
     }
 
     const role = this.inferMockRole(normalizedEmail);
@@ -41,7 +45,7 @@ export class AuthService {
       return this.http
         .post<BackendLoginResponse>(`${this.apiBaseUrl}/auth/login`, {
           email: normalizedEmail,
-          ...(request.password ? { password: request.password } : {})
+          ...(request.password !== undefined ? { password: request.password } : {})
         })
         .pipe(
           map((response) => {
@@ -121,8 +125,10 @@ export class AuthService {
     if (!environment.useMocks) {
       return this.http.post<void>(`${this.apiBaseUrl}/auth/logout`, {}).pipe(
         catchError(() => of(void 0)),
-        map(() => {
+        finalize(() => {
           this.clearAuthState();
+        }),
+        map(() => {
           return void 0;
         })
       );

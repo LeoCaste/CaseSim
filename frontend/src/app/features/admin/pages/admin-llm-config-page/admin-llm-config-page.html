@@ -8,59 +8,75 @@
   <p *ngIf="loadError" class="admin-llm-config__error">{{ loadError }}</p>
 
   <section *ngIf="!isLoading && config" class="admin-llm-config__panel">
-    <div class="admin-llm-config__row admin-llm-config__switch-row">
-      <label for="enabled">LLM habilitado</label>
-      <input id="enabled" type="checkbox" [(ngModel)]="form.enabled" />
-    </div>
-
-    <div class="admin-llm-config__row">
-      <label for="provider">Proveedor</label>
-      <input id="provider" type="text" [(ngModel)]="form.provider" />
-    </div>
-
-    <div class="admin-llm-config__row">
-      <label for="model">Modelo</label>
-      <input id="model" type="text" [(ngModel)]="form.model" />
-    </div>
-
-    <div class="admin-llm-config__row">
-      <label for="baseUrl">URL base</label>
-      <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" />
-    </div>
-
-    <div class="admin-llm-config__row">
-      <label for="apiKey">API key (opcional para mantener la actual)</label>
-      <input id="apiKey" type="password" [(ngModel)]="form.apiKey" placeholder="••••••••••••" />
-    </div>
-
-    <div class="admin-llm-config__status">
-      <p><strong>API key configurada:</strong> {{ config.apiKeyConfigured ? 'Sí' : 'No' }}</p>
-      <p><strong>Clave enmascarada:</strong> {{ config.maskedApiKey || 'No disponible' }}</p>
+    <section class="admin-llm-config__block">
+      <h2>Estado actual</h2>
+      <p><strong>LLM habilitado:</strong> {{ enabledStatusLabel }}</p>
+      <p><strong>Proveedor actual:</strong> {{ config.provider || '-' }}</p>
+      <p><strong>Modelo actual:</strong> {{ config.model || '-' }}</p>
+      <p><strong>API key configurada:</strong> {{ apiKeyConfiguredLabel }}</p>
       <p><strong>Última actualización:</strong> {{ config.updatedAt ? (config.updatedAt | date: 'dd/MM/yyyy HH:mm') : 'Sin registro' }}</p>
-    </div>
+    </section>
 
-    <div class="admin-llm-config__actions">
-      <button type="button" (click)="onSave()" [disabled]="isSaving">
-        {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
-      </button>
+    <section class="admin-llm-config__block admin-llm-config__status">
+      <h2>Configuración editable</h2>
 
-      <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection">
-        {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
-      </button>
-    </div>
+      <div class="admin-llm-config__row admin-llm-config__switch-row">
+        <label for="enabled">LLM habilitado</label>
+        <input id="enabled" type="checkbox" [(ngModel)]="form.enabled" />
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="provider">Proveedor</label>
+        <select id="provider" [(ngModel)]="form.provider" (ngModelChange)="onProviderChange($event)">
+          <option *ngFor="let provider of providers" [value]="provider">{{ provider }}</option>
+        </select>
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="model">Modelo</label>
+        <select id="model" [(ngModel)]="form.model">
+          <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
+        </select>
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="baseUrl">URL base del sistema</label>
+        <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" readonly />
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="apiKey">Nueva API key</label>
+        <input id="apiKey" type="password" [(ngModel)]="form.apiKey" />
+        <small>Dejar vacío para mantener la API key actual.</small>
+      </div>
+    </section>
+
+    <section class="admin-llm-config__block">
+      <h2>Acciones</h2>
+      <div class="admin-llm-config__actions">
+        <button type="button" (click)="onSave()" [disabled]="isSaving">
+          {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
+        </button>
+
+        <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection">
+          {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
+        </button>
+      </div>
+    </section>
 
     <p *ngIf="saveMessage" class="admin-llm-config__success">{{ saveMessage }}</p>
     <p *ngIf="saveError" class="admin-llm-config__error">{{ saveError }}</p>
 
     <p
-      *ngIf="testResult"
+      *ngIf="testFeedback"
       class="admin-llm-config__test-result"
-      [class.admin-llm-config__test-result--success]="testResult.success"
-      [class.admin-llm-config__test-result--error]="!testResult.success"
+      [class.admin-llm-config__test-result--success]="testFeedbackStatus === 'success'"
+      [class.admin-llm-config__test-result--error]="testFeedbackStatus === 'error'"
     >
-      {{ testResult.message }}
+      {{ testFeedback }}
     </p>
   </section>
 
   <p *ngIf="isLoading" class="admin-llm-config__loading">Cargando configuración...</p>
+  <p *ngIf="!isLoading && !loadError && !config" class="admin-llm-config__loading">Sin configuración disponible.</p>
 </section>

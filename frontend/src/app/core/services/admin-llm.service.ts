@@ -1,11 +1,12 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, map, Observable, of } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, timeout } from 'rxjs';
 
 import {
   LlmConfig,
   LlmTestConnectionResult,
   LlmUsageDailyMetric,
+  LlmUsageFilters,
   LlmUsageSummary,
   UpdateLlmConfigPayload
 } from '../models/admin-llm.model';
@@ -15,19 +16,21 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root'
 })
 export class AdminLlmService {
+  private readonly requestTimeoutMs = 8000;
   private readonly apiBaseUrl = environment.apiBaseUrl;
+  private mockUsageTick = 0;
 
   private mockConfig: LlmConfig = {
     provider: 'openai',
     model: 'gpt-4o-mini',
-    baseUrl: 'https://api.openai.com/v1',
+    baseUrl: 'https://api.openai.com/v1/chat/completions',
     enabled: true,
     apiKeyConfigured: true,
     maskedApiKey: '************7890',
     updatedAt: new Date().toISOString()
   };
 
-  private readonly mockUsage: LlmUsageDailyMetric[] = [
+  private mockUsage: LlmUsageDailyMetric[] = [
     {
       date: '2026-04-25',
       tokensInput: 25100,
@@ -51,6 +54,7 @@ export class AdminLlmService {
       return this.http
         .get<BackendLlmConfigResponse>(`${this.apiBaseUrl}/admin/llm/config`)
         .pipe(
+          timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
           catchError(() => of(this.mockConfig))
         );
@@ -84,14 +88,15 @@ export class AdminLlmService {
   testConnection(): Observable<LlmTestConnectionResult> {
     if (!environment.useMocks) {
       return this.http.post<BackendTestConnectionResponse>(`${this.apiBaseUrl}/admin/llm/test-connection`, {}).pipe(
+        timeout(this.requestTimeoutMs),
         map((response) => ({
           success: response.success,
-          message: response.message
+          message: response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor'
         })),
         catchError(() =>
           of({
             success: false,
-            message: 'No fue posible conectar con el proveedor LLM.'
+            message: 'No se pudo conectar con el proveedor'
           })
         )
       );
@@ -100,36 +105,83 @@ export class AdminLlmService {
     if (!this.mockConfig.enabled || !this.mockConfig.apiKeyConfigured) {
       return of({
         success: false,
-        message: 'LLM deshabilitado o sin API key configurada.'
+        message: 'No se pudo conectar con el proveedor'
       });
     }
 
     return of({
       success: true,
-      message: 'Conexión exitosa con el proveedor configurado.'
+      message: 'Conexión exitosa'
     });
   }
 
-  getUsage(): Observable<LlmUsageDailyMetric[]> {
+  getUsage(filters?: LlmUsageFilters): Observable<LlmUsageDailyMetric[]> {
     if (!environment.useMocks) {
-      return this.http.get<BackendLlmUsageDailyResponse[]>(`${this.apiBaseUrl}/admin/llm/usage`).pipe(
+      return this.http.get<BackendLlmUsageDailyResponse[]>(`${this.apiBaseUrl}/admin/llm/usage`, {
+        params: this.buildUsageParams(filters)
+      }).pipe(
+        timeout(this.requestTimeoutMs),
         map((response) => response.map((item) => this.mapUsageItem(item))),
-        catchError(() => of(this.mockUsage))
+        catchError(() => of(this.getMockUsageSnapshot(filters)))
       );
     }
 
-    return of(this.mockUsage);
+    return of(this.getMockUsageSnapshot(filters));
   }
 
-  getSummary(): Observable<LlmUsageSummary> {
+  getSummary(filters?: LlmUsageFilters): Observable<LlmUsageSummary> {
     if (!environment.useMocks) {
-      return this.http.get<BackendLlmSummaryResponse>(`${this.apiBaseUrl}/admin/llm/summary`).pipe(
+      return this.http.get<BackendLlmSummaryResponse>(`${this.apiBaseUrl}/admin/llm/summary`, {
+        params: this.buildUsageParams(filters)
+      }).pipe(
+        timeout(this.requestTimeoutMs),
         map((response) => this.mapSummary(response)),
-        catchError(() => of(this.buildMockSummary()))
+        catchError(() => of(this.buildMockSummary(this.getMockUsageSnapshot(filters))))
       );
     }
 
-    return of(this.buildMockSummary());
+    return of(this.buildMockSummary(this.getMockUsageSnapshot(filters)));
+  }
+
+  getUsageSnapshot(filters?: LlmUsageFilters): Observable<{ usage: LlmUsageDailyMetric[]; summary: LlmUsageSummary }> {
+    if (!environment.useMocks) {
+      return forkJoin({
+        usage: this.getUsage(filters),
+        summary: this.getSummary(filters)
+      });
+    }
+
+    const usage = this.getMockUsageSnapshot(filters);
+    return of({
+      usage,
+      summary: this.buildMockSummary(usage)
+    });
+  }
+
+  private buildUsageParams(filters?: LlmUsageFilters): HttpParams {
+    let params = new HttpParams();
+
+    if (!filters) {
+      return params;
+    }
+
+    if (filters.from) {
+      params = params.set('from', filters.from);
+    }
+
+    if (filters.to) {
+      params = params.set('to', filters.to);
+    }
+
+    if (filters.model) {
+      params = params.set('model', filters.model);
+    }
+
+    if (filters.status) {
+      params = params.set('status', filters.status);
+    }
+
+    return params;
   }
 
   private mapConfigResponse(response: BackendLlmConfigResponse): LlmConfig {
@@ -155,13 +207,23 @@ export class AdminLlmService {
   }
 
   private mapUsageItem(item: BackendLlmUsageDailyResponse): LlmUsageDailyMetric {
-    return {
+    const mappedItem: LlmUsageDailyMetric & { model?: string; status?: string } = {
       date: item.date,
       tokensInput: item.tokensInput,
       tokensOutput: item.tokensOutput,
       calls: item.calls,
       avgLatencyMs: item.avgLatencyMs
     };
+
+    if (item.model) {
+      mappedItem.model = item.model;
+    }
+
+    if (item.status) {
+      mappedItem.status = item.status;
+    }
+
+    return mappedItem;
   }
 
   private mapSummary(response: BackendLlmSummaryResponse): LlmUsageSummary {
@@ -170,24 +232,72 @@ export class AdminLlmService {
       totalTokens: response.totalTokens,
       avgLatencyMs: response.avgLatencyMs,
       fallbackCount: response.fallbackCount,
-      errorCount: response.errorCount
+      errorCount: response.errorCount,
+      estimatedCostUsd: response.estimatedCostUsd ?? 0,
+      estimatedCostClp: response.estimatedCostClp ?? 0,
+      usdToClpRate: response.usdToClpRate ?? 0
     };
   }
 
-  private buildMockSummary(): LlmUsageSummary {
-    const totalCalls = this.mockUsage.reduce((total, item) => total + item.calls, 0);
-    const totalTokens = this.mockUsage.reduce((total, item) => total + item.tokensInput + item.tokensOutput, 0);
+  private buildMockSummary(usage: LlmUsageDailyMetric[]): LlmUsageSummary {
+    const totalCalls = usage.reduce((total, item) => total + item.calls, 0);
+    const totalTokens = usage.reduce((total, item) => total + item.tokensInput + item.tokensOutput, 0);
     const averageLatency =
-      this.mockUsage.reduce((total, item) => total + (item.avgLatencyMs ?? 0), 0) /
-      (this.mockUsage.length || 1);
+      usage.reduce((total, item) => total + (item.avgLatencyMs ?? 0), 0) /
+      (usage.length || 1);
 
     return {
       totalCalls,
       totalTokens,
       avgLatencyMs: Number.isFinite(averageLatency) ? Math.round(averageLatency) : null,
       fallbackCount: 6,
-      errorCount: 2
+      errorCount: 2,
+      estimatedCostUsd: 0,
+      estimatedCostClp: 0,
+      usdToClpRate: 0
     };
+  }
+
+  private getMockUsageSnapshot(filters?: LlmUsageFilters): LlmUsageDailyMetric[] {
+    this.mockUsageTick += 1;
+    const usage = this.mockUsage.map((item) => ({ ...item }));
+
+    if (usage.length === 0) {
+      return usage;
+    }
+
+    const latestIndex = usage.length - 1;
+    const latest = usage[latestIndex];
+    const callsIncrement = this.mockUsageTick;
+    const inputIncrement = callsIncrement * 48;
+    const outputIncrement = callsIncrement * 34;
+    const latencyShift = this.mockUsageTick % 3;
+
+    usage[latestIndex] = {
+      ...latest,
+      calls: latest.calls + callsIncrement,
+      tokensInput: latest.tokensInput + inputIncrement,
+      tokensOutput: latest.tokensOutput + outputIncrement,
+      avgLatencyMs: latest.avgLatencyMs === null ? null : latest.avgLatencyMs + latencyShift
+    };
+
+    this.mockUsage = usage;
+    return this.applyMockFilters(usage, filters);
+  }
+
+  private applyMockFilters(usage: LlmUsageDailyMetric[], filters?: LlmUsageFilters): LlmUsageDailyMetric[] {
+    if (!filters) {
+      return usage;
+    }
+
+    return usage.filter((item) => {
+      const afterFrom = filters.from ? item.date >= filters.from : true;
+      const beforeTo = filters.to ? item.date <= filters.to : true;
+      const modelMatches = filters.model ? filters.model === this.mockConfig.model : true;
+      const statusMatches = !filters.status || filters.status === 'all';
+
+      return afterFrom && beforeTo && modelMatches && statusMatches;
+    });
   }
 }
 
@@ -197,7 +307,7 @@ interface BackendLlmConfigResponse {
   baseUrl: string;
   enabled: boolean;
   apiKeyConfigured: boolean;
-  maskedApiKey: string;
+  maskedApiKey?: string | null;
   updatedAt: string | null;
 }
 
@@ -220,6 +330,8 @@ interface BackendLlmUsageDailyResponse {
   tokensOutput: number;
   calls: number;
   avgLatencyMs: number | null;
+  model?: string;
+  status?: string;
 }
 
 interface BackendLlmSummaryResponse {
@@ -228,4 +340,7 @@ interface BackendLlmSummaryResponse {
   avgLatencyMs: number | null;
   fallbackCount: number;
   errorCount: number;
+  estimatedCostUsd?: number;
+  estimatedCostClp?: number;
+  usdToClpRate?: number;
 }

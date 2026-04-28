@@ -68,9 +68,12 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public PreCheckResponse preCheck(PreCheckRequest request) {
-        String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
+        if (request == null || request.email() == null) {
+            return new PreCheckResponse(false);
+        }
 
-        if (!INSTITUTIONAL_EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
+        String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
+        if (normalizedEmail.isBlank()) {
             return new PreCheckResponse(false);
         }
 

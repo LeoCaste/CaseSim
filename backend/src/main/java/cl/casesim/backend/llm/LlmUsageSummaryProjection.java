@@ -5,6 +5,10 @@ public interface LlmUsageSummaryProjection {
 
     Long getTotalTokens();
 
+    Long getTotalPromptTokens();
+
+    Long getTotalCompletionTokens();
+
     Double getAvgLatencyMs();
 
     long getFallbackCount();

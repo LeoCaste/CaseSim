@@ -10,14 +10,14 @@
       </div>
     </header>
 
-    <form class="login-form" #loginForm="ngForm" (ngSubmit)="login()">
+    <form class="login-form" (ngSubmit)="login()">
       <label>
         Correo institucional
         <input
           type="email"
           name="email"
           [(ngModel)]="email"
-          (ngModelChange)="onEmailChange()"
+          (ngModelChange)="onEmailChange($event)"
           required
           placeholder="correo institucional"
           autocomplete="email"
@@ -40,11 +40,11 @@
         {{ requiresPassword ? 'Usuario con verificación por contraseña.' : 'Ingresa tu correo institucional' }}
       </p>
 
-      <p class="login-error" *ngIf="error">
-        {{ error }}
+      <p class="login-error" *ngIf="errorMessage">
+        {{ errorMessage }}
       </p>
 
-      <button class="login-button" type="submit" [disabled]="isLoading || loginForm.invalid || (requiresPassword && !password.trim())">
+      <button class="login-button" type="submit" [disabled]="isCheckingEmail || isLoggingIn">
         {{ submitButtonLabel }}
       </button>
     </form>

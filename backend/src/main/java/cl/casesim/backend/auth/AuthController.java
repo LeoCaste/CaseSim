@@ -32,7 +32,7 @@ public class AuthController {
     }
 
     @PostMapping("/pre-check")
-    public PreCheckResponse preCheck(@Valid @RequestBody PreCheckRequest request) {
+    public PreCheckResponse preCheck(@RequestBody(required = false) PreCheckRequest request) {
         return authService.preCheck(request);
     }
 

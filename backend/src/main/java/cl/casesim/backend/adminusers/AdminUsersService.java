@@ -13,6 +13,7 @@ import cl.casesim.backend.auth.UserRole;
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ConflictException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,9 +39,12 @@ public class AdminUsersService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public List<AdminUserResponse> getUsers() {
+    public List<AdminUserResponse> getUsers(String activeFilter) {
+        UserActiveFilter filter = UserActiveFilter.fromNullable(activeFilter);
+
         return userRepository.findAllByOrderByNombreAsc()
                 .stream()
+                .filter(user -> filter == UserActiveFilter.ALL || user.isActivo() == (filter == UserActiveFilter.ACTIVE))
                 .map(this::toResponse)
                 .toList();
     }
@@ -120,16 +124,47 @@ public class AdminUsersService {
     }
 
     @Transactional
-    public void deactivateUser(UUID id) {
+    public void deleteUser(UUID id) {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
 
-        user.desactivar();
-        userRepository.save(user);
+        try {
+            userRepository.delete(user);
+            userRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("No se puede eliminar el usuario porque tiene datos asociados.");
+        }
     }
 
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private enum UserActiveFilter {
+        ACTIVE("true"),
+        INACTIVE("false"),
+        ALL("all");
+
+        private final String value;
+
+        UserActiveFilter(String value) {
+            this.value = value;
+        }
+
+        public static UserActiveFilter fromNullable(String rawValue) {
+            if (rawValue == null || rawValue.isBlank()) {
+                return ACTIVE;
+            }
+
+            String normalized = rawValue.trim().toLowerCase(Locale.ROOT);
+            for (UserActiveFilter filter : values()) {
+                if (filter.value.equals(normalized)) {
+                    return filter;
+                }
+            }
+
+            throw new BadRequestException("El parámetro active debe ser true, false o all.");
+        }
     }
 
     private String resolvePasswordHashForCreate(Set<Role> roles, String password) {

@@ -33,6 +33,16 @@
   border-radius: var(--cs-radius);
 }
 
+.admin-llm-config__block {
+  margin-bottom: 16px;
+}
+
+.admin-llm-config__block h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--cs-primary-dark);
+}
+
 .admin-llm-config__row {
   display: flex;
   flex-direction: column;
@@ -52,13 +62,22 @@
 }
 
 .admin-llm-config__row input[type='text'],
-.admin-llm-config__row input[type='password'] {
+.admin-llm-config__row input[type='password'],
+.admin-llm-config__row select {
   border: 1px solid var(--cs-border);
   border-radius: 8px;
   padding: 10px 12px;
   font: inherit;
   color: var(--cs-text);
   background: #ffffff;
+}
+
+.admin-llm-config__row input[readonly] {
+  background: var(--cs-surface-muted);
+}
+
+.admin-llm-config__row small {
+  color: var(--cs-text-muted);
 }
 
 .admin-llm-config__status {

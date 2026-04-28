@@ -6,6 +6,11 @@ import { AuthService } from '../services/auth.service';
 export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const token = authService.getToken();
+  const isAuthFlowRequest = /\/auth\/(login|pre-check)$/i.test(req.url);
+
+  if (isAuthFlowRequest) {
+    return next(req);
+  }
 
   if (!token) {
     return next(req);

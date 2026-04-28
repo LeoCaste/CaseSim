@@ -25,6 +25,64 @@
   color: var(--cs-text-muted);
 }
 
+.admin-llm-usage__filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: 10px;
+}
+
+.admin-llm-usage__filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-llm-usage__filter-field label {
+  font-weight: 600;
+  color: var(--cs-primary-dark);
+}
+
+.admin-llm-usage__filter-field input,
+.admin-llm-usage__filter-field select {
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--cs-text);
+  background: #fff;
+}
+
+.admin-llm-usage__filter-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+.admin-llm-usage__filter-actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: var(--cs-primary);
+  cursor: pointer;
+}
+
+.admin-llm-usage__filter-actions button.secondary {
+  background: var(--cs-secondary);
+}
+
+.admin-llm-usage__filter-actions button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .admin-llm-usage__summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -51,6 +109,12 @@
   font-size: 20px;
 }
 
+.admin-llm-usage__cost-note {
+  margin: -6px 0 18px;
+  font-size: 12px;
+  color: var(--cs-text-muted);
+}
+
 .admin-llm-usage__table-wrapper {
   background: var(--cs-surface);
   border: 1px solid var(--cs-border);
@@ -75,6 +139,15 @@
   color: var(--cs-primary-dark);
 }
 
+.admin-llm-usage__empty {
+  margin-bottom: 12px;
+  padding: 14px;
+  background: var(--cs-surface);
+  border: 1px dashed var(--cs-border);
+  border-radius: 10px;
+  color: var(--cs-text-muted);
+}
+
 .admin-llm-usage__loading,
 .admin-llm-usage__error {
   margin: 12px 0;
@@ -85,12 +158,24 @@
 }
 
 @media (max-width: 1100px) {
+  .admin-llm-usage__filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-llm-usage__summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 680px) {
+  .admin-llm-usage__filters {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-llm-usage__filter-actions {
+    flex-direction: column;
+  }
+
   .admin-llm-usage__summary-grid {
     grid-template-columns: 1fr;
   }

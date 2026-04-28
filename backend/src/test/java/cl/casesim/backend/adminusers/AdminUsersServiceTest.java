@@ -10,7 +10,9 @@ import cl.casesim.backend.auth.RoleRepository;
 import cl.casesim.backend.auth.UserRepository;
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ConflictException;
+import cl.casesim.backend.common.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -24,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +56,49 @@ class AdminUsersServiceTest {
 
         assertTrue(response.active());
         assertEquals(Set.of("ESTUDIANTE"), response.roles());
+    }
+
+    @Test
+    void getUsersShouldReturnOnlyActiveByDefault() {
+        AppUser activeUser = new AppUser(UUID.randomUUID(), "Activo", "activo@ufromail.cl", "hash", true, Set.of(role("ESTUDIANTE")));
+        AppUser inactiveUser = new AppUser(UUID.randomUUID(), "Inactivo", "inactivo@ufromail.cl", "hash", false, Set.of(role("PROFESOR")));
+        when(userRepository.findAllByOrderByNombreAsc()).thenReturn(List.of(activeUser, inactiveUser));
+
+        List<AdminUserResponse> responses = service.getUsers(null);
+
+        assertEquals(1, responses.size());
+        assertTrue(responses.getFirst().active());
+        assertEquals("Activo", responses.getFirst().name());
+    }
+
+    @Test
+    void getUsersShouldReturnOnlyInactiveWhenActiveFalse() {
+        AppUser activeUser = new AppUser(UUID.randomUUID(), "Activo", "activo@ufromail.cl", "hash", true, Set.of(role("ESTUDIANTE")));
+        AppUser inactiveUser = new AppUser(UUID.randomUUID(), "Inactivo", "inactivo@ufromail.cl", "hash", false, Set.of(role("PROFESOR")));
+        when(userRepository.findAllByOrderByNombreAsc()).thenReturn(List.of(activeUser, inactiveUser));
+
+        List<AdminUserResponse> responses = service.getUsers("false");
+
+        assertEquals(1, responses.size());
+        assertFalse(responses.getFirst().active());
+        assertEquals("Inactivo", responses.getFirst().name());
+    }
+
+    @Test
+    void getUsersShouldReturnAllWhenActiveAll() {
+        AppUser activeUser = new AppUser(UUID.randomUUID(), "Activo", "activo@ufromail.cl", "hash", true, Set.of(role("ESTUDIANTE")));
+        AppUser inactiveUser = new AppUser(UUID.randomUUID(), "Inactivo", "inactivo@ufromail.cl", "hash", false, Set.of(role("PROFESOR")));
+        when(userRepository.findAllByOrderByNombreAsc()).thenReturn(List.of(activeUser, inactiveUser));
+
+        List<AdminUserResponse> responses = service.getUsers("all");
+
+        assertEquals(2, responses.size());
+    }
+
+    @Test
+    void getUsersShouldFailWhenActiveFilterIsInvalid() {
+        assertThrows(BadRequestException.class, () -> service.getUsers("invalid"));
+        verify(userRepository, never()).findAllByOrderByNombreAsc();
     }
 
     @Test
@@ -173,6 +219,41 @@ class AdminUsersServiceTest {
 
         assertFalse(response.active());
         assertEquals(Set.of("ESTUDIANTE"), response.roles());
+    }
+
+    @Test
+    void deleteUserShouldPhysicallyDeleteWhenUserExists() {
+        UUID userId = UUID.randomUUID();
+        AppUser existing = new AppUser(userId, "Usuario", "usuario@ufromail.cl", "hash", true, Set.of(role("ESTUDIANTE")));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existing));
+
+        service.deleteUser(userId);
+
+        verify(userRepository).delete(existing);
+        verify(userRepository).flush();
+    }
+
+    @Test
+    void deleteUserShouldThrowWhenUserDoesNotExist() {
+        UUID userId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.deleteUser(userId));
+        verify(userRepository, never()).delete(any(AppUser.class));
+    }
+
+    @Test
+    void deleteUserShouldThrowConflictWhenUserHasAssociatedData() {
+        UUID userId = UUID.randomUUID();
+        AppUser existing = new AppUser(userId, "Usuario", "usuario@ufromail.cl", "hash", true, Set.of(role("ESTUDIANTE")));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existing));
+        doThrow(new DataIntegrityViolationException("FK constraint")).when(userRepository).flush();
+
+        ConflictException exception = assertThrows(ConflictException.class, () -> service.deleteUser(userId));
+
+        assertEquals("No se puede eliminar el usuario porque tiene datos asociados.", exception.getMessage());
+        verify(userRepository).delete(existing);
+        verify(userRepository).flush();
     }
 
     private Role role(String name) {

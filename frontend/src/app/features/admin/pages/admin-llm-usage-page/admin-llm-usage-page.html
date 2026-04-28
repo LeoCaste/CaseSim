@@ -5,6 +5,40 @@
     <p>Revisión operativa de consumo, latencia y comportamiento de fallback.</p>
   </header>
 
+  <section class="admin-llm-usage__filters">
+    <div class="admin-llm-usage__filter-field">
+      <label for="from">Fecha desde</label>
+      <input id="from" name="from" type="date" [(ngModel)]="filterForm.from" />
+    </div>
+
+    <div class="admin-llm-usage__filter-field">
+      <label for="to">Fecha hasta</label>
+      <input id="to" name="to" type="date" [(ngModel)]="filterForm.to" />
+    </div>
+
+    <div class="admin-llm-usage__filter-field">
+      <label for="model">Modelo</label>
+      <select id="model" name="model" [(ngModel)]="filterForm.model">
+        <option value="">Todos</option>
+        <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
+      </select>
+    </div>
+
+    <div class="admin-llm-usage__filter-field">
+      <label for="status">Estado</label>
+      <select id="status" name="status" [(ngModel)]="filterForm.status">
+        <option value="all">Todos</option>
+        <option value="error">Error</option>
+        <option value="fallback">Fallback</option>
+      </select>
+    </div>
+
+    <div class="admin-llm-usage__filter-actions">
+      <button type="button" (click)="applyFilters()" [disabled]="isLoading">Aplicar filtros</button>
+      <button type="button" class="secondary" (click)="clearFilters()" [disabled]="isLoading">Limpiar filtros</button>
+    </div>
+  </section>
+
   <p *ngIf="loadError" class="admin-llm-usage__error">{{ loadError }}</p>
   <p *ngIf="isLoading" class="admin-llm-usage__loading">Cargando métricas...</p>
 
@@ -29,13 +63,31 @@
       <span>Errores</span>
       <strong>{{ summary.errorCount }}</strong>
     </article>
+    <article class="admin-llm-usage__summary-card">
+      <span>Costo estimado USD</span>
+      <strong>{{ getEstimatedCostUsd() | currency: 'USD':'symbol':'1.2-2' }}</strong>
+    </article>
+    <article class="admin-llm-usage__summary-card">
+      <span>Costo estimado CLP</span>
+      <strong>{{ getEstimatedCostClp() | currency: 'CLP':'symbol':'1.0-0' }}</strong>
+    </article>
   </section>
 
-  <section *ngIf="!isLoading" class="admin-llm-usage__table-wrapper">
+  <p *ngIf="!isLoading && summary" class="admin-llm-usage__cost-note">
+    Costo estimado según tokens registrados y tarifa configurada.
+  </p>
+
+  <section *ngIf="hasNoMetrics()" class="admin-llm-usage__empty">
+    <p>No hay métricas disponibles para los filtros seleccionados.</p>
+  </section>
+
+  <section *ngIf="!isLoading && !loadError && usage.length > 0" class="admin-llm-usage__table-wrapper">
     <table>
       <thead>
         <tr>
           <th>Fecha</th>
+          <th *ngIf="hasModelColumn()">Modelo</th>
+          <th *ngIf="hasStatusColumn()">Estado</th>
           <th>Tokens input</th>
           <th>Tokens output</th>
           <th>Calls</th>
@@ -45,13 +97,12 @@
       <tbody>
         <tr *ngFor="let item of usage">
           <td>{{ item.date | date: 'dd/MM/yyyy' }}</td>
+          <td *ngIf="hasModelColumn()">{{ getModelValue(item) }}</td>
+          <td *ngIf="hasStatusColumn()">{{ getStatusValue(item) }}</td>
           <td>{{ item.tokensInput }}</td>
           <td>{{ item.tokensOutput }}</td>
           <td>{{ item.calls }}</td>
           <td>{{ item.avgLatencyMs ?? '-' }}</td>
-        </tr>
-        <tr *ngIf="usage.length === 0">
-          <td colspan="5">Sin datos de uso disponibles.</td>
         </tr>
       </tbody>
     </table>

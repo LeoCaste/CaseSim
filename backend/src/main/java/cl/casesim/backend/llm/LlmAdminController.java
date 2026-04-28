@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -43,12 +44,22 @@ public class LlmAdminController {
     }
 
     @GetMapping("/usage")
-    public List<LlmUsageDailyResponse> getUsage() {
-        return llmUsageService.getDailyUsage();
+    public List<LlmUsageDailyResponse> getUsage(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String model,
+            @RequestParam(required = false) String status
+    ) {
+        return llmUsageService.getDailyUsage(from, to, model, status);
     }
 
     @GetMapping("/summary")
-    public LlmSummaryResponse getSummary() {
-        return llmUsageService.getSummary();
+    public LlmSummaryResponse getSummary(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String model,
+            @RequestParam(required = false) String status
+    ) {
+        return llmUsageService.getSummary(from, to, model, status);
     }
 }

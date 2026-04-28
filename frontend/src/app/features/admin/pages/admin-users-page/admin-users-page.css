@@ -1,6 +1,7 @@
 .admin-users {
   width: 100%;
   max-width: 980px;
+  min-height: 0;
 }
 
 .admin-users__header {
@@ -77,10 +78,13 @@
 
 .admin-users__actions {
   grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
 }
 
 .admin-users__actions button,
 .admin-users__panel-header button,
+.admin-users__feedback button,
 .admin-users__table-actions button {
   border: none;
   border-radius: 8px;
@@ -98,31 +102,73 @@
   cursor: not-allowed;
 }
 
+.admin-users__actions button.secondary,
 .admin-users__panel-header button.secondary,
+.admin-users__feedback button.secondary,
 .admin-users__table-actions button.secondary {
   background: var(--cs-secondary);
+}
+
+.admin-users__table-actions button.danger {
+  background: #b42318;
+}
+
+.admin-users__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.admin-users__filters span {
+  color: var(--cs-primary-dark);
+  font-weight: 600;
+}
+
+.admin-users__filters button {
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--cs-surface);
+  color: var(--cs-text);
+  cursor: pointer;
+}
+
+.admin-users__filters button.is-active {
+  border-color: var(--cs-primary);
+  background: var(--cs-surface-muted);
+  color: var(--cs-primary-dark);
+  font-weight: 700;
 }
 
 .admin-users__table-wrapper {
   background: var(--cs-surface);
   border: 1px solid var(--cs-border);
   border-radius: 10px;
-  overflow: auto;
+  overflow: hidden;
 }
 
-.admin-users__table-wrapper table {
+.admin-users__table-scroll {
+  height: 58vh;
+  max-height: 560px;
+  min-height: 220px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.admin-users__table-scroll table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.admin-users__table-wrapper th,
-.admin-users__table-wrapper td {
+.admin-users__table-scroll th,
+.admin-users__table-scroll td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--cs-border);
   text-align: left;
 }
 
-.admin-users__table-wrapper th {
+.admin-users__table-scroll th {
   background: var(--cs-surface-muted);
   color: var(--cs-primary-dark);
 }
@@ -151,6 +197,23 @@
   margin: 12px 0;
 }
 
+.admin-users__feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.admin-users__empty {
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px dashed var(--cs-border);
+  border-radius: 10px;
+  background: var(--cs-surface);
+  color: var(--cs-text-muted);
+}
+
 .admin-users__error {
   color: #b42318;
 }
@@ -163,5 +226,14 @@
   .admin-users__panel-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .admin-users__table-wrapper {
+    overflow: auto;
+  }
+
+  .admin-users__table-scroll {
+    height: 50vh;
+    min-height: 180px;
   }
 }
