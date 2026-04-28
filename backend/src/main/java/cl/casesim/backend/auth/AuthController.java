@@ -9,12 +9,15 @@ import cl.casesim.backend.auth.dto.PreCheckResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -37,7 +40,14 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public MeResponse me(@AuthenticationPrincipal UserPrincipal principal) {
+    public MeResponse me(Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken
+                || !(authentication.getPrincipal() instanceof UserPrincipal principal)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado.");
+        }
+
         AuthUserResponse user = authService.me(principal);
         return new MeResponse(user);
     }

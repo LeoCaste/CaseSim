@@ -7,6 +7,7 @@ public record AuthUserResponse(
         UUID id,
         String name,
         String email,
-        Set<String> roles
+        Set<String> roles,
+        boolean active
 ) {
 }

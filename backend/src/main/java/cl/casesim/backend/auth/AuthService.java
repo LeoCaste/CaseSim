@@ -63,6 +63,9 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthUserResponse me(UserPrincipal principal) {
+        if (principal == null) {
+            throw unauthorizedException();
+        }
         return toUserResponse(principal);
     }
 
@@ -104,7 +107,8 @@ public class AuthService {
                 principal.getId(),
                 principal.getName(),
                 principal.getUsername(),
-                principal.getRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.toSet())
+                principal.getRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.toSet()),
+                principal.isEnabled()
         );
     }
 }
