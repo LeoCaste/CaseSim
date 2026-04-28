@@ -43,6 +43,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/pre-check").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/professor/sessions/**").hasRole("PROFESOR")
+                        .requestMatchers("/api/v1/professor/**").hasAnyRole("PROFESOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/simulations").hasAnyRole("PROFESOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/student/activities").hasRole("ESTUDIANTE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/clinical-cases/**").hasAnyRole("ESTUDIANTE", "PROFESOR", "ADMIN")

@@ -25,10 +25,9 @@ export interface ProfessorActivityOverview {
 export interface ProfessorRecentSession {
   id: string;
   student: string;
-  activity: string;
+  caseName: string;
   status: string;
-  turns: number;
-  duration: string;
+  submittedAt: string;
 }
 
 export interface ProfessorDashboard {

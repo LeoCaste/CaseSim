@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -9,7 +9,8 @@ import {
   InterviewSessionService
 } from '../../../../core/services/interview-session.service';
 import { DiagnosisReview, SessionMessage } from '../../../../core/models/student-session.model';
-import { finalize } from 'rxjs';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-interview-page',
@@ -40,13 +41,15 @@ export class InterviewPage implements OnInit {
   isSubmittingFinalDiagnosis = false;
   loadError = '';
   finalDiagnosisError = '';
+  private readonly destroyRef = inject(DestroyRef);
 
   messages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }> = [];
 
   constructor(
     private userContext: UserContext,
     private router: Router,
-    private interviewSessionService: InterviewSessionService
+    private interviewSessionService: InterviewSessionService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('student');
   }
@@ -58,8 +61,11 @@ export class InterviewPage implements OnInit {
     this.interviewSessionService
       .getInterviewSession()
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isLoading = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
@@ -67,9 +73,11 @@ export class InterviewPage implements OnInit {
           this.session = session;
           this.messages = session.messages.map((message) => this.mapMessage(message));
           this.scrollConversationToBottom();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.loadError = 'No fue posible cargar la entrevista. Recarga la página para reintentar.';
+          this.cdr.detectChanges();
         }
       });
   }
@@ -86,8 +94,11 @@ export class InterviewPage implements OnInit {
     this.interviewSessionService
       .sendMessage(this.session.id, content)
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isSendingMessage = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
@@ -95,9 +106,11 @@ export class InterviewPage implements OnInit {
           this.messages = [...this.messages, ...newMessages.map((message) => this.mapMessage(message))];
           this.clinicalIntervention = '';
           this.scrollConversationToBottom();
+          this.cdr.detectChanges();
         },
         error: () => {
           this.loadError = 'No fue posible enviar el mensaje. Intenta nuevamente.';
+          this.cdr.detectChanges();
         }
       });
   }
@@ -148,21 +161,27 @@ export class InterviewPage implements OnInit {
     this.interviewSessionService
       .submitFinalDiagnosis(this.session.id, diagnosisReview, payload.notebook)
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isSubmittingFinalDiagnosis = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
         next: (success) => {
           if (!success) {
             this.finalDiagnosisError = 'No fue posible enviar el diagnóstico final. Intenta nuevamente.';
+            this.cdr.detectChanges();
             return;
           }
 
+          this.cdr.detectChanges();
           this.router.navigate(['/session-completed']);
         },
         error: () => {
           this.finalDiagnosisError = 'No fue posible enviar el diagnóstico final. Intenta nuevamente.';
+          this.cdr.detectChanges();
         }
       });
   }

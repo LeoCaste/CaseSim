@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +10,8 @@ import {
   ClinicalFactVisibility
 } from '../../../../core/models/clinical-case.model';
 import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
-import { finalize } from 'rxjs';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 type FactVisibilityLabel = 'Inicial' | 'Bajo pregunta';
 
@@ -29,6 +30,7 @@ export class ClinicalCaseFormPage implements OnInit {
   isLoading = false;
   loadError = '';
   private caseId?: string;
+  private readonly destroyRef = inject(DestroyRef);
 
   caseFormState: ClinicalCase = {
     id: '1',
@@ -74,6 +76,8 @@ export class ClinicalCaseFormPage implements OnInit {
       this.clinicalCaseService
         .getCaseDraft()
         .pipe(
+          take(1),
+          takeUntilDestroyed(this.destroyRef),
           finalize(() => {
             this.isLoading = false;
             this.cdr.detectChanges();
@@ -102,6 +106,8 @@ export class ClinicalCaseFormPage implements OnInit {
     this.clinicalCaseService
       .getById(this.caseId)
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isLoading = false;
           this.cdr.detectChanges();
@@ -182,6 +188,8 @@ export class ClinicalCaseFormPage implements OnInit {
 
     save$
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isSaving = false;
           this.cdr.detectChanges();

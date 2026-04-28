@@ -1,0 +1,33 @@
+<section class="professor-sessions">
+  <header>
+    <p class="eyebrow">Docente</p>
+    <h1>Sesiones de estudiantes</h1>
+  </header>
+
+  <p *ngIf="isLoading">Cargando sesiones...</p>
+  <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
+  <p *ngIf="!isLoading && !loadError && sessions.length === 0">No hay sesiones registradas.</p>
+
+  <table *ngIf="!isLoading && !loadError && sessions.length > 0" class="session-table">
+    <thead>
+      <tr>
+        <th>Estudiante</th>
+        <th>Caso</th>
+        <th>Estado</th>
+        <th>Fecha</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let session of sessions">
+        <td>{{ session.student }}</td>
+        <td>{{ session.caseName }}</td>
+        <td>{{ session.status }}</td>
+        <td>{{ session.submittedAt }}</td>
+        <td>
+          <a [routerLink]="['/professor/sessions', session.id]">Revisar</a>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>

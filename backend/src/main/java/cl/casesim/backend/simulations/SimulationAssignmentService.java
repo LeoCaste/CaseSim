@@ -59,7 +59,7 @@ public class SimulationAssignmentService {
         validateStudents(normalizedStudentIds, students);
         validateNoDuplicateStudentCase(clinicalCase.getId(), normalizedStudentIds);
 
-        UUID sharedCourseId = resolveSharedCourseId(normalizedStudentIds);
+        UUID sharedCourseId = resolveCourseIdForAssignment(normalizedStudentIds);
         LocalDateTime now = LocalDateTime.now();
 
         SimulationActivity activity = simulationActivityRepository.save(new SimulationActivity(
@@ -142,14 +142,20 @@ public class SimulationAssignmentService {
         }
     }
 
-    private UUID resolveSharedCourseId(List<UUID> studentIds) {
+    private UUID resolveCourseIdForAssignment(List<UUID> studentIds) {
         List<UUID> sharedCourseIds = courseEnrollmentRepository
                 .findSharedCourseIdsForStudents(studentIds, studentIds.size());
 
-        if (sharedCourseIds.isEmpty()) {
-            throw new BadRequestException("Los estudiantes deben pertenecer a un curso en común con rol ESTUDIANTE.");
+        if (!sharedCourseIds.isEmpty()) {
+            return sharedCourseIds.getFirst();
         }
 
-        return sharedCourseIds.getFirst();
+        List<UUID> studentCourseIds = courseEnrollmentRepository.findStudentCourseIds(studentIds);
+        if (!studentCourseIds.isEmpty()) {
+            return studentCourseIds.getFirst();
+        }
+
+        return courseEnrollmentRepository.findAnyCourseId()
+                .orElseThrow(() -> new BadRequestException("No existe un curso disponible para crear la simulación."));
     }
 }

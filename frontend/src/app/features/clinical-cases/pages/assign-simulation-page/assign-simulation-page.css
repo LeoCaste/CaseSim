@@ -178,6 +178,16 @@
   padding: 20px;
 }
 
+.assign-feedback {
+  margin: 0;
+  padding: 20px;
+  color: var(--cs-text-muted);
+}
+
+.assign-feedback--error {
+  color: #b91c1c;
+}
+
 .student-row {
   display: flex;
   align-items: center;

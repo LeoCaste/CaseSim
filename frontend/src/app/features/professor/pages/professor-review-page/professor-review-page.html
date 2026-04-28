@@ -1,4 +1,8 @@
 <section class="review-page">
+  <p *ngIf="isLoading">Cargando detalle de sesión...</p>
+  <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
+
+  <ng-container *ngIf="!isLoading && !loadError">
   <header class="review-header">
     <div>
       <p class="review-header__eyebrow">Revisión clínica</p>
@@ -35,4 +39,5 @@
       <app-evaluation-panel [diagnosis]="diagnosis"></app-evaluation-panel>
     </aside>
   </section>
+  </ng-container>
 </section>

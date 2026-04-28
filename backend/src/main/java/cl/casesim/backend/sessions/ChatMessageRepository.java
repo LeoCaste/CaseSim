@@ -10,6 +10,8 @@ import java.util.UUID;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> {
 
+    long countBySesionId(UUID sesionId);
+
     List<ChatMessage> findBySesionIdOrderByNumeroTurnoAsc(UUID sesionId);
 
     List<ChatMessage> findBySesionIdOrderByNumeroTurnoDesc(UUID sesionId, Pageable pageable);

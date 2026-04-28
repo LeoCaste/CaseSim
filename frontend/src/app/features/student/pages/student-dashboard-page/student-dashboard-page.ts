@@ -1,11 +1,12 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
 import { ActivityCard } from '../../components/activity-card/activity-card';
 import { RouterLink } from '@angular/router';
 import { StudentActivity } from '../../../../core/models/student-session.model';
 import { StudentSessionService } from '../../../../core/services/student-session.service';
-import { finalize } from 'rxjs';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-student-dashboard-page',
@@ -18,6 +19,7 @@ export class StudentDashboardPage implements OnInit {
   history: Array<{ title: string; patient: string; status: string; date: string; route: string }> = [];
   isLoading = false;
   loadError = '';
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private userContext: UserContext,
@@ -34,6 +36,8 @@ export class StudentDashboardPage implements OnInit {
     this.studentSessionService
       .getDashboardData()
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isLoading = false;
           this.cdr.detectChanges();

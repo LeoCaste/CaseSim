@@ -7,6 +7,7 @@ import { StudentDashboardPage } from './features/student/pages/student-dashboard
 import { WaitingRoomPage } from './features/student/pages/waiting-room-page/waiting-room-page';
 import { ProfessorDashboardPage } from './features/professor/pages/professor-dashboard-page/professor-dashboard-page';
 import { ProfessorReviewPage } from './features/professor/pages/professor-review-page/professor-review-page';
+import { ProfessorSessionsPage } from './features/professor/pages/professor-sessions-page/professor-sessions-page';
 import { ClinicalCaseListPage } from './features/clinical-cases/pages/clinical-case-list-page/clinical-case-list-page';
 import { ClinicalCaseFormPage } from './features/clinical-cases/pages/clinical-case-form-page/clinical-case-form-page';
 import { ClinicalCaseDetailPage } from './features/clinical-cases/pages/clinical-case-detail-page/clinical-case-detail-page';
@@ -108,7 +109,14 @@ export const routes: Routes = [
         data: PROFESSOR_ONLY
       },
       {
-        path: 'professor/review',
+        path: 'professor/sessions',
+        component: ProfessorSessionsPage,
+        canActivate: [roleAuthorizationCanActivate],
+        canMatch: [roleAuthorizationCanMatch],
+        data: PROFESSOR_ONLY
+      },
+      {
+        path: 'professor/sessions/:id',
         component: ProfessorReviewPage,
         canActivate: [roleAuthorizationCanActivate],
         canMatch: [roleAuthorizationCanMatch],

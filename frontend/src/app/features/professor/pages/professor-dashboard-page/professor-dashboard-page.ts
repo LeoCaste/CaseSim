@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
 import { RouterLink } from '@angular/router';
@@ -12,7 +12,8 @@ import {
   ProfessorSummaryItem
 } from '../../../../core/models/professor-dashboard.model';
 import { ProfessorDashboardService } from '../../../../core/services/professor-dashboard.service';
-import { finalize } from 'rxjs';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-professor-dashboard-page',
@@ -27,23 +28,34 @@ export class ProfessorDashboardPage implements OnInit {
   sessions: ProfessorRecentSession[] = [];
   isLoading = false;
   loadError = '';
+  private hasLoadedOnce = false;
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private userContext: UserContext,
-    private professorDashboardService: ProfessorDashboardService
+    private professorDashboardService: ProfessorDashboardService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {
+    if (this.hasLoadedOnce) {
+      return;
+    }
+    this.hasLoadedOnce = true;
+
     this.isLoading = true;
     this.loadError = '';
 
     this.professorDashboardService
       .getDashboard()
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.isLoading = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
@@ -52,6 +64,7 @@ export class ProfessorDashboardPage implements OnInit {
           this.simulations = dashboard.simulations;
           this.activities = dashboard.activities;
           this.sessions = dashboard.sessions;
+          this.cdr.detectChanges();
         },
         error: () => {
           this.summary = [];
@@ -59,6 +72,7 @@ export class ProfessorDashboardPage implements OnInit {
           this.activities = [];
           this.sessions = [];
           this.loadError = 'No fue posible cargar el panel del profesor.';
+          this.cdr.detectChanges();
         }
       });
   }

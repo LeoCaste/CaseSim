@@ -1,12 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserContext } from '../../../../core/services/user-context';
+import { ActivatedRoute } from '@angular/router';
 import { SessionTranscript } from '../../components/session-transcript/session-transcript';
 import { StudentNotebook } from '../../components/student-notebook/student-notebook';
 import { EvaluationPanel } from '../../components/evaluation-panel/evaluation-panel';
 import { DiagnosisReview, SessionMessage } from '../../../../core/models/student-session.model';
 import { ProfessorSessionReview } from '../../../../core/models/professor-dashboard.model';
 import { ProfessorDashboardService } from '../../../../core/services/professor-dashboard.service';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-professor-review-page',
@@ -41,20 +44,41 @@ export class ProfessorReviewPage implements OnInit {
   };
   isLoading = false;
   loadError = '';
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private userContext: UserContext,
-    private professorDashboardService: ProfessorDashboardService
+    private professorDashboardService: ProfessorDashboardService,
+    private route: ActivatedRoute,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {
     this.isLoading = true;
-    this.professorDashboardService.getProfessorSessionReview('sess-01').subscribe((review) => {
-      this.applyReview(review);
-      this.isLoading = false;
-    });
+    this.loadError = '';
+    const sessionId = this.route.snapshot.paramMap.get('id') ?? '';
+    this.professorDashboardService
+      .getProfessorSessionReview(sessionId)
+      .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (review) => {
+          this.applyReview(review);
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.loadError = 'No fue posible cargar la sesión solicitada.';
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   private applyReview(review: ProfessorSessionReview): void {

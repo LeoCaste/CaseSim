@@ -3,10 +3,9 @@
     <thead>
     <tr>
       <th>Estudiante</th>
-      <th>Actividad</th>
+      <th>Caso</th>
       <th>Estado</th>
-      <th>Turnos</th>
-      <th>Duración</th>
+      <th>Fecha</th>
       <th></th>
     </tr>
     </thead>
@@ -14,7 +13,7 @@
     <tbody>
     <tr *ngFor="let session of sessions">
       <td>{{ session.student }}</td>
-      <td>{{ session.activity }}</td>
+      <td>{{ session.caseName }}</td>
 
       <td>
           <span
@@ -29,13 +28,12 @@
           </span>
       </td>
 
-      <td>{{ session.turns }}</td>
-      <td>{{ session.duration }}</td>
+      <td>{{ session.submittedAt }}</td>
 
       <td>
         <a
           *ngIf="session.status === 'Completada'"
-          routerLink="/professor/review"
+          [routerLink]="['/professor/sessions', session.id]"
           class="review-link"
         >
           Revisar

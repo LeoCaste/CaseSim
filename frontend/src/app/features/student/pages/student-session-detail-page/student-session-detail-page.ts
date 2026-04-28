@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
 import { DiagnosisReview, SessionMessage } from '../../../../core/models/student-session.model';
 import { StudentSessionService } from '../../../../core/services/student-session.service';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-student-session-detail-page',
@@ -18,10 +20,12 @@ export class StudentSessionDetailPage implements OnInit {
   notes = '';
   isLoading = false;
   loadError = '';
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private userContext: UserContext,
-    private studentSessionService: StudentSessionService
+    private studentSessionService: StudentSessionService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('student');
   }
@@ -34,22 +38,33 @@ export class StudentSessionDetailPage implements OnInit {
     if (!sessionId) {
       this.isLoading = false;
       this.loadError = 'No hay sesión reciente para mostrar.';
+      this.cdr.detectChanges();
       return;
     }
 
-    this.studentSessionService.getStudentSessionDetail(sessionId).subscribe({
-      next: (session) => {
-        this.title = session.title;
-        this.messages = session.messages.map((message) => this.mapMessage(message));
-        this.diagnosis = session.diagnosis;
-        this.notes = session.notes;
-        this.isLoading = false;
-      },
-      error: () => {
-        this.isLoading = false;
-        this.loadError = 'No fue posible cargar el detalle de la sesión.';
-      }
-    });
+    this.studentSessionService
+      .getStudentSessionDetail(sessionId)
+      .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (session) => {
+          this.title = session.title;
+          this.messages = session.messages.map((message) => this.mapMessage(message));
+          this.diagnosis = session.diagnosis;
+          this.notes = session.notes;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.loadError = 'No fue posible cargar el detalle de la sesión.';
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   private mapMessage(message: SessionMessage): { role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string } {

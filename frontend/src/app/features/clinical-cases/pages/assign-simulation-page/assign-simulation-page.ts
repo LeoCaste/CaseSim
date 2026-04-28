@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UserContext } from '../../../../core/services/user-context';
 import {
   CreateSimulationPayload,
@@ -41,25 +43,46 @@ export class AssignSimulationPage implements OnInit {
   };
   isLoading = false;
   loadError = '';
+  isSubmitting = false;
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private userContext: UserContext,
     private router: Router,
     private route: ActivatedRoute,
-    private simulationAssignmentService: SimulationAssignmentService
+    private simulationAssignmentService: SimulationAssignmentService,
+    private cdr: ChangeDetectorRef
   ) {
     this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {
     this.isLoading = true;
+    this.loadError = '';
     const caseId = this.route.snapshot.paramMap.get('id') ?? '1';
-    this.simulationAssignmentService.getAssignmentContext(caseId).subscribe((context) => {
-      this.clinicalCase = context.clinicalCase;
-      this.students = context.students.map((student) => ({ ...student, selected: !!student.selected }));
-      this.createSimulationPayload.clinicalCaseId = context.clinicalCase.id;
-      this.isLoading = false;
-    });
+    this.simulationAssignmentService
+      .getAssignmentContext(caseId)
+      .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (context) => {
+          this.clinicalCase = context.clinicalCase;
+          this.students = context.students.map((student) => ({ ...student, selected: !!student.selected }));
+          this.createSimulationPayload.clinicalCaseId = context.clinicalCase.id;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          this.loadError = error?.message ?? 'No fue posible cargar la lista de estudiantes.';
+          this.students = [];
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   onModeChange(event: Event): void {
@@ -82,6 +105,7 @@ export class AssignSimulationPage implements OnInit {
   }
 
   confirmCreateSimulation(): void {
+    this.loadError = '';
     this.createSimulationPayload = {
       clinicalCaseId: this.clinicalCase.id,
       studentIds: this.students.filter((student) => student.selected).map((student) => student.id),
@@ -92,12 +116,36 @@ export class AssignSimulationPage implements OnInit {
       availableAt: undefined
     };
 
-    this.simulationAssignmentService.createSimulation(this.createSimulationPayload).subscribe();
-    this.isCreateSuccess = true;
+    if (this.createSimulationPayload.studentIds.length === 0) {
+      this.loadError = 'Debes seleccionar al menos un estudiante para crear la simulación.';
+      this.isCreateSuccess = false;
+      this.cdr.detectChanges();
+      return;
+    }
 
-    setTimeout(() => {
-      this.router.navigate(['/professor/dashboard']);
-    }, 900);
+    this.isSubmitting = true;
+    this.simulationAssignmentService
+      .createSimulation(this.createSimulationPayload)
+      .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.isSubmitting = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: () => {
+          this.isCreateSuccess = true;
+          this.cdr.detectChanges();
+          this.router.navigate(['/professor/dashboard']);
+        },
+        error: (error) => {
+          this.loadError = error?.message ?? 'No fue posible crear la simulación.';
+          this.isCreateSuccess = false;
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   private parseDuration(value: string): number | undefined {

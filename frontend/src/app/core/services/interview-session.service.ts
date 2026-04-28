@@ -4,6 +4,8 @@ import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError }
 
 import { DiagnosisReview, SessionMessage } from '../models/student-session.model';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
+import { ProfessorDashboardService } from './professor-dashboard.service';
 
 export interface InterviewSessionData {
   id: string;
@@ -28,7 +30,11 @@ export class InterviewSessionService {
   private readonly currentSessionStorageKey = 'casesim.currentSessionId';
   private readonly currentActivityStorageKey = 'casesim.currentActivityId';
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService,
+    private professorDashboardService: ProfessorDashboardService
+  ) {}
 
   getInterviewSession(): Observable<InterviewSessionData> {
     if (environment.useMocks) {
@@ -48,6 +54,15 @@ export class InterviewSessionService {
           messages: this.http.get<BackendChatMessageResponse[]>(`${this.apiBaseUrl}/sessions/${session.id}/messages`)
         })
       ),
+      tap(({ session }) => {
+        this.professorDashboardService.saveSessionSummary({
+          sessionId: session.id,
+          studentName: this.authService.getCurrentUser()?.fullName ?? 'Estudiante',
+          caseName: this.getMockInterviewSession().patientName,
+          status: 'IN_PROGRESS',
+          submittedAt: new Date().toISOString()
+        });
+      }),
       map(({ session, messages }) => ({
         ...this.getMockInterviewSession(),
         id: session.id,
@@ -109,7 +124,16 @@ export class InterviewSessionService {
         reasoning: diagnosis.reasoning
       })
       .pipe(
-        map(() => true),
+        map(() => {
+          this.professorDashboardService.saveSessionSummary({
+            sessionId: resolvedSessionId,
+            studentName: this.authService.getCurrentUser()?.fullName ?? 'Estudiante',
+            caseName: this.getMockInterviewSession().patientName,
+            status: 'COMPLETED',
+            submittedAt: new Date().toISOString()
+          });
+          return true;
+        }),
         catchError(() => of(false))
       );
   }

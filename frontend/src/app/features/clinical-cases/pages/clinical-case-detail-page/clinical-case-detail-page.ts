@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { UserContext } from '../../../../core/services/user-context';
@@ -6,7 +6,8 @@ import { ClinicalCase } from '../../../../core/models/clinical-case.model';
 import { SimulationStudent } from '../../../../core/models/simulation.model';
 import { ClinicalCaseService } from '../../../../core/services/clinical-case.service';
 import { SimulationAssignmentService } from '../../../../core/services/simulation-assignment.service';
-import { finalize } from 'rxjs';
+import { finalize, take } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-clinical-case-detail-page',
@@ -18,6 +19,7 @@ export class ClinicalCaseDetailPage implements OnInit {
   loading = false;
   error = '';
   clinicalCase?: ClinicalCase;
+  private readonly destroyRef = inject(DestroyRef);
 
   associatedStudents: Array<{ name: string; status: string; canReview: boolean }> = [];
 
@@ -44,6 +46,8 @@ export class ClinicalCaseDetailPage implements OnInit {
     this.clinicalCaseService
       .getById(caseId)
       .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           this.loading = false;
           this.cdr.detectChanges();
@@ -64,12 +68,21 @@ export class ClinicalCaseDetailPage implements OnInit {
         }
       });
 
-    this.simulationAssignmentService.getAssignmentContext(caseId).subscribe((context) => {
-      this.associatedStudents = context.students
-        .filter((student) => student.selected ?? true)
-        .map((student) => this.mapStudent(student));
-      this.cdr.detectChanges();
-    });
+    this.simulationAssignmentService
+      .getAssignmentContext(caseId)
+      .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (context) => {
+          this.associatedStudents = context.students
+            .filter((student) => student.selected ?? true)
+            .map((student) => this.mapStudent(student));
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.associatedStudents = [];
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   get pageTitle(): string {
