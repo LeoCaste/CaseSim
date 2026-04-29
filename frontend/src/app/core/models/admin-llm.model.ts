@@ -2,6 +2,32 @@ export type LlmProvider = 'openai';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4.1-mini' | 'gpt-4.1';
 
+export type PatientRevealStrategy = 'PROGRESSIVE' | 'DIRECT' | 'RESTRICTIVE';
+
+export interface PatientBehaviorConfig {
+  basePrompt: string;
+  additionalRules: string;
+  noInformationReply: string;
+  revealStrategy: PatientRevealStrategy;
+  maxHistoryMessages: number;
+  temperature: number;
+  maxTokens: number;
+  safetyFilterEnabled: boolean;
+}
+
+export const RECOMMENDED_PATIENT_BEHAVIOR_CONFIG: PatientBehaviorConfig = {
+  basePrompt:
+    'Responde como paciente estandarizado en contexto clínico. Entrega información de forma coherente con el motivo de consulta y evolución del caso.',
+  additionalRules:
+    'No inventes antecedentes críticos no definidos en el caso. Mantén consistencia con edad, sexo y contexto clínico.',
+  noInformationReply: 'No tengo información sobre eso en este momento.',
+  revealStrategy: 'PROGRESSIVE',
+  maxHistoryMessages: 6,
+  temperature: 0.4,
+  maxTokens: 350,
+  safetyFilterEnabled: true
+};
+
 export interface LlmConfig {
   provider: LlmProvider | string;
   model: LlmModel | string;
@@ -10,6 +36,7 @@ export interface LlmConfig {
   apiKeyConfigured: boolean;
   maskedApiKey?: string | null;
   updatedAt: string | null;
+  patientBehavior: PatientBehaviorConfig;
 }
 
 export interface UpdateLlmConfigPayload {
@@ -18,6 +45,7 @@ export interface UpdateLlmConfigPayload {
   baseUrl: string;
   enabled: boolean;
   apiKey?: string;
+  patientBehavior: PatientBehaviorConfig;
 }
 
 export interface LlmTestConnectionResult {

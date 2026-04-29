@@ -1,5 +1,6 @@
 package cl.casesim.backend.llm;
 
+import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
@@ -17,6 +18,10 @@ import java.util.UUID;
 @Service
 @Transactional(readOnly = true)
 public class LlmAdminService {
+
+    private static final int DEFAULT_MAX_HISTORY_MESSAGES = 6;
+    private static final int DEFAULT_MAX_TOKENS = 350;
+    private static final double DEFAULT_TEMPERATURE = 0.4;
 
     private final LlmConfigRepository llmConfigRepository;
     private final LlmProperties llmProperties;
@@ -55,6 +60,14 @@ public class LlmAdminService {
                     config.isEnabled(),
                     StringUtils.hasText(decryptedApiKey),
                     maskApiKey(decryptedApiKey),
+                    defaultSystemPrompt(config.getSystemPrompt()),
+                    defaultBehaviorRules(config.getPatientBehaviorRules()),
+                    defaultNoInfoResponse(config.getNoInfoResponse()),
+                    defaultRevealStrategy(config.getRevealStrategy()),
+                    sanitizeMaxHistoryMessages(config.getMaxHistoryMessages()),
+                    sanitizeTemperature(config.getTemperature()),
+                    sanitizeMaxTokens(config.getMaxTokens()),
+                    config.isEnabledSafetyFilter(),
                     config.getUpdatedAt()
             );
         }
@@ -66,6 +79,14 @@ public class LlmAdminService {
                 llmProperties.isEnabled(),
                 llmProperties.hasApiKey(),
                 maskApiKey(llmProperties.getApiKey()),
+                PromptBuilderService.defaultSystemPrompt(),
+                defaultBehaviorRules(llmProperties.getPatientBehaviorRules()),
+                defaultNoInfoResponse(llmProperties.getNoInfoResponse()),
+                defaultRevealStrategy(llmProperties.getRevealStrategy()),
+                sanitizeMaxHistoryMessages(llmProperties.getMaxHistoryMessages()),
+                sanitizeTemperature(llmProperties.getTemperature()),
+                sanitizeMaxTokens(llmProperties.getMaxTokens()),
+                llmProperties.isEnabledSafetyFilter(),
                 null
         );
     }
@@ -76,6 +97,14 @@ public class LlmAdminService {
         String resolvedApiKey = resolveApiKey(request.apiKey(), existing);
         String encryptedApiKey = llmApiKeyCipher.encrypt(resolvedApiKey);
         LocalDateTime now = LocalDateTime.now();
+        String systemPrompt = defaultSystemPrompt(request.resolvedSystemPrompt());
+        String behaviorRules = defaultBehaviorRules(request.resolvedPatientBehaviorRules());
+        String noInfoResponse = defaultNoInfoResponse(request.resolvedNoInfoResponse());
+        RevealStrategy revealStrategy = defaultRevealStrategy(request.resolvedRevealStrategy());
+        int maxHistoryMessages = sanitizeMaxHistoryMessages(request.resolvedMaxHistoryMessages());
+        double temperature = sanitizeTemperature(request.resolvedTemperature());
+        int maxTokens = sanitizeMaxTokens(request.resolvedMaxTokens());
+        boolean enabledSafetyFilter = request.resolvedEnabledSafetyFilter() != null && request.resolvedEnabledSafetyFilter();
 
         LlmConfig saved;
         if (existing == null) {
@@ -86,7 +115,15 @@ public class LlmAdminService {
                     request.baseUrl().trim(),
                     request.enabled(),
                     encryptedApiKey,
-                    now
+                    now,
+                    systemPrompt,
+                    behaviorRules,
+                    noInfoResponse,
+                    revealStrategy,
+                    maxHistoryMessages,
+                    temperature,
+                    maxTokens,
+                    enabledSafetyFilter
             ));
         } else {
             existing.update(
@@ -95,7 +132,15 @@ public class LlmAdminService {
                     request.baseUrl().trim(),
                     request.enabled(),
                     encryptedApiKey,
-                    now
+                    now,
+                    systemPrompt,
+                    behaviorRules,
+                    noInfoResponse,
+                    revealStrategy,
+                    maxHistoryMessages,
+                    temperature,
+                    maxTokens,
+                    enabledSafetyFilter
             );
             saved = llmConfigRepository.save(existing);
         }
@@ -108,6 +153,14 @@ public class LlmAdminService {
                 saved.isEnabled(),
                 StringUtils.hasText(llmApiKeyCipher.decrypt(saved.getApiKeySecret())),
                 maskApiKey(llmApiKeyCipher.decrypt(saved.getApiKeySecret())),
+                saved.getSystemPrompt(),
+                saved.getPatientBehaviorRules(),
+                saved.getNoInfoResponse(),
+                saved.getRevealStrategy(),
+                saved.getMaxHistoryMessages(),
+                saved.getTemperature(),
+                saved.getMaxTokens(),
+                saved.isEnabledSafetyFilter(),
                 saved.getUpdatedAt()
         );
     }
@@ -170,6 +223,57 @@ public class LlmAdminService {
         llmProperties.setEnabled(config.isEnabled());
         String apiKey = llmApiKeyCipher.decrypt(config.getApiKeySecret());
         llmProperties.setApiKey(apiKey == null ? "" : apiKey.trim());
+        llmProperties.setSystemPrompt(defaultSystemPrompt(config.getSystemPrompt()));
+        llmProperties.setPatientBehaviorRules(defaultBehaviorRules(config.getPatientBehaviorRules()));
+        llmProperties.setNoInfoResponse(defaultNoInfoResponse(config.getNoInfoResponse()));
+        llmProperties.setRevealStrategy(defaultRevealStrategy(config.getRevealStrategy()));
+        llmProperties.setMaxHistoryMessages(sanitizeMaxHistoryMessages(config.getMaxHistoryMessages()));
+        llmProperties.setTemperature(sanitizeTemperature(config.getTemperature()));
+        llmProperties.setMaxTokens(sanitizeMaxTokens(config.getMaxTokens()));
+        llmProperties.setEnabledSafetyFilter(config.isEnabledSafetyFilter());
+    }
+
+    private String defaultSystemPrompt(String prompt) {
+        if (!StringUtils.hasText(prompt)) {
+            return PromptBuilderService.defaultSystemPrompt();
+        }
+        return prompt.trim();
+    }
+
+    private String defaultBehaviorRules(String rules) {
+        return StringUtils.hasText(rules) ? rules.trim() : "";
+    }
+
+    private String defaultNoInfoResponse(String noInfoResponse) {
+        return StringUtils.hasText(noInfoResponse) ? noInfoResponse.trim() : "No tengo información asociada a eso.";
+    }
+
+    private RevealStrategy defaultRevealStrategy(RevealStrategy revealStrategy) {
+        return revealStrategy == null ? RevealStrategy.PROGRESSIVE : revealStrategy;
+    }
+
+    private int sanitizeMaxHistoryMessages(Integer maxHistoryMessages) {
+        if (maxHistoryMessages == null || maxHistoryMessages < 1) {
+            return DEFAULT_MAX_HISTORY_MESSAGES;
+        }
+        return Math.min(maxHistoryMessages, 30);
+    }
+
+    private double sanitizeTemperature(Double temperature) {
+        if (temperature == null) {
+            return DEFAULT_TEMPERATURE;
+        }
+        return Math.max(0.0, Math.min(2.0, temperature));
+    }
+
+    private int sanitizeMaxTokens(Integer maxTokens) {
+        if (maxTokens == null) {
+            return DEFAULT_MAX_TOKENS;
+        }
+        if (maxTokens < 64 || maxTokens > 1024) {
+            throw new BadRequestException("maxTokens debe estar entre 64 y 1024.");
+        }
+        return maxTokens;
     }
 
     private String resolveApiKey(String requestApiKey, LlmConfig existing) {

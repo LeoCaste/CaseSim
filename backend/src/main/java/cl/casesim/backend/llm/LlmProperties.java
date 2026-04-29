@@ -16,6 +16,12 @@ public class LlmProperties {
     private double temperature = 0.4;
     private int maxTokens = 350;
     private int historyTurns = 6;
+    private String systemPrompt = "";
+    private String patientBehaviorRules = "";
+    private String noInfoResponse = "No tengo información asociada a eso.";
+    private RevealStrategy revealStrategy = RevealStrategy.PROGRESSIVE;
+    private int maxHistoryMessages = 6;
+    private boolean enabledSafetyFilter = true;
 
     public boolean isEnabled() {
         return enabled;
@@ -99,5 +105,53 @@ public class LlmProperties {
 
     public boolean hasApiKey() {
         return StringUtils.hasText(apiKey);
+    }
+
+    public String getSystemPrompt() {
+        return systemPrompt;
+    }
+
+    public void setSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
+    }
+
+    public String getPatientBehaviorRules() {
+        return patientBehaviorRules;
+    }
+
+    public void setPatientBehaviorRules(String patientBehaviorRules) {
+        this.patientBehaviorRules = patientBehaviorRules;
+    }
+
+    public String getNoInfoResponse() {
+        return noInfoResponse;
+    }
+
+    public void setNoInfoResponse(String noInfoResponse) {
+        this.noInfoResponse = noInfoResponse;
+    }
+
+    public RevealStrategy getRevealStrategy() {
+        return revealStrategy;
+    }
+
+    public void setRevealStrategy(RevealStrategy revealStrategy) {
+        this.revealStrategy = revealStrategy;
+    }
+
+    public int getMaxHistoryMessages() {
+        return maxHistoryMessages;
+    }
+
+    public void setMaxHistoryMessages(int maxHistoryMessages) {
+        this.maxHistoryMessages = maxHistoryMessages;
+    }
+
+    public boolean isEnabledSafetyFilter() {
+        return enabledSafetyFilter;
+    }
+
+    public void setEnabledSafetyFilter(boolean enabledSafetyFilter) {
+        this.enabledSafetyFilter = enabledSafetyFilter;
     }
 }

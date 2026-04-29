@@ -28,6 +28,11 @@ public class OpenAiLlmClient implements LlmClient {
 
     @Override
     public String generateChatCompletion(List<ChatPromptMessage> messages) {
+        return generateChatCompletion(messages, llmProperties.getTemperature(), llmProperties.getMaxTokens());
+    }
+
+    @Override
+    public String generateChatCompletion(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
         int attempts = Math.max(1, llmProperties.getMaxRetries() + 1);
 
         for (int attempt = 1; attempt <= attempts; attempt++) {
@@ -37,7 +42,7 @@ public class OpenAiLlmClient implements LlmClient {
                         .uri(llmProperties.getBaseUrl())
                         .header("Authorization", "Bearer " + llmProperties.getApiKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .body(buildPayload(messages))
+                        .body(buildPayload(messages, temperature, maxTokens))
                         .retrieve()
                         .body(Map.class);
 
@@ -55,12 +60,14 @@ public class OpenAiLlmClient implements LlmClient {
         throw new LlmClientException("No fue posible obtener respuesta del proveedor LLM");
     }
 
-    private Map<String, Object> buildPayload(List<ChatPromptMessage> messages) {
+    private Map<String, Object> buildPayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+        double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
+        int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
         return Map.of(
                 "model", llmProperties.getModel(),
                 "messages", messages,
-                "temperature", llmProperties.getTemperature(),
-                "max_tokens", llmProperties.getMaxTokens()
+                "temperature", resolvedTemperature,
+                "max_tokens", resolvedMaxTokens
         );
     }
 

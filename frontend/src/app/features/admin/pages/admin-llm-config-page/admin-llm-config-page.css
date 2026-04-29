@@ -63,6 +63,8 @@
 
 .admin-llm-config__row input[type='text'],
 .admin-llm-config__row input[type='password'],
+.admin-llm-config__row input[type='number'],
+.admin-llm-config__row textarea,
 .admin-llm-config__row select {
   border: 1px solid var(--cs-border);
   border-radius: 8px;
@@ -70,6 +72,11 @@
   font: inherit;
   color: var(--cs-text);
   background: #ffffff;
+}
+
+.admin-llm-config__row textarea {
+  resize: vertical;
+  min-height: 84px;
 }
 
 .admin-llm-config__row input[readonly] {
@@ -95,6 +102,24 @@
 
 .admin-llm-config__status p:last-child {
   margin-bottom: 0;
+}
+
+.admin-llm-config__subsection {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cs-border);
+}
+
+.admin-llm-config__subsection h3 {
+  margin: 0 0 12px;
+  color: var(--cs-primary-dark);
+  font-size: 15px;
+}
+
+.admin-llm-config__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
 }
 
 .admin-llm-config__actions {

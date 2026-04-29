@@ -22,6 +22,8 @@ public class ResponseSafetyFilter {
 
             Pattern.compile("\\bdiagn[oó]stic(o|a)?\\b", Pattern.CASE_INSENSITIVE),
             Pattern.compile("\\bevalu(a|aci[oó]n|arte|aci[oó]n\\s+del\\s+estudiante|aci[oó]n\\s+del\\s+alumno)\\b", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\b(m[eé]dico|doctora?|doctor)\\b", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\b(profesor(a)?|docente)\\b", Pattern.CASE_INSENSITIVE),
 
             Pattern.compile("razonamiento\\s+cl[ií]nico", Pattern.CASE_INSENSITIVE),
             Pattern.compile("diagn[oó]stico\\s+diferencial", Pattern.CASE_INSENSITIVE),
@@ -29,7 +31,15 @@ public class ResponseSafetyFilter {
             Pattern.compile("plan\\s+terap[eé]utico", Pattern.CASE_INSENSITIVE)
     );
 
+    private static final List<Pattern> STRICT_BLOCK_PATTERNS = List.of(
+            Pattern.compile("\\b(asistente\\s+virtual|chatbot)\\b", Pattern.CASE_INSENSITIVE)
+    );
+
     public String applyOrFallback(String content) {
+        return applyOrFallback(content, false);
+    }
+
+    public String applyOrFallback(String content, boolean strictMode) {
         if (!StringUtils.hasText(content)) {
             return SAFE_FALLBACK;
         }
@@ -38,6 +48,14 @@ public class ResponseSafetyFilter {
         for (Pattern pattern : BLOCK_PATTERNS) {
             if (pattern.matcher(normalized).find()) {
                 return SAFE_FALLBACK;
+            }
+        }
+
+        if (strictMode) {
+            for (Pattern pattern : STRICT_BLOCK_PATTERNS) {
+                if (pattern.matcher(normalized).find()) {
+                    return SAFE_FALLBACK;
+                }
             }
         }
         return normalized;

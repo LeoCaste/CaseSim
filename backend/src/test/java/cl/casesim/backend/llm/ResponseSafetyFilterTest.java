@@ -49,4 +49,11 @@ class ResponseSafetyFilterTest {
 
         assertEquals(ResponseSafetyFilter.SAFE_FALLBACK, blocked);
     }
+
+    @Test
+    void bloqueaActuarComoProfesorOMedico() {
+        String blocked = responseSafetyFilter.applyOrFallback("Como profesor te diré el diagnóstico y plan.");
+
+        assertEquals(ResponseSafetyFilter.SAFE_FALLBACK, blocked);
+    }
 }

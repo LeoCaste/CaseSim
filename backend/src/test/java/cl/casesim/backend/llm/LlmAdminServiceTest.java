@@ -1,5 +1,6 @@
 package cl.casesim.backend.llm;
 
+import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
@@ -13,6 +14,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -42,8 +44,16 @@ class LlmAdminServiceTest {
                 "gpt-4o-mini",
                 "https://api.openai.com/v1/chat/completions",
                 true,
-                "sk-1234567890",
-                LocalDateTime.now()
+                llmApiKeyCipher.encrypt("sk-1234567890"),
+                LocalDateTime.now(),
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE,
+                6,
+                0.4,
+                350,
+                true
         );
         when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(config));
 
@@ -76,7 +86,16 @@ class LlmAdminServiceTest {
                 "gpt-4.1-mini",
                 "https://api.openai.com/v1/chat/completions",
                 true,
-                "sk-new"
+                "sk-new",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
         );
         when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
         when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -88,5 +107,71 @@ class LlmAdminServiceTest {
         assertEquals("https://api.openai.com/v1/chat/completions", llmProperties.getBaseUrl());
         assertTrue(llmProperties.isEnabled());
         assertTrue(response.apiKeyConfigured());
+    }
+
+    @Test
+    void updateConfigShouldFailWhenMaxTokensOutOfRange() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "gpt-4.1-mini",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                "sk-new",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                2048,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+    }
+
+    @Test
+    void updateConfigShouldSupportNestedPatientBehaviorPayload() {
+        UpdateLlmConfigRequest.PatientBehaviorPayload nestedBehavior = new UpdateLlmConfigRequest.PatientBehaviorPayload(
+                "prompt base",
+                "reglas",
+                "No tengo información asociada a eso.",
+                RevealStrategy.RESTRICTIVE,
+                5,
+                0.6,
+                300,
+                false
+        );
+
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "gpt-4.1-mini",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                "sk-new",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                nestedBehavior
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("prompt base", response.systemPrompt());
+        assertEquals("reglas", response.patientBehaviorRules());
+        assertEquals(RevealStrategy.RESTRICTIVE, response.revealStrategy());
+        assertEquals(5, response.maxHistoryMessages());
+        assertEquals(0.6, response.temperature());
+        assertEquals(300, response.maxTokens());
+        assertFalse(response.enabledSafetyFilter());
     }
 }

@@ -4,7 +4,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
-import { LlmConfig, LlmModel, LlmProvider, UpdateLlmConfigPayload } from '../../../../core/models/admin-llm.model';
+import {
+  LlmConfig,
+  LlmModel,
+  LlmProvider,
+  PatientBehaviorConfig,
+  PatientRevealStrategy,
+  RECOMMENDED_PATIENT_BEHAVIOR_CONFIG,
+  UpdateLlmConfigPayload
+} from '../../../../core/models/admin-llm.model';
 import { AdminLlmService } from '../../../../core/services/admin-llm.service';
 import { UserContext } from '../../../../core/services/user-context';
 
@@ -26,7 +34,8 @@ export class AdminLlmConfigPage implements OnInit {
     model: '',
     baseUrl: '',
     enabled: true,
-    apiKey: ''
+    apiKey: '',
+    patientBehavior: { ...RECOMMENDED_PATIENT_BEHAVIOR_CONFIG }
   };
 
   isLoading = false;
@@ -39,6 +48,12 @@ export class AdminLlmConfigPage implements OnInit {
   testFeedbackStatus: 'success' | 'error' | null = null;
 
   readonly providers: LlmProvider[] = ['openai'];
+  readonly revealStrategies: PatientRevealStrategy[] = ['PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'];
+  readonly basePromptMaxLength = 4000;
+  readonly additionalRulesMaxLength = 3000;
+  readonly noInformationReplyMaxLength = 500;
+  readonly maxTokensMin = 64;
+  readonly maxTokensMax = 1024;
   readonly modelsByProvider: Record<LlmProvider, LlmModel[]> = {
     openai: ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4.1']
   };
@@ -63,10 +78,17 @@ export class AdminLlmConfigPage implements OnInit {
       return;
     }
 
+    const validationError = this.validatePatientBehavior(this.form.patientBehavior);
+    if (validationError) {
+      this.saveError = validationError;
+      return;
+    }
+
     this.isSaving = true;
     this.triggerViewUpdate();
+    const payload = this.buildSanitizedPayload(this.form);
     this.adminLlmService
-      .updateConfig(this.form)
+      .updateConfig(payload)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -84,7 +106,8 @@ export class AdminLlmConfigPage implements OnInit {
             model,
             baseUrl: this.resolveBaseUrl(updatedConfig.baseUrl, provider),
             enabled: updatedConfig.enabled,
-            apiKey: ''
+            apiKey: '',
+            patientBehavior: this.clonePatientBehavior(updatedConfig.patientBehavior)
           };
           this.saveMessage = 'Configuración guardada correctamente.';
           this.triggerViewUpdate();
@@ -94,6 +117,12 @@ export class AdminLlmConfigPage implements OnInit {
           this.triggerViewUpdate();
         }
       });
+  }
+
+  onRestoreRecommended(): void {
+    this.form.patientBehavior = this.clonePatientBehavior(RECOMMENDED_PATIENT_BEHAVIOR_CONFIG);
+    this.saveMessage = 'Valores recomendados cargados. Guarda para aplicar.';
+    this.saveError = '';
   }
 
   onTestConnection(): void {
@@ -150,6 +179,10 @@ export class AdminLlmConfigPage implements OnInit {
     return this.config?.apiKeyConfigured ? 'Sí' : 'No';
   }
 
+  get hasApiKeyMask(): boolean {
+    return Boolean(this.config?.maskedApiKey?.trim());
+  }
+
   private loadConfig(): void {
     this.isLoading = true;
     this.loadError = '';
@@ -174,7 +207,8 @@ export class AdminLlmConfigPage implements OnInit {
             model,
             baseUrl: this.resolveBaseUrl(config.baseUrl, provider),
             enabled: config.enabled,
-            apiKey: ''
+            apiKey: '',
+            patientBehavior: this.clonePatientBehavior(config.patientBehavior)
           };
           this.triggerViewUpdate();
         },
@@ -214,5 +248,58 @@ export class AdminLlmConfigPage implements OnInit {
     }
 
     return OPENAI_BASE_URL;
+  }
+
+  private buildSanitizedPayload(form: UpdateLlmConfigPayload): UpdateLlmConfigPayload {
+    const behavior = this.clonePatientBehavior(form.patientBehavior);
+    behavior.basePrompt = behavior.basePrompt?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt;
+    behavior.additionalRules = behavior.additionalRules?.trim() || '';
+    behavior.noInformationReply =
+      behavior.noInformationReply?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply;
+    behavior.temperature = Number(behavior.temperature);
+    behavior.maxTokens = Number(behavior.maxTokens);
+    behavior.maxHistoryMessages = Number(behavior.maxHistoryMessages);
+
+    return {
+      provider: form.provider,
+      model: form.model,
+      baseUrl: form.baseUrl,
+      enabled: form.enabled,
+      apiKey: form.apiKey,
+      patientBehavior: behavior
+    };
+  }
+
+  private validatePatientBehavior(behavior: PatientBehaviorConfig): string | null {
+    if (behavior.temperature < 0 || behavior.temperature > 2) {
+      return 'La temperatura debe estar entre 0.0 y 2.0.';
+    }
+
+    if (behavior.maxTokens < this.maxTokensMin || behavior.maxTokens > this.maxTokensMax) {
+      return `Max tokens debe estar entre ${this.maxTokensMin} y ${this.maxTokensMax}.`;
+    }
+
+    if (behavior.maxHistoryMessages < 1) {
+      return 'Historial máximo debe ser mayor o igual a 1.';
+    }
+
+    if (behavior.maxHistoryMessages > 30) {
+      return 'Historial máximo debe ser menor o igual a 30.';
+    }
+
+    return null;
+  }
+
+  private clonePatientBehavior(source: PatientBehaviorConfig): PatientBehaviorConfig {
+    return {
+      basePrompt: source?.basePrompt ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
+      additionalRules: source?.additionalRules ?? '',
+      noInformationReply: source?.noInformationReply ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply,
+      revealStrategy: source?.revealStrategy ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.revealStrategy,
+      maxHistoryMessages: source?.maxHistoryMessages ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.maxHistoryMessages,
+      temperature: source?.temperature ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.temperature,
+      maxTokens: source?.maxTokens ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.maxTokens,
+      safetyFilterEnabled: source?.safetyFilterEnabled ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.safetyFilterEnabled
+    };
   }
 }

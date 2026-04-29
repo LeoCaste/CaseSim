@@ -4,6 +4,8 @@ import { catchError, forkJoin, map, Observable, of, throwError, timeout } from '
 
 import {
   LlmConfig,
+  PatientBehaviorConfig,
+  RECOMMENDED_PATIENT_BEHAVIOR_CONFIG,
   LlmTestConnectionResult,
   LlmUsageDailyMetric,
   LlmUsageFilters,
@@ -27,7 +29,8 @@ export class AdminLlmService {
     enabled: true,
     apiKeyConfigured: true,
     maskedApiKey: '************7890',
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    patientBehavior: { ...RECOMMENDED_PATIENT_BEHAVIOR_CONFIG }
   };
 
   private mockUsage: LlmUsageDailyMetric[] = [
@@ -83,7 +86,10 @@ export class AdminLlmService {
       enabled: payload.enabled,
       apiKeyConfigured: hasNewApiKey ? true : this.mockConfig.apiKeyConfigured,
       maskedApiKey: hasNewApiKey ? '************mock' : this.mockConfig.maskedApiKey,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      patientBehavior: {
+        ...payload.patientBehavior
+      }
     };
 
     return of(this.mockConfig);
@@ -196,7 +202,8 @@ export class AdminLlmService {
       enabled: response.enabled,
       apiKeyConfigured: response.apiKeyConfigured,
       maskedApiKey: response.maskedApiKey,
-      updatedAt: response.updatedAt
+      updatedAt: response.updatedAt,
+      patientBehavior: this.mapPatientBehavior(response)
     };
   }
 
@@ -206,7 +213,41 @@ export class AdminLlmService {
       model: payload.model,
       baseUrl: payload.baseUrl,
       enabled: payload.enabled,
-      apiKey: payload.apiKey?.trim() ? payload.apiKey.trim() : null
+      apiKey: payload.apiKey?.trim() ? payload.apiKey.trim() : null,
+      systemPrompt: payload.patientBehavior.basePrompt?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
+      patientBehaviorRules: payload.patientBehavior.additionalRules?.trim() || '',
+      noInfoResponse:
+        payload.patientBehavior.noInformationReply?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply,
+      revealStrategy: payload.patientBehavior.revealStrategy,
+      maxHistoryMessages: payload.patientBehavior.maxHistoryMessages,
+      temperature: payload.patientBehavior.temperature,
+      maxTokens: payload.patientBehavior.maxTokens,
+      enabledSafetyFilter: payload.patientBehavior.safetyFilterEnabled
+    };
+  }
+
+  private mapPatientBehavior(response: BackendLlmConfigResponse): PatientBehaviorConfig {
+    return {
+      basePrompt: response.systemPrompt?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
+      additionalRules: response.patientBehaviorRules?.trim() || '',
+      noInformationReply: response.noInfoResponse?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply,
+      revealStrategy: response.revealStrategy || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.revealStrategy,
+      maxHistoryMessages:
+        response.maxHistoryMessages >= 1
+          ? response.maxHistoryMessages
+          : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.maxHistoryMessages,
+      temperature:
+        typeof response.temperature === 'number'
+          ? response.temperature
+          : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.temperature,
+      maxTokens:
+        response.maxTokens >= 1
+          ? response.maxTokens
+          : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.maxTokens,
+      safetyFilterEnabled:
+        typeof response.enabledSafetyFilter === 'boolean'
+          ? response.enabledSafetyFilter
+          : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.safetyFilterEnabled
     };
   }
 
@@ -312,6 +353,14 @@ interface BackendLlmConfigResponse {
   enabled: boolean;
   apiKeyConfigured: boolean;
   maskedApiKey?: string | null;
+  systemPrompt?: string | null;
+  patientBehaviorRules?: string | null;
+  noInfoResponse?: string | null;
+  revealStrategy?: 'PROGRESSIVE' | 'DIRECT' | 'RESTRICTIVE' | null;
+  maxHistoryMessages: number;
+  temperature: number;
+  maxTokens: number;
+  enabledSafetyFilter: boolean;
   updatedAt: string | null;
 }
 
@@ -321,6 +370,14 @@ interface BackendUpdateLlmConfigRequest {
   baseUrl: string;
   enabled: boolean;
   apiKey: string | null;
+  systemPrompt: string;
+  patientBehaviorRules: string;
+  noInfoResponse: string;
+  revealStrategy: 'PROGRESSIVE' | 'DIRECT' | 'RESTRICTIVE';
+  maxHistoryMessages: number;
+  temperature: number;
+  maxTokens: number;
+  enabledSafetyFilter: boolean;
 }
 
 interface BackendTestConnectionResponse {

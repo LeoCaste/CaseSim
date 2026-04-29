@@ -27,8 +27,12 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,6 +61,7 @@ class LlmPatientResponseServiceTest {
     );
 
     private LlmPatientResponseService service;
+    private LlmProperties properties;
     private SimulationSession session;
     private SimulationActivity activity;
     private ClinicalCase clinicalCase;
@@ -66,7 +71,7 @@ class LlmPatientResponseServiceTest {
 
     @BeforeEach
     void setUp() {
-        LlmProperties properties = new LlmProperties();
+        properties = new LlmProperties();
         properties.setEnabled(true);
         properties.setApiKey("test-api-key");
 
@@ -137,8 +142,8 @@ class LlmPatientResponseServiceTest {
         when(clinicalCaseRepository.findById(clinicalCase.getId())).thenReturn(Optional.of(clinicalCase));
         when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of(level1Fact, level2Fact, level3Fact));
         when(clinicalCasePersonalityRepository.findByCasoId(clinicalCase.getId())).thenReturn(List.of());
-        when(responseSafetyFilter.applyOrFallback(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(llmClient.generateChatCompletion(any())).thenReturn("respuesta segura");
+        when(responseSafetyFilter.applyOrFallback(anyString(), any(Boolean.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("respuesta segura");
     }
 
     @Test
@@ -192,10 +197,45 @@ class LlmPatientResponseServiceTest {
         verify(sessionRevealedFactRepository, never()).save(any(SessionRevealedFact.class));
     }
 
+    @Test
+    void revealStrategyDirectPermiteRevelacionMayorTemprana() {
+        properties.setRevealStrategy(RevealStrategy.DIRECT);
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(sessionRevealedFactRepository.existsBySessionIdAndFactId(session.getId(), level3Fact.getId())).thenReturn(false);
+
+        service.generateResponse(session, "¿Tuvo cirugía?");
+
+        String contextualPrompt = getContextualPrompt();
+        assertTrue(contextualPrompt.contains("antecedente: Tuve cirugía hace 2 años"));
+    }
+
+    @Test
+    void revealStrategyRestrictiveExigeMayorEspecificidad() {
+        properties.setRevealStrategy(RevealStrategy.RESTRICTIVE);
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+
+        service.generateResponse(session, "¿Tiene fiebre?");
+
+        String contextualPrompt = getContextualPrompt();
+        assertFalse(contextualPrompt.contains("fiebre: Tengo fiebre desde ayer"));
+    }
+
+    @Test
+    void safetyFilterDeshabilitadoSigueAplicandoFiltroBase() {
+        properties.setEnabledSafetyFilter(false);
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(responseSafetyFilter.applyOrFallback(anyString(), eq(false))).thenReturn(ResponseSafetyFilter.SAFE_FALLBACK);
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Soy una IA");
+
+        String response = service.generateResponse(session, "hola");
+
+        assertEquals(ResponseSafetyFilter.SAFE_FALLBACK, response);
+    }
+
     @SuppressWarnings("unchecked")
     private String getContextualPrompt() {
         ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
-        verify(llmClient).generateChatCompletion(promptCaptor.capture());
-        return promptCaptor.getValue().get(1).content();
+        verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
+        return promptCaptor.getValue().get(2).content();
     }
 }

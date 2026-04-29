@@ -47,8 +47,91 @@
 
       <div class="admin-llm-config__row">
         <label for="apiKey">Nueva API key</label>
-        <input id="apiKey" type="password" [(ngModel)]="form.apiKey" />
+        <input
+          id="apiKey"
+          type="password"
+          [(ngModel)]="form.apiKey"
+          name="llm-api-key"
+          autocomplete="new-password"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+        />
+        <small *ngIf="hasApiKeyMask">API key actual: {{ config.maskedApiKey }}</small>
         <small>Dejar vacío para mantener la API key actual.</small>
+      </div>
+
+      <div class="admin-llm-config__subsection">
+        <h3>Comportamiento del paciente IA</h3>
+
+        <div class="admin-llm-config__row">
+          <label for="basePrompt">Prompt base</label>
+          <textarea
+            id="basePrompt"
+            rows="7"
+            [maxLength]="basePromptMaxLength"
+            [(ngModel)]="form.patientBehavior.basePrompt"
+          ></textarea>
+          <small>{{ form.patientBehavior.basePrompt.length }} / {{ basePromptMaxLength }}</small>
+        </div>
+
+        <div class="admin-llm-config__row">
+          <label for="additionalRules">Reglas adicionales</label>
+          <textarea
+            id="additionalRules"
+            rows="5"
+            [maxLength]="additionalRulesMaxLength"
+            [(ngModel)]="form.patientBehavior.additionalRules"
+          ></textarea>
+          <small>{{ form.patientBehavior.additionalRules.length }} / {{ additionalRulesMaxLength }}</small>
+        </div>
+
+        <div class="admin-llm-config__row">
+          <label for="noInformationReply">Respuesta sin información</label>
+          <textarea
+            id="noInformationReply"
+            rows="3"
+            [maxLength]="noInformationReplyMaxLength"
+            [(ngModel)]="form.patientBehavior.noInformationReply"
+          ></textarea>
+          <small>{{ form.patientBehavior.noInformationReply.length }} / {{ noInformationReplyMaxLength }}</small>
+        </div>
+
+        <div class="admin-llm-config__row">
+          <label for="revealStrategy">Estrategia revelación</label>
+          <select id="revealStrategy" [(ngModel)]="form.patientBehavior.revealStrategy">
+            <option *ngFor="let strategy of revealStrategies" [value]="strategy">{{ strategy }}</option>
+          </select>
+        </div>
+
+        <div class="admin-llm-config__grid">
+          <div class="admin-llm-config__row">
+            <label for="maxHistoryMessages">Historial máximo</label>
+            <input id="maxHistoryMessages" type="number" min="1" max="30" step="1" [(ngModel)]="form.patientBehavior.maxHistoryMessages" />
+          </div>
+
+          <div class="admin-llm-config__row">
+            <label for="temperature">Temperature</label>
+            <input id="temperature" type="number" min="0" max="2" step="0.1" [(ngModel)]="form.patientBehavior.temperature" />
+          </div>
+
+          <div class="admin-llm-config__row">
+            <label for="maxTokens">Max tokens</label>
+            <input
+              id="maxTokens"
+              type="number"
+              [min]="maxTokensMin"
+              [max]="maxTokensMax"
+              step="1"
+              [(ngModel)]="form.patientBehavior.maxTokens"
+            />
+          </div>
+        </div>
+
+        <div class="admin-llm-config__row admin-llm-config__switch-row">
+          <label for="safetyFilterEnabled">Safety filter</label>
+          <input id="safetyFilterEnabled" type="checkbox" [(ngModel)]="form.patientBehavior.safetyFilterEnabled" />
+        </div>
       </div>
     </section>
 
@@ -57,6 +140,10 @@
       <div class="admin-llm-config__actions">
         <button type="button" (click)="onSave()" [disabled]="isSaving || isLoading">
           {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
+        </button>
+
+        <button type="button" class="secondary" (click)="onRestoreRecommended()" [disabled]="isSaving || isLoading">
+          Restaurar valores recomendados
         </button>
 
         <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isLoading">

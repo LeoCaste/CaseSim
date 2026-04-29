@@ -110,7 +110,13 @@ public class LlmPatientResponseService implements PatientResponseService {
             List<LlmClient.ChatPromptMessage> promptMessages = promptBuilderService.buildMessages(
                     context,
                     history,
-                    userMessage
+                    userMessage,
+                    new PromptBuilderService.PatientBehaviorConfig(
+                            llmProperties.getSystemPrompt(),
+                            llmProperties.getPatientBehaviorRules(),
+                            resolveNoInfoResponse(context.noInformationReply()),
+                            llmProperties.getRevealStrategy()
+                    )
             );
 
             estimatedPromptTokens = promptMessages.stream()
@@ -118,8 +124,15 @@ public class LlmPatientResponseService implements PatientResponseService {
                     .mapToInt(llmUsageService::estimateTokens)
                     .sum();
 
-            String llmResponse = llmClient.generateChatCompletion(promptMessages);
-            String safeResponse = responseSafetyFilter.applyOrFallback(llmResponse);
+            String llmResponse = llmClient.generateChatCompletion(
+                    promptMessages,
+                    llmProperties.getTemperature(),
+                    llmProperties.getMaxTokens()
+            );
+            String safeResponse = responseSafetyFilter.applyOrFallback(
+                    llmResponse,
+                    llmProperties.isEnabledSafetyFilter()
+            );
             boolean fallbackUsed = ResponseSafetyFilter.SAFE_FALLBACK.equals(safeResponse);
 
             llmUsageService.registerCall(
@@ -151,7 +164,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     }
 
     private List<ChatMessage> loadRecentHistory(java.util.UUID sessionId) {
-        int historyTurns = Math.max(0, llmProperties.getHistoryTurns());
+        int historyTurns = Math.max(0, llmProperties.getMaxHistoryMessages());
         if (historyTurns == 0) {
             return List.of();
         }
@@ -285,7 +298,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private int resolveAllowedRevealLevel(String userMessage) {
         String normalized = normalize(userMessage);
         if (normalized.isEmpty()) {
-            return 1;
+            return llmProperties.getRevealStrategy() == RevealStrategy.DIRECT ? 2 : 1;
         }
 
         int allowedLevel = userMessage != null && userMessage.contains("?") ? 2 : 1;
@@ -295,6 +308,13 @@ public class LlmPatientResponseService implements PatientResponseService {
 
         if (containsAnyToken(normalized, LEVEL_3_HINTS)) {
             allowedLevel = 3;
+        }
+
+        RevealStrategy revealStrategy = llmProperties.getRevealStrategy();
+        if (revealStrategy == RevealStrategy.DIRECT) {
+            allowedLevel = Math.min(3, allowedLevel + 1);
+        } else if (revealStrategy == RevealStrategy.RESTRICTIVE) {
+            allowedLevel = Math.max(1, allowedLevel - 1);
         }
 
         return allowedLevel;
@@ -351,5 +371,12 @@ public class LlmPatientResponseService implements PatientResponseService {
                 .replace('ü', 'u');
 
         return NON_ALPHANUMERIC.matcher(lowerCased).replaceAll(" ").trim();
+    }
+
+    private String resolveNoInfoResponse(String contextNoInfoResponse) {
+        if (llmProperties.getNoInfoResponse() != null && !llmProperties.getNoInfoResponse().trim().isEmpty()) {
+            return llmProperties.getNoInfoResponse().trim();
+        }
+        return contextNoInfoResponse;
     }
 }

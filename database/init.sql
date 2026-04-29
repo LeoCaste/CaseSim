@@ -156,8 +156,44 @@ CREATE TABLE llm_config (
     base_url TEXT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     api_key_secret TEXT,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    system_prompt TEXT NOT NULL DEFAULT '',
+    patient_behavior_rules TEXT NOT NULL DEFAULT '',
+    no_info_response VARCHAR(500) NOT NULL DEFAULT 'No tengo información asociada a eso.',
+    reveal_strategy VARCHAR(20) NOT NULL DEFAULT 'PROGRESSIVE'
+        CHECK (reveal_strategy IN ('PROGRESSIVE', 'DIRECT', 'RESTRICTIVE')),
+    max_history_messages INT NOT NULL DEFAULT 6 CHECK (max_history_messages >= 1),
+    temperature DOUBLE PRECISION NOT NULL DEFAULT 0.4 CHECK (temperature >= 0.0 AND temperature <= 2.0),
+    max_tokens INT NOT NULL DEFAULT 350 CHECK (max_tokens >= 64 AND max_tokens <= 1024),
+    enabled_safety_filter BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+-- Compatibilidad mínima para entornos existentes (pre LLM-2)
+ALTER TABLE llm_config
+    ADD COLUMN IF NOT EXISTS system_prompt TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS patient_behavior_rules TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS no_info_response VARCHAR(500) NOT NULL DEFAULT 'No tengo información asociada a eso.',
+    ADD COLUMN IF NOT EXISTS reveal_strategy VARCHAR(20) NOT NULL DEFAULT 'PROGRESSIVE',
+    ADD COLUMN IF NOT EXISTS max_history_messages INT NOT NULL DEFAULT 6,
+    ADD COLUMN IF NOT EXISTS temperature DOUBLE PRECISION NOT NULL DEFAULT 0.4,
+    ADD COLUMN IF NOT EXISTS max_tokens INT NOT NULL DEFAULT 350,
+    ADD COLUMN IF NOT EXISTS enabled_safety_filter BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE llm_config DROP CONSTRAINT IF EXISTS llm_config_reveal_strategy_check;
+ALTER TABLE llm_config ADD CONSTRAINT llm_config_reveal_strategy_check
+    CHECK (reveal_strategy IN ('PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'));
+
+ALTER TABLE llm_config DROP CONSTRAINT IF EXISTS llm_config_max_history_messages_check;
+ALTER TABLE llm_config ADD CONSTRAINT llm_config_max_history_messages_check
+    CHECK (max_history_messages >= 1);
+
+ALTER TABLE llm_config DROP CONSTRAINT IF EXISTS llm_config_temperature_check;
+ALTER TABLE llm_config ADD CONSTRAINT llm_config_temperature_check
+    CHECK (temperature >= 0.0 AND temperature <= 2.0);
+
+ALTER TABLE llm_config DROP CONSTRAINT IF EXISTS llm_config_max_tokens_check;
+ALTER TABLE llm_config ADD CONSTRAINT llm_config_max_tokens_check
+    CHECK (max_tokens >= 64 AND max_tokens <= 1024);
 
 CREATE TABLE evento_seguridad (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
