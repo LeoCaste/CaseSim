@@ -14,6 +14,7 @@
       <p><strong>Proveedor actual:</strong> {{ config.provider || '-' }}</p>
       <p><strong>Modelo actual:</strong> {{ config.model || '-' }}</p>
       <p><strong>API key configurada:</strong> {{ apiKeyConfiguredLabel }}</p>
+      <p *ngIf="config.maskedApiKey"><strong>API key (enmascarada):</strong> {{ config.maskedApiKey }}</p>
       <p><strong>Última actualización:</strong> {{ config.updatedAt ? (config.updatedAt | date: 'dd/MM/yyyy HH:mm') : 'Sin registro' }}</p>
     </section>
 
@@ -54,11 +55,11 @@
     <section class="admin-llm-config__block">
       <h2>Acciones</h2>
       <div class="admin-llm-config__actions">
-        <button type="button" (click)="onSave()" [disabled]="isSaving">
+        <button type="button" (click)="onSave()" [disabled]="isSaving || isLoading">
           {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
         </button>
 
-        <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection">
+        <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isLoading">
           {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
         </button>
       </div>

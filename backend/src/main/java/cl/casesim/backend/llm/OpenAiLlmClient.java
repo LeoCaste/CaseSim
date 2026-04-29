@@ -3,6 +3,7 @@ package cl.casesim.backend.llm;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -42,6 +43,9 @@ public class OpenAiLlmClient implements LlmClient {
 
                 return extractContent(response);
             } catch (RestClientException ex) {
+                if (ex instanceof ResourceAccessException) {
+                    throw new LlmClientException("Timeout al invocar proveedor LLM", ex);
+                }
                 if (attempt == attempts) {
                     throw new LlmClientException("Error invocando proveedor LLM", ex);
                 }

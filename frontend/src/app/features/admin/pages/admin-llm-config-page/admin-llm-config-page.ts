@@ -82,7 +82,7 @@ export class AdminLlmConfigPage implements OnInit {
           this.form = {
             provider,
             model,
-            baseUrl: this.getReadonlyBaseUrl(provider),
+            baseUrl: this.resolveBaseUrl(updatedConfig.baseUrl, provider),
             enabled: updatedConfig.enabled,
             apiKey: ''
           };
@@ -113,7 +113,7 @@ export class AdminLlmConfigPage implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          this.testFeedback = response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor';
+          this.testFeedback = response.message || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor');
           this.testFeedbackStatus = response.success ? 'success' : 'error';
           this.triggerViewUpdate();
         },
@@ -131,7 +131,7 @@ export class AdminLlmConfigPage implements OnInit {
     if (!validModels.includes(this.form.model as LlmModel)) {
       this.form.model = validModels[0];
     }
-    this.form.baseUrl = this.getReadonlyBaseUrl(provider);
+    this.form.baseUrl = this.resolveBaseUrl(this.form.baseUrl, provider);
   }
 
   get modelOptions(): LlmModel[] {
@@ -172,7 +172,7 @@ export class AdminLlmConfigPage implements OnInit {
           this.form = {
             provider,
             model,
-            baseUrl: this.getReadonlyBaseUrl(provider),
+            baseUrl: this.resolveBaseUrl(config.baseUrl, provider),
             enabled: config.enabled,
             apiKey: ''
           };
@@ -203,7 +203,12 @@ export class AdminLlmConfigPage implements OnInit {
     return options.includes(model as LlmModel) ? (model as LlmModel) : options[0];
   }
 
-  private getReadonlyBaseUrl(provider: string): string {
+  private resolveBaseUrl(baseUrl: string | null | undefined, provider: string): string {
+    const trimmedBaseUrl = baseUrl?.trim();
+    if (trimmedBaseUrl) {
+      return trimmedBaseUrl;
+    }
+
     if (provider === 'openai') {
       return OPENAI_BASE_URL;
     }

@@ -67,7 +67,11 @@ export class AdminLlmService {
     if (!environment.useMocks) {
       return this.http
         .put<BackendLlmConfigResponse>(`${this.apiBaseUrl}/admin/llm/config`, this.mapUpdatePayload(payload))
-        .pipe(map((response) => this.mapConfigResponse(response)));
+        .pipe(
+          timeout(this.requestTimeoutMs),
+          map((response) => this.mapConfigResponse(response)),
+          catchError(() => throwError(() => new Error('No fue posible actualizar configuración LLM.')))
+        );
     }
 
     const hasNewApiKey = Boolean(payload.apiKey && payload.apiKey.trim().length > 0);
