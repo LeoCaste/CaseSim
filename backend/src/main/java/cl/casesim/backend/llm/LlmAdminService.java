@@ -56,7 +56,7 @@ public class LlmAdminService {
             return new LlmConfigResponse(
                     config.getProvider(),
                     config.getModel(),
-                    config.getBaseUrl(),
+                    LlmProviderSupport.resolveBaseUrl(normalizeProvider(config.getProvider()), config.getBaseUrl()),
                     config.isEnabled(),
                     StringUtils.hasText(decryptedApiKey),
                     maskApiKey(decryptedApiKey),
@@ -75,7 +75,7 @@ public class LlmAdminService {
         return new LlmConfigResponse(
                 llmProperties.getProvider(),
                 llmProperties.getModel(),
-                llmProperties.getBaseUrl(),
+                LlmProviderSupport.resolveBaseUrl(normalizeProvider(llmProperties.getProvider()), llmProperties.getBaseUrl()),
                 llmProperties.isEnabled(),
                 llmProperties.hasApiKey(),
                 maskApiKey(llmProperties.getApiKey()),
@@ -97,6 +97,9 @@ public class LlmAdminService {
         String resolvedApiKey = resolveApiKey(request.apiKey(), existing);
         String encryptedApiKey = llmApiKeyCipher.encrypt(resolvedApiKey);
         LocalDateTime now = LocalDateTime.now();
+        String provider = normalizeProvider(request.provider());
+        validateProvider(provider);
+        String baseUrl = resolveBaseUrl(provider, request.baseUrl());
         String systemPrompt = defaultSystemPrompt(request.resolvedSystemPrompt());
         String behaviorRules = defaultBehaviorRules(request.resolvedPatientBehaviorRules());
         String noInfoResponse = defaultNoInfoResponse(request.resolvedNoInfoResponse());
@@ -110,9 +113,9 @@ public class LlmAdminService {
         if (existing == null) {
             saved = llmConfigRepository.save(new LlmConfig(
                     UUID.randomUUID(),
-                    request.provider().trim(),
+                    provider,
                     request.model().trim(),
-                    request.baseUrl().trim(),
+                    baseUrl,
                     request.enabled(),
                     encryptedApiKey,
                     now,
@@ -127,9 +130,9 @@ public class LlmAdminService {
             ));
         } else {
             existing.update(
-                    request.provider().trim(),
+                    provider,
                     request.model().trim(),
-                    request.baseUrl().trim(),
+                    baseUrl,
                     request.enabled(),
                     encryptedApiKey,
                     now,
@@ -181,12 +184,6 @@ public class LlmAdminService {
                 return new TestConnectionResponse(false, error);
             }
 
-            if (!"openai".equals(provider)) {
-                fallbackUsed = true;
-                error = "Proveedor no soportado para prueba de conexión: " + provider;
-                return new TestConnectionResponse(false, "Proveedor no soportado.");
-            }
-
             content = llmClient.generateChatCompletion(List.of(new LlmClient.ChatPromptMessage("user", "ping")));
             if (!StringUtils.hasText(content)) {
                 fallbackUsed = true;
@@ -197,6 +194,9 @@ public class LlmAdminService {
         } catch (RuntimeException ex) {
             fallbackUsed = true;
             error = sanitizeError(ex.getMessage());
+            if (error != null && error.toLowerCase(Locale.ROOT).contains("no implementado")) {
+                return new TestConnectionResponse(false, "Proveedor aún no implementado para test de conexión.");
+            }
             if (error != null && error.toLowerCase(Locale.ROOT).contains("timeout")) {
                 return new TestConnectionResponse(false, "Timeout al conectar con el proveedor LLM.");
             }
@@ -217,9 +217,10 @@ public class LlmAdminService {
     }
 
     private void applyToRuntimeProperties(LlmConfig config) {
-        llmProperties.setProvider(config.getProvider() == null ? "openai" : config.getProvider().trim());
+        String provider = normalizeProvider(config.getProvider());
+        llmProperties.setProvider(provider);
         llmProperties.setModel(config.getModel() == null ? "" : config.getModel().trim());
-        llmProperties.setBaseUrl(config.getBaseUrl() == null ? "" : config.getBaseUrl().trim());
+        llmProperties.setBaseUrl(resolveBaseUrl(provider, config.getBaseUrl()));
         llmProperties.setEnabled(config.isEnabled());
         String apiKey = llmApiKeyCipher.decrypt(config.getApiKeySecret());
         llmProperties.setApiKey(apiKey == null ? "" : apiKey.trim());
@@ -314,9 +315,20 @@ public class LlmAdminService {
     }
 
     private String normalizeProvider(String provider) {
-        if (!StringUtils.hasText(provider)) {
-            return "unknown";
+        return LlmProviderSupport.normalize(provider);
+    }
+
+    private void validateProvider(String provider) {
+        if (!LlmProviderSupport.isSupported(provider)) {
+            throw new BadRequestException("Provider no soportado. Use: openai, openai-compatible, anthropic, gemini o groq.");
         }
-        return provider.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveBaseUrl(String provider, String baseUrl) {
+        String resolved = LlmProviderSupport.resolveBaseUrl(provider, baseUrl);
+        if (!StringUtils.hasText(resolved)) {
+            throw new BadRequestException("baseUrl es obligatoria para el provider seleccionado.");
+        }
+        return resolved;
     }
 }

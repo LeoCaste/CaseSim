@@ -52,6 +52,7 @@ public class PromptBuilderService {
                 - SessionId: %s
                 - Motivo de consulta principal: %s
                 - Historial del caso: %s
+                - Regla de revelación: usa solo los hechos listados como información disponible en esta sesión.
                 - Rasgos de personalidad del paciente:
                 %s
                 Información del paciente (solo lo conocido hasta ahora):

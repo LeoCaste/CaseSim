@@ -35,14 +35,28 @@
 
       <div class="admin-llm-config__row">
         <label for="model">Modelo</label>
-        <select id="model" [(ngModel)]="form.model">
+        <select *ngIf="!isModelCustom" id="model" [(ngModel)]="form.model" [disabled]="isSaving || isTestingConnection">
           <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
         </select>
+
+        <input
+          *ngIf="isModelCustom"
+          id="model"
+          type="text"
+          [(ngModel)]="form.model"
+          [disabled]="isSaving || isTestingConnection"
+          placeholder="Ej: meta-llama/llama-3.1-8b-instruct"
+        />
       </div>
 
       <div class="admin-llm-config__row">
         <label for="baseUrl">URL base del sistema</label>
-        <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" readonly />
+        <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" [disabled]="isSaving || isTestingConnection" />
+        <div class="admin-llm-config__inline-actions">
+          <button type="button" class="link" (click)="onRestoreProviderBaseUrl()" [disabled]="isSaving || isTestingConnection">
+            Restaurar URL sugerida
+          </button>
+        </div>
       </div>
 
       <div class="admin-llm-config__row">
@@ -138,15 +152,15 @@
     <section class="admin-llm-config__block">
       <h2>Acciones</h2>
       <div class="admin-llm-config__actions">
-        <button type="button" (click)="onSave()" [disabled]="isSaving || isLoading">
+        <button type="button" (click)="onSave()" [disabled]="isSaving || isTestingConnection || isLoading">
           {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
         </button>
 
-        <button type="button" class="secondary" (click)="onRestoreRecommended()" [disabled]="isSaving || isLoading">
+        <button type="button" class="secondary" (click)="onRestoreRecommended()" [disabled]="isSaving || isTestingConnection || isLoading">
           Restaurar valores recomendados
         </button>
 
-        <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isLoading">
+        <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isSaving || isLoading">
           {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
         </button>
       </div>

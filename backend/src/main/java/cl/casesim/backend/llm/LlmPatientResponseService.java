@@ -31,8 +31,6 @@ import java.util.regex.Pattern;
 
 public class LlmPatientResponseService implements PatientResponseService {
 
-    private static final String LLM_ERROR_FALLBACK = "Entiendo. Cuénteme un poco más sobre eso.";
-
     private final LlmProperties llmProperties;
     private final LlmClient llmClient;
     private final PromptBuilderService promptBuilderService;
@@ -148,7 +146,10 @@ public class LlmPatientResponseService implements PatientResponseService {
 
             return safeResponse;
         } catch (RuntimeException ex) {
-            String fallback = responseSafetyFilter.applyOrFallback(LLM_ERROR_FALLBACK);
+            String fallback = responseSafetyFilter.applyOrFallback(
+                    mockPatientResponseService.generateResponse(session, userMessage),
+                    !llmProperties.isEnabledSafetyFilter()
+            );
             llmUsageService.registerCall(
                     session.getId(),
                     resolvedProvider,
@@ -157,7 +158,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     llmUsageService.estimateTokens(fallback),
                     (int) (System.currentTimeMillis() - startedAt),
                     true,
-                    ex.getMessage()
+                    sanitizeError(ex.getMessage())
             );
             return fallback;
         }
@@ -243,19 +244,23 @@ public class LlmPatientResponseService implements PatientResponseService {
 
         Set<UUID> alreadyRevealedIds = new HashSet<>(sessionRevealedFactRepository.findFactIdsBySessionId(sessionId));
         Set<String> messageKeywords = extractKeywords(userMessage);
-        int allowedRevealLevel = resolveAllowedRevealLevel(userMessage);
+        RevealStrategy revealStrategy = llmProperties.getRevealStrategy() == null ? RevealStrategy.PROGRESSIVE : llmProperties.getRevealStrategy();
+        int allowedRevealLevel = resolveAllowedRevealLevel(userMessage, revealStrategy);
 
         List<ClinicalCaseFact> selectedFacts = new ArrayList<>();
         List<ClinicalCaseFact> newlyRevealedFacts = new ArrayList<>();
 
         for (ClinicalCaseFact fact : allFacts) {
             int factRevealLevel = fact.getNivelRevelacion() == null ? 1 : fact.getNivelRevelacion();
-            boolean includeByDefault = factRevealLevel == 1;
+            boolean includeByDefault = factRevealLevel == 1 || (revealStrategy == RevealStrategy.DIRECT && factRevealLevel <= 2);
             boolean includeAsPreviouslyRevealed = alreadyRevealedIds.contains(fact.getId());
 
             boolean includeAsNewReveal = false;
             if (!includeByDefault && !includeAsPreviouslyRevealed && factRevealLevel <= allowedRevealLevel) {
                 includeAsNewReveal = matchesFactByKeyword(fact, messageKeywords);
+                if (!includeAsNewReveal && revealStrategy == RevealStrategy.DIRECT && factRevealLevel <= 2 && messageKeywords.isEmpty()) {
+                    includeAsNewReveal = true;
+                }
             }
 
             if (includeByDefault || includeAsPreviouslyRevealed || includeAsNewReveal) {
@@ -295,10 +300,10 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
     }
 
-    private int resolveAllowedRevealLevel(String userMessage) {
+    private int resolveAllowedRevealLevel(String userMessage, RevealStrategy revealStrategy) {
         String normalized = normalize(userMessage);
         if (normalized.isEmpty()) {
-            return llmProperties.getRevealStrategy() == RevealStrategy.DIRECT ? 2 : 1;
+            return revealStrategy == RevealStrategy.DIRECT ? 2 : 1;
         }
 
         int allowedLevel = userMessage != null && userMessage.contains("?") ? 2 : 1;
@@ -310,7 +315,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             allowedLevel = 3;
         }
 
-        RevealStrategy revealStrategy = llmProperties.getRevealStrategy();
         if (revealStrategy == RevealStrategy.DIRECT) {
             allowedLevel = Math.min(3, allowedLevel + 1);
         } else if (revealStrategy == RevealStrategy.RESTRICTIVE) {
@@ -378,5 +382,19 @@ public class LlmPatientResponseService implements PatientResponseService {
             return llmProperties.getNoInfoResponse().trim();
         }
         return contextNoInfoResponse;
+    }
+
+    private String sanitizeError(String rawError) {
+        if (rawError == null || rawError.isBlank()) {
+            return "Error LLM no especificado.";
+        }
+        String sanitized = rawError.trim();
+        if (llmProperties.getApiKey() != null && !llmProperties.getApiKey().isBlank()) {
+            sanitized = sanitized.replace(llmProperties.getApiKey().trim(), "***");
+        }
+        if (sanitized.length() > 400) {
+            sanitized = sanitized.substring(0, 400);
+        }
+        return sanitized;
     }
 }

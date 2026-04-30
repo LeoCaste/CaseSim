@@ -87,6 +87,25 @@
   color: var(--cs-text-muted);
 }
 
+.admin-llm-config__inline-actions {
+  display: flex;
+}
+
+.admin-llm-config__inline-actions .link {
+  border: none;
+  background: transparent;
+  color: var(--cs-primary);
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-llm-config__inline-actions .link:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .admin-llm-config__status {
   margin: 18px 0;
   padding: 14px;

@@ -59,7 +59,7 @@ export class AdminLlmService {
         .pipe(
           timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
-          catchError(() => throwError(() => new Error('No fue posible cargar configuración LLM.')))
+          catchError((error) => throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible cargar configuración LLM.'))))
         );
     }
 
@@ -73,7 +73,9 @@ export class AdminLlmService {
         .pipe(
           timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
-          catchError(() => throwError(() => new Error('No fue posible actualizar configuración LLM.')))
+          catchError((error) =>
+            throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible actualizar configuración LLM.')))
+          )
         );
     }
 
@@ -101,12 +103,12 @@ export class AdminLlmService {
         timeout(this.requestTimeoutMs),
         map((response) => ({
           success: response.success,
-          message: response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor'
+          message: response.message?.trim() || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor')
         })),
-        catchError(() =>
+        catchError((error) =>
           of({
             success: false,
-            message: 'No se pudo conectar con el proveedor'
+            message: this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor')
           })
         )
       );
@@ -343,6 +345,21 @@ export class AdminLlmService {
 
       return afterFrom && beforeTo && modelMatches && statusMatches;
     });
+  }
+
+  private resolveErrorMessage(error: unknown, fallback: string): string {
+    const maybeError = error as { error?: { message?: string }; message?: string };
+    const backendMessage = maybeError?.error?.message?.trim();
+    if (backendMessage) {
+      return backendMessage;
+    }
+
+    const directMessage = maybeError?.message?.trim();
+    if (directMessage && directMessage !== 'Http failure response for (unknown url): 0 Unknown Error') {
+      return directMessage;
+    }
+
+    return fallback;
   }
 }
 
