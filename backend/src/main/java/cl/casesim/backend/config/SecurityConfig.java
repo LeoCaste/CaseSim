@@ -1,6 +1,8 @@
 package cl.casesim.backend.config;
 
 import cl.casesim.backend.auth.JwtAuthenticationFilter;
+import cl.casesim.backend.auth.JwtProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -23,6 +25,7 @@ import java.io.IOException;
 import java.util.List;
 
 @Configuration
+@EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

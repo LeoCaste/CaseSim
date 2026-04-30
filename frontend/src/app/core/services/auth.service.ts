@@ -350,7 +350,8 @@ export class AuthService {
       return 'admin';
     }
 
-    if (roles.includes('PROFESOR')) {
+    // Aceptar ambos formatos por compatibilidad tras refactor
+    if (roles.includes('PROFESOR') || roles.includes('PROFESSOR')) {
       return 'professor';
     }
 
