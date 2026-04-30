@@ -3,10 +3,12 @@ package cl.casesim.backend.clinicalcases;
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseRequest;
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseResponse;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
+import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,15 +23,18 @@ public class ClinicalCaseService {
     private final ClinicalCaseRepository clinicalCaseRepository;
     private final ClinicalCaseFactRepository clinicalCaseFactRepository;
     private final ClinicalCasePersonalityRepository clinicalCasePersonalityRepository;
+    private final SimulationActivityRepository simulationActivityRepository;
 
     public ClinicalCaseService(
             ClinicalCaseRepository clinicalCaseRepository,
             ClinicalCaseFactRepository clinicalCaseFactRepository,
-            ClinicalCasePersonalityRepository clinicalCasePersonalityRepository
+            ClinicalCasePersonalityRepository clinicalCasePersonalityRepository,
+            SimulationActivityRepository simulationActivityRepository
     ) {
         this.clinicalCaseRepository = clinicalCaseRepository;
         this.clinicalCaseFactRepository = clinicalCaseFactRepository;
         this.clinicalCasePersonalityRepository = clinicalCasePersonalityRepository;
+        this.simulationActivityRepository = simulationActivityRepository;
     }
 
     public List<ClinicalCaseResponse> getActiveClinicalCases() {
@@ -40,8 +45,7 @@ public class ClinicalCaseService {
     }
 
     public ClinicalCaseResponse getActiveClinicalCaseById(UUID id) {
-        ClinicalCase clinicalCase = clinicalCaseRepository.findByIdAndActivoTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado con id: " + id));
+        ClinicalCase clinicalCase = findActiveClinicalCaseByCaseOrActivityId(id);
 
         return toResponse(clinicalCase);
     }
@@ -73,8 +77,7 @@ public class ClinicalCaseService {
 
     @Transactional
     public ClinicalCaseResponse updateClinicalCase(UUID id, ClinicalCaseRequest request) {
-        ClinicalCase clinicalCase = clinicalCaseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado con id: " + id));
+        ClinicalCase clinicalCase = findActiveClinicalCaseByCaseOrActivityId(id);
 
         clinicalCase.actualizarDatos(
                 request.title().trim(),
@@ -134,6 +137,7 @@ public class ClinicalCaseService {
                 .map(fact -> new ClinicalCaseResponse.ClinicalCaseFactResponse(
                         fact.getNombre(),
                         fact.getContenidoPaciente(),
+                        parseTriggers(fact.getTriggers()),
                         fact.getNivelRevelacion()
                 ))
                 .toList();
@@ -183,7 +187,7 @@ public class ClinicalCaseService {
                     factKey,
                     fact.content().trim(),
                     fact.revealLevel(),
-                    null,
+                    serializeTriggers(fact.triggers()),
                     false,
                     order
             );
@@ -211,5 +215,77 @@ public class ClinicalCaseService {
             );
             clinicalCasePersonalityRepository.save(entity);
         }
+    }
+
+    private String serializeTriggers(List<String> triggers) {
+        if (triggers == null || triggers.isEmpty()) {
+            return null;
+        }
+
+        List<String> normalized = triggers.stream()
+                .map(this::normalizeOptionalText)
+                .filter(value -> value != null)
+                .distinct()
+                .toList();
+
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < normalized.size(); i++) {
+            if (i > 0) {
+                json.append(',');
+            }
+            json.append('"').append(escapeJson(normalized.get(i))).append('"');
+        }
+        json.append(']');
+        return json.toString();
+    }
+
+    private List<String> parseTriggers(String triggersJson) {
+        String normalized = normalizeOptionalText(triggersJson);
+        if (normalized == null || normalized.equals("[]")) {
+            return List.of();
+        }
+
+        String content = normalized;
+        if (content.startsWith("[")) {
+            content = content.substring(1);
+        }
+        if (content.endsWith("]")) {
+            content = content.substring(0, content.length() - 1);
+        }
+
+        if (content.isBlank()) {
+            return List.of();
+        }
+
+        String[] tokens = content.split(",");
+        List<String> result = new ArrayList<>();
+        for (String token : tokens) {
+            String value = token.trim();
+            if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
+                value = value.substring(1, value.length() - 1);
+            }
+            value = value.replace("\\\"", "\"").replace("\\\\", "\\");
+            value = normalizeOptionalText(value);
+            if (value != null) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
+    private String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private ClinicalCase findActiveClinicalCaseByCaseOrActivityId(UUID idOrActivityId) {
+        return clinicalCaseRepository.findByIdAndActivoTrue(idOrActivityId)
+                .or(() -> simulationActivityRepository.findById(idOrActivityId)
+                        .flatMap(activity -> clinicalCaseRepository.findByIdAndActivoTrue(activity.getCasoId())))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Caso clínico no encontrado para id (caso/actividad): " + idOrActivityId));
     }
 }

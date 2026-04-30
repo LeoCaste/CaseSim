@@ -84,4 +84,8 @@ public class ClinicalCaseFact {
     public Integer getNivelRevelacion() {
         return nivelRevelacion;
     }
+
+    public String getTriggers() {
+        return triggers;
+    }
 }

@@ -36,25 +36,30 @@ public class ResponseSafetyFilter {
     );
 
     public String applyOrFallback(String content) {
-        return applyOrFallback(content, false);
+        return applyOrFallback(content, false, SAFE_FALLBACK);
     }
 
     public String applyOrFallback(String content, boolean strictMode) {
+        return applyOrFallback(content, strictMode, SAFE_FALLBACK);
+    }
+
+    public String applyOrFallback(String content, boolean strictMode, String fallbackResponse) {
+        String effectiveFallback = StringUtils.hasText(fallbackResponse) ? fallbackResponse.trim() : SAFE_FALLBACK;
         if (!StringUtils.hasText(content)) {
-            return SAFE_FALLBACK;
+            return effectiveFallback;
         }
 
         String normalized = content.trim();
         for (Pattern pattern : BLOCK_PATTERNS) {
             if (pattern.matcher(normalized).find()) {
-                return SAFE_FALLBACK;
+                return effectiveFallback;
             }
         }
 
         if (strictMode) {
             for (Pattern pattern : STRICT_BLOCK_PATTERNS) {
                 if (pattern.matcher(normalized).find()) {
-                    return SAFE_FALLBACK;
+                    return effectiveFallback;
                 }
             }
         }

@@ -7,7 +7,6 @@ import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
 import cl.casesim.backend.sessions.ChatMessage;
 import cl.casesim.backend.sessions.ChatMessageRepository;
-import cl.casesim.backend.sessions.MockPatientResponseService;
 import cl.casesim.backend.sessions.SessionRevealedFact;
 import cl.casesim.backend.sessions.SessionRevealedFactRepository;
 import cl.casesim.backend.sessions.SimulationSession;
@@ -32,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -50,7 +50,6 @@ class LlmPatientResponseServiceTest {
     private final SessionRevealedFactRepository sessionRevealedFactRepository = mock(SessionRevealedFactRepository.class);
     private final LlmUsageRepository llmUsageRepository = mock(LlmUsageRepository.class);
     private final ResponseSafetyFilter responseSafetyFilter = mock(ResponseSafetyFilter.class);
-    private final MockPatientResponseService mockPatientResponseService = new MockPatientResponseService();
 
     private final PromptBuilderService promptBuilderService = new PromptBuilderService();
     private final LlmUsageService llmUsageService = new LlmUsageService(
@@ -81,7 +80,6 @@ class LlmPatientResponseServiceTest {
                 promptBuilderService,
                 responseSafetyFilter,
                 chatMessageRepository,
-                mockPatientResponseService,
                 llmUsageService,
                 simulationActivityRepository,
                 simulationSessionRepository,
@@ -142,7 +140,7 @@ class LlmPatientResponseServiceTest {
         when(clinicalCaseRepository.findById(clinicalCase.getId())).thenReturn(Optional.of(clinicalCase));
         when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of(level1Fact, level2Fact, level3Fact));
         when(clinicalCasePersonalityRepository.findByCasoId(clinicalCase.getId())).thenReturn(List.of());
-        when(responseSafetyFilter.applyOrFallback(anyString(), any(Boolean.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(responseSafetyFilter.applyOrFallback(anyString(), anyBoolean(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
         when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("respuesta segura");
     }
 
@@ -221,10 +219,35 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
+    void triggerDelFactPermiteMatchAunqueNoAparezcaEnContenido() {
+        ClinicalCaseFact triggerFact = new ClinicalCaseFact(
+                UUID.randomUUID(),
+                clinicalCase.getId(),
+                "GENERAL",
+                "habito",
+                "Solo tomo agua ocasionalmente",
+                2,
+                "[\"sed\",\"hidratacion\"]",
+                false,
+                3
+        );
+
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId()))
+                .thenReturn(List.of(level1Fact, triggerFact));
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(sessionRevealedFactRepository.existsBySessionIdAndFactId(session.getId(), triggerFact.getId())).thenReturn(false);
+
+        service.generateResponse(session, "¿Tiene sed?");
+
+        String contextualPrompt = getContextualPrompt();
+        assertTrue(contextualPrompt.contains("habito: Solo tomo agua ocasionalmente"));
+    }
+
+    @Test
     void safetyFilterDeshabilitadoSigueAplicandoFiltroBase() {
         properties.setEnabledSafetyFilter(false);
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
-        when(responseSafetyFilter.applyOrFallback(anyString(), eq(false))).thenReturn(ResponseSafetyFilter.SAFE_FALLBACK);
+        when(responseSafetyFilter.applyOrFallback(anyString(), eq(false), anyString())).thenReturn(ResponseSafetyFilter.SAFE_FALLBACK);
         when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Soy una IA");
 
         String response = service.generateResponse(session, "hola");
@@ -232,10 +255,48 @@ class LlmPatientResponseServiceTest {
         assertEquals(ResponseSafetyFilter.SAFE_FALLBACK, response);
     }
 
+    @Test
+    void prioridadNoInfoCasoSobreAdminEnPrompt() {
+        properties.setNoInfoResponse("NO_INFO_ADMIN");
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+
+        service.generateResponse(session, "¿Qué alergias tiene?");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
+        String noInfoInstruction = promptCaptor.getValue().get(1).content();
+        assertTrue(noInfoInstruction.contains("No tengo información asociada a eso."));
+        assertFalse(noInfoInstruction.contains("NO_INFO_ADMIN"));
+    }
+
+    @Test
+    void siLlmDeshabilitadoRetornaNoInfoConfiguradaYNoHardcodeMock() {
+        properties.setEnabled(false);
+        clinicalCase = new ClinicalCase(
+                clinicalCase.getId(),
+                clinicalCase.getTitulo(),
+                clinicalCase.getDescripcion(),
+                clinicalCase.getPacienteNombre(),
+                clinicalCase.getPacienteEdad(),
+                clinicalCase.getPacienteSexo(),
+                clinicalCase.getMotivoConsulta(),
+                "RESPUESTA_CASO",
+                clinicalCase.isActivo(),
+                clinicalCase.getCreadoPor(),
+                clinicalCase.getCreadoEn()
+        );
+        when(clinicalCaseRepository.findById(clinicalCase.getId())).thenReturn(Optional.of(clinicalCase));
+
+        String response = service.generateResponse(session, "hola");
+
+        assertEquals("RESPUESTA_CASO", response);
+    }
+
     @SuppressWarnings("unchecked")
     private String getContextualPrompt() {
         ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
         verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
-        return promptCaptor.getValue().get(2).content();
+        return promptCaptor.getValue().get(3).content();
     }
 }

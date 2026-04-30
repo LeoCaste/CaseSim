@@ -18,6 +18,7 @@ import { environment } from '../../../environments/environment';
 export class ClinicalCaseService {
   private readonly requestTimeoutMs = 8000;
   private readonly apiBaseUrl = environment.apiBaseUrl;
+  private readonly descriptionMetadataPrefix = '[CASESIM_META]';
 
   private clinicalCases: ClinicalCase[] = [
     {
@@ -116,8 +117,7 @@ export class ClinicalCaseService {
         .get<BackendClinicalCaseResponse>(`${this.apiBaseUrl}/clinical-cases/${id}`)
         .pipe(
           timeout(this.requestTimeoutMs),
-          map((response) => this.mapBackendCaseToDetail(response)),
-          catchError(() => throwError(() => new Error('No fue posible cargar el caso clínico.')))
+          map((response) => this.mapBackendCaseToDetail(response))
         );
     }
 
@@ -197,6 +197,10 @@ export class ClinicalCaseService {
   }
 
   getCaseDraft(): Observable<ClinicalCase> {
+    if (!environment.useMocks) {
+      return of(this.buildEmptyDraft());
+    }
+
     return of({
       id: 'draft-01',
       title: 'Entrevista respiratoria',
@@ -240,6 +244,31 @@ export class ClinicalCaseService {
         }
       ]
     });
+  }
+
+  private buildEmptyDraft(): ClinicalCase {
+    return {
+      id: 'draft-local',
+      title: '',
+      patientName: '',
+      status: 'DRAFT',
+      estimatedTimeMinutes: undefined,
+      factsCount: 0,
+      age: 0,
+      sex: 'F',
+      context: '',
+      reason: '',
+      initialMessage: '',
+      expectedDiagnosis: '',
+      fallbackResponse: '',
+      behaviorGuidelines: '',
+      personality: {
+        tone: 'Natural y colaborador',
+        detailLevel: 'Responder solo lo preguntado',
+        behaviorNotes: ''
+      },
+      facts: []
+    };
   }
 
   getStatusLabel(status: ClinicalCaseStatus): 'Listo' | 'Borrador' | 'Archivado' {
@@ -298,39 +327,96 @@ export class ClinicalCaseService {
     const summary = this.mapBackendCaseToSummary(response);
     const personality = this.extractBackendPersonality(response);
     const facts = this.extractBackendFacts(response);
+    const descriptionMetadata = this.parseDescriptionMetadata(response.description);
+    const normalizedDescription = this.normalizeOptionalText(response.description);
+    const normalizedFallbackPhrase = this.normalizeOptionalText(response.noInformationPhrase);
+    const behaviorGuidelines = descriptionMetadata?.behaviorGuidelines ?? normalizedDescription;
 
     return {
       ...summary,
       age: response.patientAge ?? 0,
       sex: this.mapSex(response.patientSex),
-      context: response.context ?? 'Consulta clínica',
-      reason: response.chiefComplaint,
-      initialMessage: response.initialMessage ?? response.chiefComplaint,
-      expectedDiagnosis: response.expectedDiagnosis ?? undefined,
-      fallbackResponse: response.noInformationPhrase,
-      behaviorGuidelines: response.description ?? personality.behaviorNotes,
+      context: descriptionMetadata?.context ?? this.normalizeOptionalText(response.context) ?? '',
+      reason: this.normalizeOptionalText(response.chiefComplaint) ?? '',
+      initialMessage:
+        descriptionMetadata?.initialMessage ?? this.normalizeOptionalText(response.initialMessage) ?? '',
+      expectedDiagnosis: descriptionMetadata?.expectedDiagnosis ?? response.expectedDiagnosis ?? undefined,
+      fallbackResponse: normalizedFallbackPhrase ?? undefined,
+      behaviorGuidelines: behaviorGuidelines ?? undefined,
       personality,
       facts
     };
   }
 
   private mapUpsertPayloadToBackendRequest(payload: ClinicalCaseUpsertPayload): BackendClinicalCaseRequest {
+    const normalizedFallbackResponse = this.normalizeOptionalText(payload.fallbackResponse);
+    const normalizedReason = this.normalizeOptionalText(payload.reason);
+    const normalizedInitialMessage = this.normalizeOptionalText(payload.initialMessage);
+    const serializedDescription = this.serializeDescriptionMetadata(payload);
+
     return {
       title: payload.title,
-      description: payload.behaviorGuidelines || payload.context || null,
+      description: serializedDescription,
       patientName: payload.patientName,
       patientAge: payload.age,
       patientSex: payload.sex,
-      chiefComplaint: payload.reason || payload.initialMessage,
-      noInformationPhrase: payload.fallbackResponse || 'No tengo información asociada a eso.',
+      chiefComplaint: normalizedReason ?? normalizedInitialMessage ?? '',
+      noInformationPhrase: normalizedFallbackResponse ?? 'No tengo información asociada a eso.',
       active: payload.status !== 'ARCHIVED',
       facts: payload.facts.map((fact) => ({
-        key: this.normalizeFactKey(fact.title),
-        content: (fact.trigger || fact.title).trim(),
+        key: (this.normalizeOptionalText(fact.title) ?? this.normalizeFactKey(fact.title)).trim(),
+        content: (this.normalizeOptionalText(fact.trigger) ?? this.normalizeOptionalText(fact.title) ?? '').trim(),
         revealLevel: fact.visibility === 'INITIAL' ? 1 : 2
       })),
       personality: [payload.personality.tone, payload.personality.detailLevel, payload.personality.behaviorNotes]
     };
+  }
+
+  private serializeDescriptionMetadata(payload: ClinicalCaseUpsertPayload): string | null {
+    const metadata: ClinicalCaseDescriptionMetadata = {
+      context: this.normalizeOptionalText(payload.context),
+      initialMessage: this.normalizeOptionalText(payload.initialMessage),
+      expectedDiagnosis: this.normalizeOptionalText(payload.expectedDiagnosis),
+      behaviorGuidelines: this.normalizeOptionalText(payload.behaviorGuidelines)
+    };
+
+    const hasAtLeastOneValue = Object.values(metadata).some((value) => typeof value === 'string');
+    if (!hasAtLeastOneValue) {
+      return null;
+    }
+
+    return `${this.descriptionMetadataPrefix}${JSON.stringify(metadata)}`;
+  }
+
+  private parseDescriptionMetadata(
+    description: string | null | undefined
+  ): ClinicalCaseDescriptionMetadata | undefined {
+    const normalizedDescription = this.normalizeOptionalText(description);
+    if (!normalizedDescription?.startsWith(this.descriptionMetadataPrefix)) {
+      return undefined;
+    }
+
+    const payload = normalizedDescription.slice(this.descriptionMetadataPrefix.length);
+    try {
+      const parsed = JSON.parse(payload) as ClinicalCaseDescriptionMetadata;
+      return {
+        context: this.normalizeOptionalText(parsed.context),
+        initialMessage: this.normalizeOptionalText(parsed.initialMessage),
+        expectedDiagnosis: this.normalizeOptionalText(parsed.expectedDiagnosis),
+        behaviorGuidelines: this.normalizeOptionalText(parsed.behaviorGuidelines)
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private normalizeOptionalText(value: string | null | undefined): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
   }
 
   private extractBackendFacts(response: BackendClinicalCaseResponse): BackendClinicalFact[] {
@@ -348,23 +434,28 @@ export class ClinicalCaseService {
     const personality = response.personality;
     if (Array.isArray(personality)) {
       return {
-        tone: personality[0] || this.getDefaultPersonality().tone,
-        detailLevel: personality[1] || this.getDefaultPersonality().detailLevel,
-        behaviorNotes: personality[2] || response.description || this.getDefaultPersonality().behaviorNotes
+        tone: this.normalizeOptionalText(personality[0]) ?? '',
+        detailLevel: this.normalizeOptionalText(personality[1]) ?? '',
+        behaviorNotes: this.normalizeOptionalText(personality[2]) ?? this.normalizeOptionalText(response.description) ?? ''
       };
     }
 
     if (personality) {
       return {
-        tone: personality.tone ?? this.getDefaultPersonality().tone,
-        detailLevel: personality.detailLevel ?? this.getDefaultPersonality().detailLevel,
-        behaviorNotes: personality.behaviorNotes ?? personality.notes ?? response.description ?? this.getDefaultPersonality().behaviorNotes
+        tone: this.normalizeOptionalText(personality.tone) ?? '',
+        detailLevel: this.normalizeOptionalText(personality.detailLevel) ?? '',
+        behaviorNotes:
+          this.normalizeOptionalText(personality.behaviorNotes) ??
+          this.normalizeOptionalText(personality.notes) ??
+          this.normalizeOptionalText(response.description) ??
+          ''
       };
     }
 
     return {
-      ...this.getDefaultPersonality(),
-      behaviorNotes: response.description ?? this.getDefaultPersonality().behaviorNotes
+      tone: '',
+      detailLevel: '',
+      behaviorNotes: this.normalizeOptionalText(response.description) ?? ''
     };
   }
 
@@ -391,14 +482,6 @@ export class ClinicalCaseService {
     }
 
     return 'ON_QUESTION';
-  }
-
-  private getDefaultPersonality(): ClinicalCasePersonality {
-    return {
-      tone: 'Natural y colaborador',
-      detailLevel: 'Responder solo lo preguntado',
-      behaviorNotes: ''
-    };
   }
 
   private mapSex(patientSex: string | null | undefined): 'F' | 'M' | 'X' {
@@ -478,4 +561,11 @@ interface BackendClinicalCasePersonalityResponse {
   detailLevel?: string;
   behaviorNotes?: string;
   notes?: string;
+}
+
+interface ClinicalCaseDescriptionMetadata {
+  context?: string;
+  initialMessage?: string;
+  expectedDiagnosis?: string;
+  behaviorGuidelines?: string;
 }

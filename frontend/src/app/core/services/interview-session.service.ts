@@ -50,24 +50,23 @@ export class InterviewSessionService {
       tap((session) => this.saveCurrentSessionId(session.id)),
       switchMap((session) =>
         forkJoin({
+          activityContext: this.getCurrentActivityContext(activityId),
           session: this.http.get<BackendSessionResponse>(`${this.apiBaseUrl}/sessions/${session.id}`),
           messages: this.http.get<BackendChatMessageResponse[]>(`${this.apiBaseUrl}/sessions/${session.id}/messages`)
         })
       ),
-      tap(({ session }) => {
+      tap(({ session, activityContext }) => {
         this.professorDashboardService.saveSessionSummary({
           sessionId: session.id,
           studentName: this.authService.getCurrentUser()?.fullName ?? 'Estudiante',
-          caseName: this.getMockInterviewSession().patientName,
+          caseName: activityContext.caseName,
           status: 'IN_PROGRESS',
           submittedAt: new Date().toISOString()
         });
       }),
-      map(({ session, messages }) => ({
-        ...this.getMockInterviewSession(),
-        id: session.id,
-        messages: messages.map((message) => this.mapBackendMessage(message))
-      })),
+      map(({ session, messages, activityContext }) =>
+        this.mapBackendSessionToInterviewSession(session, messages, activityContext)
+      ),
       catchError(() => throwError(() => new Error('No fue posible iniciar la entrevista.')))
     );
   }
@@ -128,7 +127,7 @@ export class InterviewSessionService {
           this.professorDashboardService.saveSessionSummary({
             sessionId: resolvedSessionId,
             studentName: this.authService.getCurrentUser()?.fullName ?? 'Estudiante',
-            caseName: this.getMockInterviewSession().patientName,
+            caseName: 'Caso clínico',
             status: 'COMPLETED',
             submittedAt: new Date().toISOString()
           });
@@ -176,6 +175,56 @@ export class InterviewSessionService {
       content: message.content,
       timestamp: this.formatTimestamp(message.createdAt)
     };
+  }
+
+  private mapBackendSessionToInterviewSession(
+    session: BackendSessionResponse,
+    messages: BackendChatMessageResponse[],
+    activityContext: ActivityContext
+  ): InterviewSessionData {
+    return {
+      id: session.id,
+      patientName: activityContext.patientName,
+      age: activityContext.age,
+      sex: activityContext.sex,
+      context: activityContext.context,
+      reason: activityContext.reason,
+      messages: messages.map((message) => this.mapBackendMessage(message))
+    };
+  }
+
+  private getCurrentActivityContext(activityId: string): Observable<ActivityContext> {
+    const fallbackContext: ActivityContext = {
+      caseName: 'Caso clínico',
+      patientName: 'Paciente simulado',
+      age: 0,
+      sex: this.normalizeSex('X'),
+      context: '',
+      reason: ''
+    };
+
+    return this.http.get<BackendStudentActivityResponse[]>(`${this.apiBaseUrl}/student/activities`).pipe(
+      map((activities): ActivityContext => {
+        const activity = activities.find((item) => {
+          const id = item.activityId ?? item.id;
+          return id === activityId;
+        });
+
+        return {
+          caseName: activity?.title ?? activity?.titulo ?? 'Caso clínico',
+          patientName: activity?.patientName ?? activity?.nombrePaciente ?? 'Paciente simulado',
+          age: 0,
+          sex: this.normalizeSex('X'),
+          context: '',
+          reason: activity?.description ?? activity?.descripcion ?? ''
+        };
+      }),
+      catchError(() => of(fallbackContext))
+    );
+  }
+
+  private normalizeSex(value: unknown): PatientSex {
+    return value === 'F' || value === 'M' || value === 'X' ? value : 'X';
   }
 
   private mapBackendRole(role: string): 'PATIENT' | 'STUDENT' | 'SYSTEM' {
@@ -252,3 +301,25 @@ interface BackendChatMessageResponse {
   turnNumber: number;
   createdAt: string;
 }
+
+interface BackendStudentActivityResponse {
+  activityId?: string;
+  id?: string;
+  title?: string;
+  titulo?: string;
+  description?: string;
+  descripcion?: string;
+  patientName?: string;
+  nombrePaciente?: string;
+}
+
+interface ActivityContext {
+  caseName: string;
+  patientName: string;
+  age: number;
+  sex: 'F' | 'M' | 'X';
+  context: string;
+  reason: string;
+}
+
+type PatientSex = ActivityContext['sex'];

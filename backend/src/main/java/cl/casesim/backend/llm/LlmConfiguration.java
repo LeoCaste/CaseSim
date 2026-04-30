@@ -4,7 +4,6 @@ import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
 import cl.casesim.backend.sessions.ChatMessageRepository;
-import cl.casesim.backend.sessions.MockPatientResponseService;
 import cl.casesim.backend.sessions.PatientResponseService;
 import cl.casesim.backend.sessions.SessionRevealedFactRepository;
 import cl.casesim.backend.sessions.SimulationSessionRepository;
@@ -16,11 +15,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @EnableConfigurationProperties(LlmProperties.class)
 public class LlmConfiguration {
-
-    @Bean
-    public MockPatientResponseService mockPatientResponseService() {
-        return new MockPatientResponseService();
-    }
 
     @Bean
     public PromptBuilderService promptBuilderService() {
@@ -44,7 +38,6 @@ public class LlmConfiguration {
             PromptBuilderService promptBuilderService,
             ResponseSafetyFilter responseSafetyFilter,
             ChatMessageRepository chatMessageRepository,
-            MockPatientResponseService mockPatientResponseService,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
             SimulationSessionRepository simulationSessionRepository,
@@ -59,7 +52,6 @@ public class LlmConfiguration {
                 promptBuilderService,
                 responseSafetyFilter,
                 chatMessageRepository,
-                mockPatientResponseService,
                 llmUsageService,
                 simulationActivityRepository,
                 simulationSessionRepository,

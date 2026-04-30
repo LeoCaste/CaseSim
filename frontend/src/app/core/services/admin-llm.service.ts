@@ -210,16 +210,19 @@ export class AdminLlmService {
   }
 
   private mapUpdatePayload(payload: UpdateLlmConfigPayload): BackendUpdateLlmConfigRequest {
+    const basePrompt = payload.patientBehavior.basePrompt ?? '';
+    const additionalRules = payload.patientBehavior.additionalRules ?? '';
+    const noInformationReply = payload.patientBehavior.noInformationReply ?? '';
+
     return {
       provider: payload.provider,
       model: payload.model,
       baseUrl: payload.baseUrl,
       enabled: payload.enabled,
       apiKey: payload.apiKey?.trim() ? payload.apiKey.trim() : null,
-      systemPrompt: payload.patientBehavior.basePrompt?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
-      patientBehaviorRules: payload.patientBehavior.additionalRules?.trim() || '',
-      noInfoResponse:
-        payload.patientBehavior.noInformationReply?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply,
+      systemPrompt: basePrompt.trim(),
+      patientBehaviorRules: additionalRules.trim(),
+      noInfoResponse: noInformationReply.trim(),
       revealStrategy: payload.patientBehavior.revealStrategy,
       maxHistoryMessages: payload.patientBehavior.maxHistoryMessages,
       temperature: payload.patientBehavior.temperature,
@@ -229,10 +232,17 @@ export class AdminLlmService {
   }
 
   private mapPatientBehavior(response: BackendLlmConfigResponse): PatientBehaviorConfig {
+    const safetyFilterEnabled =
+      typeof response.enabledSafetyFilter === 'boolean'
+        ? response.enabledSafetyFilter
+        : typeof response.safetyFilterEnabled === 'boolean'
+          ? response.safetyFilterEnabled
+          : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.safetyFilterEnabled;
+
     return {
-      basePrompt: response.systemPrompt?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
-      additionalRules: response.patientBehaviorRules?.trim() || '',
-      noInformationReply: response.noInfoResponse?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply,
+      basePrompt: response.systemPrompt?.trim() ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
+      additionalRules: response.patientBehaviorRules?.trim() ?? '',
+      noInformationReply: response.noInfoResponse?.trim() ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply,
       revealStrategy: response.revealStrategy || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.revealStrategy,
       maxHistoryMessages:
         response.maxHistoryMessages >= 1
@@ -246,10 +256,7 @@ export class AdminLlmService {
         response.maxTokens >= 1
           ? response.maxTokens
           : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.maxTokens,
-      safetyFilterEnabled:
-        typeof response.enabledSafetyFilter === 'boolean'
-          ? response.enabledSafetyFilter
-          : RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.safetyFilterEnabled
+      safetyFilterEnabled
     };
   }
 
@@ -378,6 +385,7 @@ interface BackendLlmConfigResponse {
   temperature: number;
   maxTokens: number;
   enabledSafetyFilter: boolean;
+  safetyFilterEnabled?: boolean;
   updatedAt: string | null;
 }
 

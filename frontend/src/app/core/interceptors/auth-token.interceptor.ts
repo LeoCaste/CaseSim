@@ -7,7 +7,7 @@ import { AuthService } from '../services/auth.service';
 
 export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
-  const token = authService.getToken();
+  const token = normalizeToken(authService.getToken());
   const isAuthFlowRequest = /\/auth\/(login|pre-check)$/i.test(req.url);
   const isSessionValidationRequest = /\/auth\/me$/i.test(req.url);
   const isProtectedRequest = !isAuthFlowRequest;
@@ -16,7 +16,7 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
-  const request = token
+  const request = token && !req.headers.has('Authorization')
     ? req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`
@@ -42,3 +42,17 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
     })
   );
 };
+
+function normalizeToken(rawToken: string | null): string | null {
+  if (!rawToken) {
+    return null;
+  }
+
+  const trimmedToken = rawToken.trim();
+  if (!trimmedToken) {
+    return null;
+  }
+
+  const bearerPrefixPattern = /^Bearer\s+/i;
+  return trimmedToken.replace(bearerPrefixPattern, '').trim() || null;
+}

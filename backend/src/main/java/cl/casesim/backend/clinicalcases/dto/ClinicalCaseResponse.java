@@ -22,6 +22,7 @@ public record ClinicalCaseResponse(
     public record ClinicalCaseFactResponse(
             String key,
             String content,
+            List<String> triggers,
             Integer revealLevel
     ) {
     }

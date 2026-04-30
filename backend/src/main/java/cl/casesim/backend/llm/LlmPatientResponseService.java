@@ -7,7 +7,6 @@ import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
 import cl.casesim.backend.sessions.ChatMessage;
 import cl.casesim.backend.sessions.ChatMessageRepository;
-import cl.casesim.backend.sessions.MockPatientResponseService;
 import cl.casesim.backend.sessions.PatientResponseService;
 import cl.casesim.backend.sessions.SessionRevealedFact;
 import cl.casesim.backend.sessions.SessionRevealedFactRepository;
@@ -15,6 +14,8 @@ import cl.casesim.backend.sessions.SimulationSession;
 import cl.casesim.backend.sessions.SimulationSessionRepository;
 import cl.casesim.backend.simulations.SimulationActivity;
 import cl.casesim.backend.simulations.SimulationActivityRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 
@@ -31,12 +32,13 @@ import java.util.regex.Pattern;
 
 public class LlmPatientResponseService implements PatientResponseService {
 
+    private static final Logger log = LoggerFactory.getLogger(LlmPatientResponseService.class);
+
     private final LlmProperties llmProperties;
     private final LlmClient llmClient;
     private final PromptBuilderService promptBuilderService;
     private final ResponseSafetyFilter responseSafetyFilter;
     private final ChatMessageRepository chatMessageRepository;
-    private final MockPatientResponseService mockPatientResponseService;
     private final LlmUsageService llmUsageService;
     private final SimulationActivityRepository simulationActivityRepository;
     private final SimulationSessionRepository simulationSessionRepository;
@@ -46,6 +48,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final SessionRevealedFactRepository sessionRevealedFactRepository;
 
     private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^\\p{L}\\p{N} ]");
+    private static final String DEFAULT_SAFE_NO_INFO_RESPONSE = "No tengo información asociada a eso.";
     private static final List<String> LEVEL_2_HINTS = List.of("que", "como", "donde", "cuando", "cuanto", "tiene", "siente", "dolor", "fiebre", "tos", "sintoma", "vomito", "nausea");
     private static final List<String> LEVEL_3_HINTS = List.of("desde", "antecedente", "alergia", "medicamento", "cirugia", "hospital", "laboratorio", "examen", "resultado", "familiar", "cronico", "tratamiento");
 
@@ -55,7 +58,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             PromptBuilderService promptBuilderService,
             ResponseSafetyFilter responseSafetyFilter,
             ChatMessageRepository chatMessageRepository,
-            MockPatientResponseService mockPatientResponseService,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
             SimulationSessionRepository simulationSessionRepository,
@@ -69,7 +71,6 @@ public class LlmPatientResponseService implements PatientResponseService {
         this.promptBuilderService = promptBuilderService;
         this.responseSafetyFilter = responseSafetyFilter;
         this.chatMessageRepository = chatMessageRepository;
-        this.mockPatientResponseService = mockPatientResponseService;
         this.llmUsageService = llmUsageService;
         this.simulationActivityRepository = simulationActivityRepository;
         this.simulationSessionRepository = simulationSessionRepository;
@@ -85,9 +86,15 @@ public class LlmPatientResponseService implements PatientResponseService {
         int estimatedPromptTokens = llmUsageService.estimateTokens(userMessage);
         String resolvedModel = llmProperties.getModel();
         String resolvedProvider = llmProperties.getProvider();
+        NoInfoResolution noInfoResolution = resolveNoInfoResponse(resolveCaseNoInfoResponse(session));
 
         if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
-            String fallback = mockPatientResponseService.generateResponse(session, userMessage);
+            String fallback = noInfoResolution.value();
+            log.info("LLM disabled or missing API key provider={} model={} fallbackUsed=true noInfoSource={} noInfoResponse={} safetyFilterApplied=false",
+                    resolvedProvider,
+                    resolvedModel,
+                    noInfoResolution.source(),
+                    maskForLog(fallback));
             llmUsageService.registerCall(
                     session.getId(),
                     resolvedProvider,
@@ -104,6 +111,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         try {
             List<ChatMessage> history = loadRecentHistory(session.getId());
             PromptBuilderService.ClinicalPromptContext context = buildPromptContext(session, userMessage);
+            noInfoResolution = resolveNoInfoResponse(context.noInformationReply());
 
             List<LlmClient.ChatPromptMessage> promptMessages = promptBuilderService.buildMessages(
                     context,
@@ -112,7 +120,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     new PromptBuilderService.PatientBehaviorConfig(
                             llmProperties.getSystemPrompt(),
                             llmProperties.getPatientBehaviorRules(),
-                            resolveNoInfoResponse(context.noInformationReply()),
+                            noInfoResolution.value(),
                             llmProperties.getRevealStrategy()
                     )
             );
@@ -122,6 +130,15 @@ public class LlmPatientResponseService implements PatientResponseService {
                     .mapToInt(llmUsageService::estimateTokens)
                     .sum();
 
+            log.info(
+                    "LLM request prepared provider={} model={} promptChars={} revealStrategy={} noInfoConfigured={}",
+                    resolvedProvider,
+                    resolvedModel,
+                    promptMessages.stream().map(LlmClient.ChatPromptMessage::content).mapToInt(String::length).sum(),
+                    llmProperties.getRevealStrategy(),
+                    hasText(noInfoResolution.value())
+            );
+
             String llmResponse = llmClient.generateChatCompletion(
                     promptMessages,
                     llmProperties.getTemperature(),
@@ -129,9 +146,17 @@ public class LlmPatientResponseService implements PatientResponseService {
             );
             String safeResponse = responseSafetyFilter.applyOrFallback(
                     llmResponse,
-                    llmProperties.isEnabledSafetyFilter()
+                    llmProperties.isEnabledSafetyFilter(),
+                    noInfoResolution.value()
             );
-            boolean fallbackUsed = ResponseSafetyFilter.SAFE_FALLBACK.equals(safeResponse);
+            boolean fallbackUsed = noInfoResolution.value().equals(safeResponse);
+            log.info("LLM response completed provider={} model={} fallbackUsed={} noInfoSource={} noInfoResponse={} safetyFilterApplied={}",
+                    resolvedProvider,
+                    resolvedModel,
+                    fallbackUsed,
+                    noInfoResolution.source(),
+                    maskForLog(noInfoResolution.value()),
+                    fallbackUsed);
 
             llmUsageService.registerCall(
                     session.getId(),
@@ -147,9 +172,17 @@ public class LlmPatientResponseService implements PatientResponseService {
             return safeResponse;
         } catch (RuntimeException ex) {
             String fallback = responseSafetyFilter.applyOrFallback(
-                    mockPatientResponseService.generateResponse(session, userMessage),
-                    !llmProperties.isEnabledSafetyFilter()
+                    noInfoResolution.value(),
+                    llmProperties.isEnabledSafetyFilter(),
+                    noInfoResolution.value()
             );
+            log.warn("LLM provider call failed provider={} model={} fallbackUsed=true noInfoSource={} noInfoResponse={} safetyFilterApplied={} reason={}",
+                    resolvedProvider,
+                    resolvedModel,
+                    noInfoResolution.source(),
+                    maskForLog(noInfoResolution.value()),
+                    llmProperties.isEnabledSafetyFilter(),
+                    sanitizeError(ex.getMessage()));
             llmUsageService.registerCall(
                     session.getId(),
                     resolvedProvider,
@@ -203,6 +236,9 @@ public class LlmPatientResponseService implements PatientResponseService {
 
         return new PromptBuilderService.ClinicalPromptContext(
                 session.getId(),
+                clinicalCase.getPacienteNombre(),
+                clinicalCase.getPacienteEdad() == null ? null : String.valueOf(clinicalCase.getPacienteEdad()),
+                clinicalCase.getPacienteSexo(),
                 clinicalCase.getMotivoConsulta(),
                 clinicalCase.getDescripcion(),
                 clinicalCase.getFraseSinInformacion(),
@@ -217,9 +253,24 @@ public class LlmPatientResponseService implements PatientResponseService {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 List.of(),
                 List.of()
         );
+    }
+
+    private String resolveCaseNoInfoResponse(SimulationSession session) {
+        SimulationActivity activity = simulationActivityRepository.findById(session.getActividadId()).orElse(null);
+        if (activity == null) {
+            return null;
+        }
+        ClinicalCase clinicalCase = clinicalCaseRepository.findById(activity.getCasoId()).orElse(null);
+        if (clinicalCase == null) {
+            return null;
+        }
+        return clinicalCase.getFraseSinInformacion();
     }
 
     List<ClinicalCaseFact> selectFactsForPrompt(UUID sessionId, String userMessage) {
@@ -271,6 +322,12 @@ public class LlmPatientResponseService implements PatientResponseService {
                 newlyRevealedFacts.add(fact);
                 alreadyRevealedIds.add(fact.getId());
             }
+        }
+
+        if (selectedFacts.isEmpty()) {
+            allFacts.stream()
+                    .min(Comparator.comparing(fact -> fact.getNivelRevelacion() == null ? 1 : fact.getNivelRevelacion()))
+                    .ifPresent(selectedFacts::add);
         }
 
         persistNewlyRevealedFacts(sessionId, newlyRevealedFacts);
@@ -334,7 +391,8 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
 
         String normalizedFactText = normalize((fact.getNombre() == null ? "" : fact.getNombre()) + " " +
-                (fact.getContenidoPaciente() == null ? "" : fact.getContenidoPaciente()));
+                (fact.getContenidoPaciente() == null ? "" : fact.getContenidoPaciente()) + " " +
+                (fact.getTriggers() == null ? "" : fact.getTriggers()));
 
         if (normalizedFactText.isEmpty()) {
             return false;
@@ -377,11 +435,22 @@ public class LlmPatientResponseService implements PatientResponseService {
         return NON_ALPHANUMERIC.matcher(lowerCased).replaceAll(" ").trim();
     }
 
-    private String resolveNoInfoResponse(String contextNoInfoResponse) {
-        if (llmProperties.getNoInfoResponse() != null && !llmProperties.getNoInfoResponse().trim().isEmpty()) {
-            return llmProperties.getNoInfoResponse().trim();
+    private NoInfoResolution resolveNoInfoResponse(String contextNoInfoResponse) {
+        if (hasText(contextNoInfoResponse)) {
+            return new NoInfoResolution(contextNoInfoResponse.trim(), "CASE");
         }
-        return contextNoInfoResponse;
+        if (hasText(llmProperties.getNoInfoResponse())) {
+            return new NoInfoResolution(llmProperties.getNoInfoResponse().trim(), "ADMIN");
+        }
+        return new NoInfoResolution(DEFAULT_SAFE_NO_INFO_RESPONSE, "DEFAULT");
+    }
+
+    private String maskForLog(String value) {
+        if (!hasText(value)) {
+            return "<empty>";
+        }
+        String trimmed = value.trim();
+        return trimmed.length() <= 120 ? trimmed : trimmed.substring(0, 120) + "...";
     }
 
     private String sanitizeError(String rawError) {
@@ -396,5 +465,12 @@ public class LlmPatientResponseService implements PatientResponseService {
             sanitized = sanitized.substring(0, 400);
         }
         return sanitized;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private record NoInfoResolution(String value, String source) {
     }
 }

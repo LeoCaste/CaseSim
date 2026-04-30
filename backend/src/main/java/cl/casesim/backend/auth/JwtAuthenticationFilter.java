@@ -20,7 +20,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String BEARER_PREFIX = "bearer ";
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
@@ -38,12 +38,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String authHeader = request.getHeader(AUTHORIZATION_HEADER);
 
-        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+        if (authHeader == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String jwt = authHeader.substring(BEARER_PREFIX.length());
+        String normalizedHeader = authHeader.trim();
+        if (normalizedHeader.length() <= BEARER_PREFIX.length()
+                || !normalizedHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String jwt = normalizedHeader.substring(BEARER_PREFIX.length()).trim();
 
         try {
             String username = jwtService.extractUsername(jwt);

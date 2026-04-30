@@ -28,6 +28,7 @@ public record ClinicalCaseRequest(
             String key,
             @NotBlank(message = "El contenido del hecho clínico no puede estar vacío.")
             String content,
+            List<String> triggers,
             @NotNull(message = "El nivel de revelación es obligatorio.")
             @Min(value = 1, message = "El nivel de revelación debe ser mayor o igual a 1.")
             Integer revealLevel

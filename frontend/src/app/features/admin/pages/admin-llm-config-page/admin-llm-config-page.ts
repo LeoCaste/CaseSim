@@ -91,6 +91,10 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onSave(): void {
+    if (this.isSaving || this.isLoading || this.isTestingConnection) {
+      return;
+    }
+
     this.saveMessage = '';
     this.saveError = '';
 
@@ -147,6 +151,10 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onTestConnection(): void {
+    if (this.isTestingConnection || this.isSaving || this.isLoading) {
+      return;
+    }
+
     this.testFeedback = '';
     this.testFeedbackStatus = null;
     this.isTestingConnection = true;
@@ -219,6 +227,10 @@ export class AdminLlmConfigPage implements OnInit {
   private loadConfig(): void {
     this.isLoading = true;
     this.loadError = '';
+    this.saveMessage = '';
+    this.saveError = '';
+    this.testFeedback = '';
+    this.testFeedbackStatus = null;
     this.triggerViewUpdate();
 
     this.adminLlmService
@@ -308,10 +320,9 @@ export class AdminLlmConfigPage implements OnInit {
 
   private buildSanitizedPayload(form: UpdateLlmConfigPayload): UpdateLlmConfigPayload {
     const behavior = this.clonePatientBehavior(form.patientBehavior);
-    behavior.basePrompt = behavior.basePrompt?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt;
-    behavior.additionalRules = behavior.additionalRules?.trim() || '';
-    behavior.noInformationReply =
-      behavior.noInformationReply?.trim() || RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.noInformationReply;
+    behavior.basePrompt = behavior.basePrompt?.trim() ?? '';
+    behavior.additionalRules = behavior.additionalRules?.trim() ?? '';
+    behavior.noInformationReply = behavior.noInformationReply?.trim() ?? '';
     behavior.temperature = Number(behavior.temperature);
     behavior.maxTokens = Number(behavior.maxTokens);
     behavior.maxHistoryMessages = Number(behavior.maxHistoryMessages);
