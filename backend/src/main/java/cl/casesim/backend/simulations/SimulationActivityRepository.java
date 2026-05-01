@@ -7,4 +7,6 @@ import java.util.UUID;
 public interface SimulationActivityRepository extends JpaRepository<SimulationActivity, UUID> {
 
     boolean existsByCasoIdAndCreadaPor(UUID casoId, UUID creadaPor);
+
+    void deleteByCasoId(UUID casoId);
 }

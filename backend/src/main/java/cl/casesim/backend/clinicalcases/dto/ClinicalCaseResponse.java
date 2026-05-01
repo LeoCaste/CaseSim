@@ -1,5 +1,7 @@
 package cl.casesim.backend.clinicalcases.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -20,10 +22,20 @@ public record ClinicalCaseResponse(
 ) {
 
     public record ClinicalCaseFactResponse(
+            String category,
             String key,
             String content,
             List<String> triggers,
             Integer revealLevel
     ) {
+        @JsonProperty("contenido")
+        public String contenido() {
+            return content;
+        }
+
+        @JsonProperty("contenido_paciente")
+        public String contenidoPaciente() {
+            return content;
+        }
     }
 }

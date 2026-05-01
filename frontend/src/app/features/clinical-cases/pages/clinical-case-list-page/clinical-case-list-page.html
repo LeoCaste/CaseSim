@@ -17,6 +17,8 @@
 
   <p *ngIf="loading">Cargando casos clínicos...</p>
 
+  <p class="feedback success" *ngIf="!loading && success">{{ success }}</p>
+
   <p *ngIf="!loading && error">{{ error }}</p>
 
   <p *ngIf="!loading && !error && cases.length === 0">No hay casos clínicos registrados.</p>
@@ -25,6 +27,7 @@
     <app-clinical-case-card
       *ngFor="let clinicalCase of cases"
       [clinicalCase]="clinicalCase"
+      (deleted)="onCaseDeleted($event)"
     ></app-clinical-case-card>
   </section>
 </section>

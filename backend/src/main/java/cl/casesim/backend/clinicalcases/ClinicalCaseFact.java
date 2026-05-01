@@ -4,6 +4,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -22,7 +24,7 @@ public class ClinicalCaseFact {
             String nombre,
             String contenidoPaciente,
             Integer nivelRevelacion,
-            String triggers,
+            Object triggers,
             boolean esSensible,
             Integer orden
     ) {
@@ -57,7 +59,8 @@ public class ClinicalCaseFact {
     private Integer nivelRevelacion;
 
     @Column(name = "triggers", columnDefinition = "jsonb")
-    private String triggers;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Object triggers;
 
     @Column(name = "es_sensible", nullable = false)
     private boolean esSensible;
@@ -77,6 +80,10 @@ public class ClinicalCaseFact {
         return nombre;
     }
 
+    public String getCategoria() {
+        return categoria;
+    }
+
     public String getContenidoPaciente() {
         return contenidoPaciente;
     }
@@ -85,7 +92,7 @@ public class ClinicalCaseFact {
         return nivelRevelacion;
     }
 
-    public String getTriggers() {
+    public Object getTriggers() {
         return triggers;
     }
 }

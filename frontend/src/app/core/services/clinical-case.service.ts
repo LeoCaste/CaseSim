@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { catchError, map, Observable, of, throwError, timeout } from 'rxjs';
 
 import {
@@ -47,18 +47,21 @@ export class ClinicalCaseService {
         {
           category: 'Síntoma',
           title: 'Tos seca persistente',
+          content: 'Refiere tos seca persistente de inicio insidioso, sin expectoración.',
           trigger: 'tos, respiratorio',
           visibility: 'INITIAL'
         },
         {
           category: 'Evolución',
           title: 'Fatiga de 5 días',
+          content: 'Se siente fatigada desde hace 5 días, con mayor cansancio al final del día.',
           trigger: 'duración, evolución',
           visibility: 'ON_QUESTION'
         },
         {
           category: 'Antecedente epidemiológico',
           title: 'Contacto con persona enferma',
+          content: 'Tuvo contacto estrecho con un familiar con cuadro respiratorio la semana pasada.',
           trigger: 'contactos, contagio',
           visibility: 'ON_QUESTION'
         }
@@ -88,6 +91,7 @@ export class ClinicalCaseService {
         {
           category: 'Síntoma',
           title: 'Dolor torácico intermitente',
+          content: 'Describe episodios de dolor opresivo retroesternal de minutos de duración.',
           trigger: 'dolor, pecho',
           visibility: 'INITIAL'
         }
@@ -169,7 +173,18 @@ export class ClinicalCaseService {
 
   delete(id: string): Observable<void> {
     if (!environment.useMocks) {
-      return this.http.delete<void>(`${this.apiBaseUrl}/clinical-cases/${id}`);
+      return this.http
+        .delete<void>(`${this.apiBaseUrl}/clinical-cases/${id}`)
+        .pipe(
+          timeout(this.requestTimeoutMs),
+          catchError((error: unknown) => {
+            if (error instanceof HttpErrorResponse) {
+              return throwError(() => error);
+            }
+
+            return throwError(() => new Error('No fue posible eliminar el caso clínico.'));
+          })
+        );
     }
 
     this.clinicalCases = this.clinicalCases.filter((clinicalCase) => clinicalCase.id !== id);
@@ -227,18 +242,21 @@ export class ClinicalCaseService {
         {
           category: 'Síntoma',
           title: 'Tos seca persistente',
+          content: 'Refiere tos seca persistente de inicio insidioso, sin expectoración.',
           trigger: 'tos, respiratorio',
           visibility: 'INITIAL'
         },
         {
           category: 'Evolución',
           title: 'Fatiga de 5 días',
+          content: 'Se siente fatigada desde hace 5 días, con mayor cansancio al final del día.',
           trigger: 'duración, evolución',
           visibility: 'ON_QUESTION'
         },
         {
           category: 'Antecedente epidemiológico',
           title: 'Contacto con persona enferma',
+          content: 'Tuvo contacto estrecho con un familiar con cuadro respiratorio la semana pasada.',
           trigger: 'contactos, contagio',
           visibility: 'ON_QUESTION'
         }
@@ -254,7 +272,7 @@ export class ClinicalCaseService {
       status: 'DRAFT',
       estimatedTimeMinutes: undefined,
       factsCount: 0,
-      age: 0,
+      age: 18,
       sex: 'F',
       context: '',
       reason: '',
@@ -365,7 +383,7 @@ export class ClinicalCaseService {
       active: payload.status !== 'ARCHIVED',
       facts: payload.facts.map((fact) => ({
         key: (this.normalizeOptionalText(fact.title) ?? this.normalizeFactKey(fact.title)).trim(),
-        content: (this.normalizeOptionalText(fact.trigger) ?? this.normalizeOptionalText(fact.title) ?? '').trim(),
+        content: (this.normalizeOptionalText(fact.content) ?? this.normalizeOptionalText(fact.title) ?? '').trim(),
         revealLevel: fact.visibility === 'INITIAL' ? 1 : 2
       })),
       personality: [payload.personality.tone, payload.personality.detailLevel, payload.personality.behaviorNotes]
@@ -425,7 +443,8 @@ export class ClinicalCaseService {
     return rawFacts.map((fact, index) => ({
       category: fact.category ?? fact.categoria ?? 'Hecho clínico',
       title: fact.key ?? fact.nombre ?? fact.title ?? `Hecho ${index + 1}`,
-      trigger: fact.content ?? fact.contenidoPaciente ?? fact.trigger ?? this.mapTriggersToString(fact.triggers) ?? '',
+      content: fact.content ?? fact.contenidoPaciente ?? fact.trigger ?? this.mapTriggersToString(fact.triggers) ?? '',
+      trigger: fact.trigger ?? fact.disparador ?? this.mapTriggersToString(fact.triggers) ?? fact.content ?? '',
       visibility: this.mapFactVisibility(fact.revealLevel ?? fact.nivelRevelacion ?? fact.visibility)
     }));
   }
@@ -530,6 +549,7 @@ interface BackendClinicalCaseRequest {
 interface BackendClinicalFact {
   category: string;
   title: string;
+  content: string;
   trigger: string;
   visibility: ClinicalFactVisibility;
 }

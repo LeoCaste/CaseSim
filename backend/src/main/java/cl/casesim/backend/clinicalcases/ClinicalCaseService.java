@@ -2,6 +2,7 @@ package cl.casesim.backend.clinicalcases;
 
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseRequest;
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseResponse;
+import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
 import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,9 @@ public class ClinicalCaseService {
     private static final String DEFAULT_NO_INFORMATION_PHRASE = "No tengo información asociada a eso.";
     private static final String DEFAULT_FACT_KEY = "general";
     private static final String DEFAULT_FACT_CATEGORY = "GENERAL";
+    private static final int MIN_REVEAL_LEVEL = 1;
+    private static final int MAX_REVEAL_LEVEL = 4;
+    private static final int DEFAULT_REVEAL_LEVEL = 2;
 
     private final ClinicalCaseRepository clinicalCaseRepository;
     private final ClinicalCaseFactRepository clinicalCaseFactRepository;
@@ -48,6 +52,24 @@ public class ClinicalCaseService {
         ClinicalCase clinicalCase = findActiveClinicalCaseByCaseOrActivityId(id);
 
         return toResponse(clinicalCase);
+    }
+
+    public ClinicalCaseResponse getActiveClinicalCaseByReference(String idReference) {
+        UUID parsedId = tryParseUuid(idReference);
+        if (parsedId != null) {
+            return getActiveClinicalCaseById(parsedId);
+        }
+
+        // Compatibilidad mínima para flujo de asignación legado/mocks del frontend.
+        if ("1".equals(idReference)) {
+            ClinicalCase fallbackCase = clinicalCaseRepository.findByActivoTrueOrderByCreadoEnDesc()
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("No existen casos clínicos activos."));
+            return toResponse(fallbackCase);
+        }
+
+        throw new ResourceNotFoundException("Caso clínico no encontrado para id: " + idReference);
     }
 
     @Transactional
@@ -101,12 +123,11 @@ public class ClinicalCaseService {
     }
 
     @Transactional
-    public void deactivateClinicalCase(UUID id) {
-        ClinicalCase clinicalCase = clinicalCaseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado con id: " + id));
+    public void deleteClinicalCase(UUID idOrActivityId) {
+        ClinicalCase clinicalCase = findClinicalCaseByCaseOrActivityId(idOrActivityId);
 
-        clinicalCase.desactivar();
-        clinicalCaseRepository.save(clinicalCase);
+        simulationActivityRepository.deleteByCasoId(clinicalCase.getId());
+        clinicalCaseRepository.deleteById(clinicalCase.getId());
     }
 
     private String resolveNoInformationPhrase(String noInformationPhrase) {
@@ -135,6 +156,7 @@ public class ClinicalCaseService {
                 .findByCasoIdOrderByOrdenAsc(clinicalCase.getId())
                 .stream()
                 .map(fact -> new ClinicalCaseResponse.ClinicalCaseFactResponse(
+                        fact.getCategoria(),
                         fact.getNombre(),
                         fact.getContenidoPaciente(),
                         parseTriggers(fact.getTriggers()),
@@ -180,20 +202,54 @@ public class ClinicalCaseService {
                 factKey = DEFAULT_FACT_KEY;
             }
 
+            String factCategory = normalizeOptionalText(fact.category());
+            if (factCategory == null) {
+                factCategory = DEFAULT_FACT_CATEGORY;
+            }
+
+            String factContent = normalizeOptionalText(fact.content());
+            if (factContent == null) {
+                throw new BadRequestException("facts[" + order + "].content: el contenido del hecho clínico no puede estar vacío.");
+            }
+
+            int revealLevel = resolveRevealLevel(fact, order);
+
             ClinicalCaseFact entity = new ClinicalCaseFact(
                     UUID.randomUUID(),
                     caseId,
-                    DEFAULT_FACT_CATEGORY,
+                    factCategory,
                     factKey,
-                    fact.content().trim(),
-                    fact.revealLevel(),
-                    serializeTriggers(fact.triggers()),
+                    factContent,
+                    revealLevel,
+                    serializeTriggers(parseIncomingTriggers(fact.triggers())),
                     false,
                     order
             );
             clinicalCaseFactRepository.save(entity);
             order++;
         }
+    }
+
+    private int resolveRevealLevel(ClinicalCaseRequest.ClinicalCaseFactRequest fact, int factIndex) {
+        Integer explicitRevealLevel = fact.revealLevel();
+        if (explicitRevealLevel != null) {
+            if (explicitRevealLevel < MIN_REVEAL_LEVEL || explicitRevealLevel > MAX_REVEAL_LEVEL) {
+                throw new BadRequestException("facts[" + factIndex + "].revealLevel: el nivel de revelación debe estar entre 1 y 4.");
+            }
+            return explicitRevealLevel;
+        }
+
+        String visibility = normalizeOptionalText(fact.visibility());
+        if (visibility == null) {
+            return DEFAULT_REVEAL_LEVEL;
+        }
+
+        String normalizedVisibility = visibility.toUpperCase();
+        return switch (normalizedVisibility) {
+            case "INITIAL", "INICIAL" -> 1;
+            case "ON_QUESTION", "ONQUESTION", "BAJO_PREGUNTA", "BAJO PREGUNTA" -> 2;
+            default -> throw new BadRequestException("facts[" + factIndex + "].visibility: valor inválido. use INITIAL u ON_QUESTION.");
+        };
     }
 
     private void savePersonality(UUID caseId, List<String> personality) {
@@ -243,10 +299,70 @@ public class ClinicalCaseService {
         return json.toString();
     }
 
-    private List<String> parseTriggers(String triggersJson) {
-        String normalized = normalizeOptionalText(triggersJson);
+    private List<String> parseIncomingTriggers(Object triggersValue) {
+        if (triggersValue == null) {
+            return List.of();
+        }
+
+        if (triggersValue instanceof List<?> listValue) {
+            return listValue.stream()
+                    .map(item -> normalizeOptionalText(item == null ? null : item.toString()))
+                    .filter(value -> value != null)
+                    .toList();
+        }
+
+        if (triggersValue instanceof String stringValue) {
+            String normalized = normalizeOptionalText(stringValue);
+            if (normalized == null) {
+                return List.of();
+            }
+            return List.of(normalized);
+        }
+
+        throw new BadRequestException("El campo triggers debe ser una lista de textos o un texto.");
+    }
+
+    private List<String> parseTriggers(Object triggersValue) {
+        if (triggersValue == null) {
+            return List.of();
+        }
+
+        List<String> result = new ArrayList<>();
+        if (triggersValue instanceof List<?> listValue) {
+            for (Object item : listValue) {
+                String value = normalizeOptionalText(item == null ? null : item.toString());
+                if (value != null) {
+                    result.add(value);
+                }
+            }
+            return result;
+        }
+
+        if (triggersValue instanceof java.util.Map<?, ?> mapValue) {
+            Object keywords = mapValue.get("keywords");
+            if (keywords instanceof List<?> keywordList) {
+                for (Object item : keywordList) {
+                    String value = normalizeOptionalText(item == null ? null : item.toString());
+                    if (value != null) {
+                        result.add(value);
+                    }
+                }
+                return result;
+            }
+            return List.of();
+        }
+
+        String normalized = normalizeOptionalText(triggersValue.toString());
         if (normalized == null || normalized.equals("[]")) {
             return List.of();
+        }
+
+        if (normalized.startsWith("{") && normalized.contains("\"keywords\"")) {
+            int start = normalized.indexOf('[');
+            int end = normalized.lastIndexOf(']');
+            if (start >= 0 && end > start) {
+                normalized = normalized.substring(start, end + 1);
+            }
         }
 
         String content = normalized;
@@ -262,7 +378,6 @@ public class ClinicalCaseService {
         }
 
         String[] tokens = content.split(",");
-        List<String> result = new ArrayList<>();
         for (String token : tokens) {
             String value = token.trim();
             if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
@@ -287,5 +402,25 @@ public class ClinicalCaseService {
                         .flatMap(activity -> clinicalCaseRepository.findByIdAndActivoTrue(activity.getCasoId())))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Caso clínico no encontrado para id (caso/actividad): " + idOrActivityId));
+    }
+
+    private ClinicalCase findClinicalCaseByCaseOrActivityId(UUID idOrActivityId) {
+        return clinicalCaseRepository.findById(idOrActivityId)
+                .or(() -> simulationActivityRepository.findById(idOrActivityId)
+                        .flatMap(activity -> clinicalCaseRepository.findById(activity.getCasoId())))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Caso clínico no encontrado para id (caso/actividad): " + idOrActivityId));
+    }
+
+    private UUID tryParseUuid(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

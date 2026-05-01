@@ -9,6 +9,7 @@ export interface ClinicalFact {
   id?: string;
   category: string;
   title: string;
+  content: string;
   trigger: string;
   visibility: ClinicalFactVisibility;
 }

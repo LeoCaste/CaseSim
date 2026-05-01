@@ -17,6 +17,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 export class ClinicalCaseListPage implements OnInit {
   loading = false;
   error = '';
+  success = '';
   cases: ClinicalCaseSummary[] = [];
   private readonly destroyRef = inject(DestroyRef);
 
@@ -57,5 +58,12 @@ export class ClinicalCaseListPage implements OnInit {
           this.cdr.detectChanges();
         }
       });
+  }
+
+  onCaseDeleted(caseId: string): void {
+    this.cases = this.cases.filter((clinicalCase) => clinicalCase.id !== caseId);
+    this.success = 'Caso clínico eliminado correctamente.';
+    this.error = '';
+    this.cdr.detectChanges();
   }
 }

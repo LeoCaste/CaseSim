@@ -5,10 +5,12 @@ import cl.casesim.backend.clinicalcases.dto.ClinicalCaseRequest;
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,8 +37,8 @@ public class ClinicalCaseController {
     }
 
     @GetMapping("/{id}")
-    public ClinicalCaseResponse getClinicalCaseById(@PathVariable UUID id) {
-        return clinicalCaseService.getActiveClinicalCaseById(id);
+    public ClinicalCaseResponse getClinicalCaseById(@PathVariable String id) {
+        return clinicalCaseService.getActiveClinicalCaseByReference(id);
     }
 
     @PostMapping
@@ -45,6 +47,9 @@ public class ClinicalCaseController {
             @Valid @RequestBody ClinicalCaseRequest request,
             @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
+        if (userPrincipal == null) {
+            throw new AccessDeniedException("Acceso denegado.");
+        }
         return clinicalCaseService.createClinicalCase(request, userPrincipal.getId());
     }
 
@@ -56,9 +61,17 @@ public class ClinicalCaseController {
         return clinicalCaseService.updateClinicalCase(id, request);
     }
 
+    @PatchMapping("/{id}")
+    public ClinicalCaseResponse patchClinicalCase(
+            @PathVariable UUID id,
+            @Valid @RequestBody ClinicalCaseRequest request
+    ) {
+        return clinicalCaseService.updateClinicalCase(id, request);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivateClinicalCase(@PathVariable UUID id) {
-        clinicalCaseService.deactivateClinicalCase(id);
+    public void deleteClinicalCase(@PathVariable UUID id) {
+        clinicalCaseService.deleteClinicalCase(id);
     }
 }

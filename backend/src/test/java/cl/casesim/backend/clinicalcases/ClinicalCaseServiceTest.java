@@ -1,6 +1,8 @@
 package cl.casesim.backend.clinicalcases;
 
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseRequest;
+import cl.casesim.backend.common.exception.BadRequestException;
+import cl.casesim.backend.common.exception.ResourceNotFoundException;
 import cl.casesim.backend.simulations.SimulationActivity;
 import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.junit.jupiter.api.Test;
@@ -11,10 +13,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.Mockito.times;
 
 class ClinicalCaseServiceTest {
 
@@ -84,6 +92,421 @@ class ClinicalCaseServiceTest {
         verify(clinicalCaseRepository).findByIdAndActivoTrue(caseId);
         assertEquals(caseId, response.id());
         assertEquals("Caso actualizado", response.title());
+    }
+
+    @Test
+    void getActiveClinicalCaseByReferenceShouldFallbackWhenReferenceIsOne() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = buildCase(caseId, creatorId);
+
+        when(clinicalCaseRepository.findByActivoTrueOrderByCreadoEnDesc()).thenReturn(List.of(clinicalCase));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of());
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+
+        var response = clinicalCaseService.getActiveClinicalCaseByReference("1");
+
+        assertEquals(caseId, response.id());
+        verify(clinicalCaseRepository).findByActivoTrueOrderByCreadoEnDesc();
+    }
+
+    @Test
+    void getActiveClinicalCaseByReferenceShouldThrowNotFoundForInvalidNonLegacyReference() {
+        assertThrows(ResourceNotFoundException.class,
+                () -> clinicalCaseService.getActiveClinicalCaseByReference("abc"));
+    }
+
+    @Test
+    void deleteClinicalCaseShouldDeleteActivitiesFirstAndThenClinicalCase() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = buildCase(caseId, creatorId);
+
+        when(clinicalCaseRepository.findById(caseId)).thenReturn(Optional.of(clinicalCase));
+        doNothing().when(simulationActivityRepository).deleteByCasoId(caseId);
+
+        clinicalCaseService.deleteClinicalCase(caseId);
+
+        verify(simulationActivityRepository).deleteByCasoId(caseId);
+        verify(clinicalCaseRepository).deleteById(caseId);
+    }
+
+    @Test
+    void deleteClinicalCaseShouldThrowNotFoundWhenCaseDoesNotExist() {
+        UUID caseId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.findById(caseId)).thenReturn(Optional.empty());
+        when(simulationActivityRepository.findById(caseId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> clinicalCaseService.deleteClinicalCase(caseId));
+
+        verify(simulationActivityRepository, never()).deleteByCasoId(any(UUID.class));
+        verify(clinicalCaseRepository, never()).deleteById(any(UUID.class));
+    }
+
+    @Test
+    void updateClinicalCaseShouldSupportLegacyObjectTriggersAndNullTriggersInRequest() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = buildCase(caseId, creatorId);
+
+        ClinicalCaseFact legacyFact = new ClinicalCaseFact(
+                UUID.randomUUID(),
+                caseId,
+                "GENERAL",
+                "legacy",
+                "contenido",
+                1,
+                java.util.Map.of("keywords", List.of("inicio", "evolución")),
+                false,
+                0
+        );
+
+        when(clinicalCaseRepository.findByIdAndActivoTrue(caseId)).thenReturn(Optional.of(clinicalCase));
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of(legacyFact));
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso actualizado",
+                "Descripción con [CASESIM_META]{\"foo\":\"bar\"}",
+                "Paciente actualizado",
+                35,
+                "F",
+                "Dolor torácico",
+                "No recuerdo más detalles",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "general", "dato", null, 1, null)),
+                List.of("{\"meta\":true}")
+        );
+
+        var response = clinicalCaseService.updateClinicalCase(caseId, request);
+
+        assertEquals("Caso actualizado", response.title());
+        assertEquals(List.of("inicio", "evolución"), response.facts().getFirst().triggers());
+    }
+
+    @Test
+    void createClinicalCaseShouldPersistAntecedentesCategoryAndReturnIt() {
+        UUID userId = UUID.randomUUID();
+        UUID caseId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> {
+            ClinicalCase input = invocation.getArgument(0);
+            return new ClinicalCase(
+                    caseId,
+                    input.getTitulo(),
+                    input.getDescripcion(),
+                    input.getPacienteNombre(),
+                    input.getPacienteEdad(),
+                    input.getPacienteSexo(),
+                    input.getMotivoConsulta(),
+                    input.getFraseSinInformacion(),
+                    input.isActivo(),
+                    input.getCreadoPor(),
+                    input.getCreadoEn()
+            );
+        });
+
+        ClinicalCaseFact fact = new ClinicalCaseFact(
+                UUID.randomUUID(),
+                caseId,
+                "ANTECEDENTES",
+                "antecedentes_personales",
+                "HTA",
+                1,
+                "[\"hta\"]",
+                false,
+                0
+        );
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of(fact));
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso",
+                "desc",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes_personales", "HTA", List.of("hta"), 1, null)),
+                List.of()
+        );
+
+        var response = clinicalCaseService.createClinicalCase(request, userId);
+
+        var captor = forClass(ClinicalCaseFact.class);
+        verify(clinicalCaseFactRepository).save(captor.capture());
+        assertEquals("ANTECEDENTES", captor.getValue().getCategoria());
+        assertEquals("ANTECEDENTES", response.facts().getFirst().category());
+        assertEquals("HTA", response.facts().getFirst().content());
+    }
+
+    @Test
+    void createClinicalCaseShouldRejectFactWithoutContent() {
+        UUID userId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso",
+                "desc",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes_personales", "   ", List.of("hta"), 1, null)),
+                List.of()
+        );
+
+        assertThrows(BadRequestException.class, () -> clinicalCaseService.createClinicalCase(request, userId));
+    }
+
+    @Test
+    void updateClinicalCaseShouldRejectFactWithoutContent() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = buildCase(caseId, creatorId);
+
+        when(clinicalCaseRepository.findByIdAndActivoTrue(caseId)).thenReturn(Optional.of(clinicalCase));
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso actualizado",
+                "Descripción actualizada",
+                "Paciente actualizado",
+                35,
+                "F",
+                "Dolor torácico",
+                "No recuerdo más detalles",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes", "", List.of("hta"), 1, null)),
+                List.of()
+        );
+
+        assertThrows(BadRequestException.class, () -> clinicalCaseService.updateClinicalCase(caseId, request));
+    }
+
+    @Test
+    void updateClinicalCaseShouldRejectInvalidTriggersObjectWithBadRequest() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = buildCase(caseId, creatorId);
+
+        when(clinicalCaseRepository.findByIdAndActivoTrue(caseId)).thenReturn(Optional.of(clinicalCase));
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso actualizado",
+                "Descripción actualizada",
+                "Paciente actualizado",
+                35,
+                "F",
+                "Dolor torácico",
+                "No recuerdo más detalles",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes", "HTA", java.util.Map.of("foo", "bar"), 1, null)),
+                List.of()
+        );
+
+        assertThrows(BadRequestException.class, () -> clinicalCaseService.updateClinicalCase(caseId, request));
+    }
+
+    @Test
+    void createClinicalCaseShouldPersistEightFactsSuccessfully() {
+        UUID userId = UUID.randomUUID();
+        UUID caseId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> {
+            ClinicalCase input = invocation.getArgument(0);
+            return new ClinicalCase(
+                    caseId,
+                    input.getTitulo(),
+                    input.getDescripcion(),
+                    input.getPacienteNombre(),
+                    input.getPacienteEdad(),
+                    input.getPacienteSexo(),
+                    input.getMotivoConsulta(),
+                    input.getFraseSinInformacion(),
+                    input.isActivo(),
+                    input.getCreadoPor(),
+                    input.getCreadoEn()
+            );
+        });
+
+        List<ClinicalCaseFact> persistedFacts = java.util.stream.IntStream.range(0, 8)
+                .mapToObj(index -> new ClinicalCaseFact(
+                        UUID.randomUUID(),
+                        caseId,
+                        "GENERAL",
+                        "fact-" + index,
+                        "contenido-" + index,
+                        1,
+                        null,
+                        false,
+                        index
+                ))
+                .toList();
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(persistedFacts);
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+
+        List<ClinicalCaseRequest.ClinicalCaseFactRequest> facts = java.util.stream.IntStream.range(0, 8)
+                .mapToObj(index -> new ClinicalCaseRequest.ClinicalCaseFactRequest(
+                        "GENERAL",
+                        "fact-" + index,
+                        "contenido-" + index,
+                        List.of("trigger-" + index),
+                        1,
+                        null
+                ))
+                .toList();
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso de 8 hechos",
+                "desc",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                facts,
+                List.of()
+        );
+
+        var response = clinicalCaseService.createClinicalCase(request, userId);
+
+        verify(clinicalCaseFactRepository, times(8)).save(any(ClinicalCaseFact.class));
+        assertEquals(8, response.facts().size());
+    }
+
+    @Test
+    void createClinicalCaseShouldAllowNullAndEmptyTriggers() {
+        UUID userId = UUID.randomUUID();
+        UUID caseId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> {
+            ClinicalCase input = invocation.getArgument(0);
+            return new ClinicalCase(
+                    caseId,
+                    input.getTitulo(),
+                    input.getDescripcion(),
+                    input.getPacienteNombre(),
+                    input.getPacienteEdad(),
+                    input.getPacienteSexo(),
+                    input.getMotivoConsulta(),
+                    input.getFraseSinInformacion(),
+                    input.isActivo(),
+                    input.getCreadoPor(),
+                    input.getCreadoEn()
+            );
+        });
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of());
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso",
+                "desc",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                List.of(
+                        new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "f1", "dato1", null, 1, null),
+                        new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "f2", "dato2", List.of("  "), 1, null)
+                ),
+                List.of()
+        );
+
+        clinicalCaseService.createClinicalCase(request, userId);
+
+        var captor = forClass(ClinicalCaseFact.class);
+        verify(clinicalCaseFactRepository, times(2)).save(captor.capture());
+        assertTrue(captor.getAllValues().stream().allMatch(fact -> fact.getTriggers() == null));
+    }
+
+    @Test
+    void createClinicalCaseShouldRejectUnexpectedTriggersType() {
+        UUID userId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso",
+                "desc",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes", "HTA", java.util.Map.of("foo", "bar"), 1, null)),
+                List.of()
+        );
+
+        assertThrows(BadRequestException.class, () -> clinicalCaseService.createClinicalCase(request, userId));
+    }
+
+    @Test
+    void createClinicalCaseShouldMapVisibilityToRevealLevel() {
+        UUID userId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(any(UUID.class))).thenReturn(List.of());
+        when(clinicalCasePersonalityRepository.findByCasoId(any(UUID.class))).thenReturn(List.of());
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso",
+                "desc",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "fact", "dato", "tos", null, "INITIAL")),
+                List.of()
+        );
+
+        clinicalCaseService.createClinicalCase(request, userId);
+
+        var captor = forClass(ClinicalCaseFact.class);
+        verify(clinicalCaseFactRepository).save(captor.capture());
+        assertEquals(1, captor.getValue().getNivelRevelacion());
+    }
+
+    @Test
+    void createClinicalCaseShouldDefaultRevealLevelWhenMissingVisibilityAndRevealLevel() {
+        UUID userId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(any(UUID.class))).thenReturn(List.of());
+        when(clinicalCasePersonalityRepository.findByCasoId(any(UUID.class))).thenReturn(List.of());
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso",
+                "desc",
+                "Paciente",
+                null,
+                "F",
+                "Dolor",
+                "No sé",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "fact", "dato", "tos", null, null)),
+                List.of()
+        );
+
+        clinicalCaseService.createClinicalCase(request, userId);
+
+        var captor = forClass(ClinicalCaseFact.class);
+        verify(clinicalCaseFactRepository).save(captor.capture());
+        assertEquals(2, captor.getValue().getNivelRevelacion());
     }
 
     private ClinicalCase buildCase(UUID caseId, UUID creatorId) {

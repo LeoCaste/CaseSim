@@ -25,6 +25,7 @@
   <p *ngIf="!isLoading && !loadError && saveError">{{ saveError }}</p>
 
   <form class="case-form" *ngIf="!isLoading && !loadError">
+    <p class="required-legend">Los campos con <span>*</span> son obligatorios para guardar.</p>
     <section class="form-card">
       <header>
         <p>Sección 1</p>
@@ -33,27 +34,55 @@
 
       <div class="form-grid two">
         <label>
-          Nombre del paciente
-          <input type="text" [(ngModel)]="caseFormState.patientName" name="patientName" />
+          Nombre del paciente <span class="required-mark">*</span>
+          <input
+            type="text"
+            [(ngModel)]="caseFormState.patientName"
+            name="patientName"
+            [class.field-error]="hasFieldError('patientName')"
+            (ngModelChange)="clearFieldError('patientName')"
+          />
+          <small class="field-error-text" *ngIf="hasFieldError('patientName')">{{ getFieldError('patientName') }}</small>
         </label>
 
         <label>
-          Edad
-          <input type="number" [(ngModel)]="caseFormState.age" name="age" />
+          Edad <span class="required-mark">*</span>
+          <input
+            type="number"
+            [(ngModel)]="caseFormState.age"
+            name="age"
+            min="1"
+            [class.field-error]="hasFieldError('age')"
+            (ngModelChange)="clearFieldError('age')"
+          />
+          <small class="field-error-text" *ngIf="hasFieldError('age')">{{ getFieldError('age') }}</small>
         </label>
 
         <label>
           Sexo
-          <select [(ngModel)]="caseFormState.sex" name="sex">
+          <select
+            [(ngModel)]="caseFormState.sex"
+            name="sex"
+            [class.field-error]="hasFieldError('sex')"
+            (ngModelChange)="clearFieldError('sex')"
+          >
             <option value="F">Femenino</option>
             <option value="M">Masculino</option>
             <option value="X">Otro / No especificado</option>
           </select>
+          <small class="field-error-text" *ngIf="hasFieldError('sex')">{{ getFieldError('sex') }}</small>
         </label>
 
         <label>
           Contexto de atención
-          <input type="text" [(ngModel)]="caseFormState.context" name="context" />
+          <input
+            type="text"
+            [(ngModel)]="caseFormState.context"
+            name="context"
+            [class.field-error]="hasFieldError('context')"
+            (ngModelChange)="clearFieldError('context')"
+          />
+          <small class="field-error-text" *ngIf="hasFieldError('context')">{{ getFieldError('context') }}</small>
         </label>
       </div>
     </section>
@@ -65,13 +94,27 @@
       </header>
 
       <label>
-        Motivo principal
-        <textarea [(ngModel)]="caseFormState.reason" name="reason"></textarea>
-      </label>
+         Motivo principal (chiefComplaint) <span class="required-mark">*</span>
+         <textarea
+           [(ngModel)]="caseFormState.reason"
+           name="reason"
+          [class.field-error]="hasFieldError('reason')"
+          (ngModelChange)="clearFieldError('reason')"
+         ></textarea>
+         <small class="field-hint">Resumen clínico breve de por qué consulta el paciente. Este valor lo exige backend.</small>
+         <small class="field-error-text" *ngIf="hasFieldError('reason')">{{ getFieldError('reason') }}</small>
+       </label>
 
       <label>
         Mensaje inicial del paciente
-        <textarea [(ngModel)]="caseFormState.initialMessage" name="initialMessage"></textarea>
+        <textarea
+          [(ngModel)]="caseFormState.initialMessage"
+          name="initialMessage"
+          [class.field-error]="hasFieldError('initialMessage')"
+          (ngModelChange)="clearFieldError('initialMessage')"
+        ></textarea>
+        <small class="field-hint">Frase inicial textual con la que parte la entrevista simulada.</small>
+        <small class="field-error-text" *ngIf="hasFieldError('initialMessage')">{{ getFieldError('initialMessage') }}</small>
       </label>
     </section>
 
@@ -87,29 +130,92 @@
         realiza preguntas adecuadas.
       </p>
 
-      <div class="facts-list">
-        <article class="fact-item" *ngFor="let fact of clinicalFacts">
-          <div>
-            <span>{{ fact.category }}</span>
-            <h3>{{ fact.title }}</h3>
-            <p>
-              Se menciona cuando el estudiante pregunta por: {{ fact.trigger }}
-            </p>
+      <p class="facts-empty" *ngIf="clinicalFacts.length === 0">
+        Aún no hay antecedentes. Agrega al menos uno para completar este caso clínico.
+      </p>
+
+      <p class="facts-error" *ngIf="factsValidationError">{{ factsValidationError }}</p>
+
+      <div class="facts-list" *ngIf="clinicalFacts.length > 0">
+        <article class="fact-item" *ngFor="let fact of clinicalFacts; let index = index; trackBy: trackByFactIndex">
+          <div class="fact-item__fields">
+            <label>
+              Categoría <span class="required-mark">*</span>
+              <input
+                type="text"
+                [(ngModel)]="fact.category"
+                [name]="'factCategory' + index"
+                required
+                [class.field-error]="hasFieldError('facts.' + index + '.category')"
+                (ngModelChange)="clearFieldError('facts.' + index + '.category')"
+              />
+              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.category')">{{ getFieldError('facts.' + index + '.category') }}</small>
+            </label>
+
+            <label>
+              Título <span class="required-mark">*</span>
+              <input
+                type="text"
+                [(ngModel)]="fact.title"
+                [name]="'factTitle' + index"
+                required
+                [class.field-error]="hasFieldError('facts.' + index + '.title')"
+                (ngModelChange)="clearFieldError('facts.' + index + '.title')"
+              />
+              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.title')">{{ getFieldError('facts.' + index + '.title') }}</small>
+            </label>
+
+            <label>
+              Contenido <span class="required-mark">*</span>
+              <textarea
+                [(ngModel)]="fact.content"
+                [name]="'factContent' + index"
+                required
+                [class.field-error]="hasFieldError('facts.' + index + '.content')"
+                (ngModelChange)="clearFieldError('facts.' + index + '.content')"
+              ></textarea>
+              <small class="field-hint">Qué información clínica entregará el paciente cuando este antecedente se active.</small>
+              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.content')">{{ getFieldError('facts.' + index + '.content') }}</small>
+            </label>
+
+            <label>
+              Gatillante o pregunta esperada <span class="required-mark">*</span>
+              <textarea
+                [(ngModel)]="fact.trigger"
+                [name]="'factTrigger' + index"
+                required
+                [class.field-error]="hasFieldError('facts.' + index + '.trigger')"
+                (ngModelChange)="clearFieldError('facts.' + index + '.trigger')"
+              ></textarea>
+              <small class="field-hint">Palabra clave/pregunta del estudiante que dispara este antecedente.</small>
+              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.trigger')">{{ getFieldError('facts.' + index + '.trigger') }}</small>
+            </label>
           </div>
 
-            <span
-              class="fact-visibility"
-              [ngClass]="{
-              'initial': fact.visibilityLabel === 'Inicial',
-              'guided': fact.visibilityLabel === 'Bajo pregunta'
-            }"
-          >
-            {{ fact.visibilityLabel }}
-          </span>
+          <div class="fact-item__aside">
+            <label>
+              Visibilidad
+              <select
+                [(ngModel)]="fact.visibilityLabel"
+                [name]="'factVisibility' + index"
+                (ngModelChange)="updateFactVisibility(index, $event)"
+                [class.field-error]="hasFieldError('facts.' + index + '.visibility')"
+              >
+                <option value="Inicial">Inicial</option>
+                <option value="Bajo pregunta">Bajo pregunta</option>
+              </select>
+              <small class="field-hint">Inicial = se puede revelar sin pregunta. Bajo pregunta = requiere consulta dirigida.</small>
+              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.visibility')">{{ getFieldError('facts.' + index + '.visibility') }}</small>
+            </label>
+
+            <button class="case-button danger" type="button" (click)="removeFact(index)">
+              Eliminar
+            </button>
+          </div>
         </article>
       </div>
 
-      <button class="case-button secondary" type="button">
+      <button class="case-button secondary" type="button" (click)="addFact()">
         Agregar antecedente
       </button>
     </section>
@@ -155,17 +261,37 @@
 
       <label>
         Diagnóstico base del caso
-        <input type="text" [(ngModel)]="caseFormState.expectedDiagnosis" name="expectedDiagnosis" />
+        <input
+          type="text"
+          [(ngModel)]="caseFormState.expectedDiagnosis"
+          name="expectedDiagnosis"
+          [class.field-error]="hasFieldError('expectedDiagnosis')"
+          (ngModelChange)="clearFieldError('expectedDiagnosis')"
+        />
+        <small class="field-error-text" *ngIf="hasFieldError('expectedDiagnosis')">{{ getFieldError('expectedDiagnosis') }}</small>
       </label>
 
       <label>
         Cómo responde cuando no sabe algo
-        <input type="text" [(ngModel)]="caseFormState.fallbackResponse" name="fallbackResponse" />
+        <input
+          type="text"
+          [(ngModel)]="caseFormState.fallbackResponse"
+          name="fallbackResponse"
+          [class.field-error]="hasFieldError('fallbackResponse')"
+          (ngModelChange)="clearFieldError('fallbackResponse')"
+        />
+        <small class="field-error-text" *ngIf="hasFieldError('fallbackResponse')">{{ getFieldError('fallbackResponse') }}</small>
       </label>
 
       <label>
         Estilo de respuesta
-        <textarea [(ngModel)]="caseFormState.behaviorGuidelines" name="behaviorStyle"></textarea>
+        <textarea
+          [(ngModel)]="caseFormState.behaviorGuidelines"
+          name="behaviorStyle"
+          [class.field-error]="hasFieldError('behaviorGuidelines')"
+          (ngModelChange)="clearFieldError('behaviorGuidelines')"
+        ></textarea>
+        <small class="field-error-text" *ngIf="hasFieldError('behaviorGuidelines')">{{ getFieldError('behaviorGuidelines') }}</small>
       </label>
     </section>
 
@@ -196,4 +322,17 @@
       </div>
     </article>
   </section>
+
+  <app-error-modal
+    *ngIf="showSaveErrorModal"
+    [title]="saveErrorModalTitle"
+    [detail]="saveErrorModalDetail"
+    [detailList]="saveErrorModalDetailList"
+    [suggestion]="saveErrorModalSuggestion"
+    [confirmLabel]="'Cerrar'"
+    [showRetry]="true"
+    [retryLabel]="'Reintentar guardado'"
+    (close)="closeSaveErrorModal()"
+    (retry)="retrySaveFromErrorModal()"
+  ></app-error-modal>
 </section>

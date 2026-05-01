@@ -61,8 +61,11 @@
       Asignar a simulación
     </a>
 
-    <button class="case-button danger" type="button">
-      Eliminar
+    <button class="case-button danger" type="button" (click)="onDeleteCase()" [disabled]="deleting">
+      {{ deleting ? 'Eliminando...' : 'Eliminar' }}
     </button>
   </footer>
+
+  <p class="case-feedback success" *ngIf="deleteSuccess">{{ deleteSuccess }}</p>
+  <p class="case-feedback error" *ngIf="deleteError">{{ deleteError }}</p>
 </article>

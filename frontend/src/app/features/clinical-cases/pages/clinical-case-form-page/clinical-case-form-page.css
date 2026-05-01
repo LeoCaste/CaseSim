@@ -42,6 +42,18 @@
   gap: 18px;
 }
 
+.required-legend {
+  margin: 0;
+  color: var(--cs-text-muted);
+  font-size: 13px;
+}
+
+.required-legend span,
+.required-mark {
+  color: #b42318;
+  font-weight: 800;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -146,6 +158,27 @@
   font-weight: 500;
 }
 
+.form-card input.field-error,
+.form-card select.field-error,
+.form-card textarea.field-error {
+  border-color: #b42318;
+  background: #fff6f5;
+}
+
+.field-error-text {
+  margin-top: -2px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.field-hint {
+  margin-top: -2px;
+  color: var(--cs-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .form-card textarea {
   min-height: 96px;
   resize: vertical;
@@ -165,6 +198,19 @@
   padding: 18px 20px;
 }
 
+.facts-empty {
+  margin: 0;
+  padding: 18px 20px 0;
+  color: var(--cs-text-muted);
+}
+
+.facts-error {
+  margin: 0;
+  padding: 12px 20px 0;
+  color: #b42318;
+  font-weight: 700;
+}
+
 .fact-item {
   display: flex;
   justify-content: space-between;
@@ -173,6 +219,27 @@
   border: 1px solid var(--cs-border);
   border-radius: 12px;
   background: #fbfcfd;
+}
+
+.fact-item__fields {
+  flex: 1;
+  display: grid;
+  gap: 10px;
+}
+
+.fact-item__fields label {
+  padding: 0;
+}
+
+.fact-item__aside {
+  width: 220px;
+  display: grid;
+  gap: 10px;
+  align-content: flex-start;
+}
+
+.fact-item__aside label {
+  padding: 0;
 }
 
 .fact-item span {
@@ -222,6 +289,33 @@
   border: 1px solid var(--cs-border);
 }
 
+.case-button.danger {
+  color: #b42318;
+  background: #fff5f4;
+  border: 1px solid #fecdca;
+}
+
+.fact-visibility {
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fact-visibility.initial {
+  color: var(--cs-success);
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+}
+
+.fact-visibility.guided {
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
 .form-footer {
   display: flex;
   justify-content: flex-end;
@@ -269,6 +363,10 @@
     flex-direction: column;
   }
 
+  .fact-item__aside {
+    width: 100%;
+  }
+
   .fact-item strong {
     white-space: normal;
   }
@@ -285,24 +383,4 @@
     width: 100%;
   }
 
-  .fact-visibility {
-    align-self: flex-start;
-    border-radius: 999px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .fact-visibility.initial {
-    color: var(--cs-success);
-    background: #ecfdf3;
-    border: 1px solid #abefc6;
-  }
-
-  .fact-visibility.guided {
-    color: #b45309;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-  }
 }

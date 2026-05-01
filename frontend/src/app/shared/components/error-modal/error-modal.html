@@ -1,0 +1,24 @@
+<section class="error-modal-overlay" role="dialog" aria-modal="true" aria-live="assertive">
+  <article class="error-modal-card">
+    <header>
+      <p class="error-modal-card__eyebrow">Error al guardar</p>
+      <h2>{{ title }}</h2>
+    </header>
+
+    <p class="error-modal-card__detail">{{ detail }}</p>
+    <ul class="error-modal-card__detail-list" *ngIf="detailList.length > 0">
+      <li *ngFor="let item of detailList">{{ item }}</li>
+    </ul>
+    <p class="error-modal-card__suggestion" *ngIf="suggestion">{{ suggestion }}</p>
+
+    <footer class="error-modal-card__actions">
+      <button class="cs-button secondary" type="button" (click)="close.emit()">
+        {{ confirmLabel }}
+      </button>
+
+      <button class="cs-button primary" type="button" *ngIf="showRetry" (click)="retry.emit()">
+        {{ retryLabel }}
+      </button>
+    </footer>
+  </article>
+</section>

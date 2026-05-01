@@ -54,6 +54,11 @@
   border: 1px solid var(--cs-primary);
 }
 
+.feedback.success {
+  color: var(--cs-success);
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .case-list-header {
     flex-direction: column;
