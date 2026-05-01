@@ -15,6 +15,9 @@
       <p><strong>Modelo actual:</strong> {{ config.model || '-' }}</p>
       <p><strong>API key configurada:</strong> {{ apiKeyConfiguredLabel }}</p>
       <p *ngIf="config.maskedApiKey"><strong>API key (enmascarada):</strong> {{ config.maskedApiKey }}</p>
+      <p *ngIf="!config.apiKeyConfigured" class="admin-llm-config__hint">
+        No hay API key registrada. Ingresa una nueva key y guarda para activar la integración.
+      </p>
       <p><strong>Última actualización:</strong> {{ config.updatedAt ? (config.updatedAt | date: 'dd/MM/yyyy HH:mm') : 'Sin registro' }}</p>
     </section>
 
@@ -35,7 +38,7 @@
 
       <div class="admin-llm-config__row">
         <label for="model">Modelo</label>
-        <select *ngIf="!isModelCustom" id="model" [(ngModel)]="form.model" [disabled]="isSaving || isTestingConnection">
+        <select *ngIf="!isModelCustom" id="model" [(ngModel)]="form.model" [disabled]="isSaving || isDeletingApiKey || isTestingConnection">
           <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
         </select>
 
@@ -44,16 +47,16 @@
           id="model"
           type="text"
           [(ngModel)]="form.model"
-          [disabled]="isSaving || isTestingConnection"
+          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
           placeholder="Ej: meta-llama/llama-3.1-8b-instruct"
         />
       </div>
 
       <div class="admin-llm-config__row">
         <label for="baseUrl">URL base del sistema</label>
-        <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" [disabled]="isSaving || isTestingConnection" />
+        <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" [disabled]="isSaving || isDeletingApiKey || isTestingConnection" />
         <div class="admin-llm-config__inline-actions">
-          <button type="button" class="link" (click)="onRestoreProviderBaseUrl()" [disabled]="isSaving || isTestingConnection">
+          <button type="button" class="link" (click)="onRestoreProviderBaseUrl()" [disabled]="isSaving || isDeletingApiKey || isTestingConnection">
             Restaurar URL sugerida
           </button>
         </div>
@@ -70,6 +73,7 @@
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
+          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
         />
         <small *ngIf="hasApiKeyMask">API key actual: {{ config.maskedApiKey }}</small>
         <small>Dejar vacío para mantener la API key actual.</small>
@@ -152,19 +156,29 @@
     <section class="admin-llm-config__block">
       <h2>Acciones</h2>
       <div class="admin-llm-config__actions">
-        <button type="button" (click)="onSave()" [disabled]="isSaving || isTestingConnection || isLoading">
-          {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
-        </button>
+          <button type="button" (click)="onSave()" [disabled]="isSaving || isDeletingApiKey || isTestingConnection || isLoading">
+            {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
+          </button>
 
-        <button type="button" class="secondary" (click)="onRestoreRecommended()" [disabled]="isSaving || isTestingConnection || isLoading">
-          Restaurar valores recomendados
-        </button>
+          <button type="button" class="secondary" (click)="onRestoreRecommended()" [disabled]="isSaving || isDeletingApiKey || isTestingConnection || isLoading">
+            Restaurar valores recomendados
+          </button>
 
-        <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isSaving || isLoading">
-          {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
-        </button>
-      </div>
-    </section>
+          <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isSaving || isDeletingApiKey || isLoading">
+            {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
+          </button>
+
+          <button
+            *ngIf="config.apiKeyConfigured"
+            type="button"
+            class="danger"
+            (click)="onRemoveApiKey()"
+            [disabled]="isDeletingApiKey || isTestingConnection || isSaving || isLoading"
+          >
+            {{ isDeletingApiKey ? 'Eliminando...' : 'Eliminar API key' }}
+          </button>
+        </div>
+      </section>
 
     <p *ngIf="saveMessage" class="admin-llm-config__success">{{ saveMessage }}</p>
     <p *ngIf="saveError" class="admin-llm-config__error">{{ saveError }}</p>

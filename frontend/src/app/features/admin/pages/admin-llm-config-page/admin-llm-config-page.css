@@ -123,6 +123,11 @@
   margin-bottom: 0;
 }
 
+.admin-llm-config__hint {
+  color: var(--cs-secondary);
+  font-weight: 600;
+}
+
 .admin-llm-config__subsection {
   margin-top: 18px;
   padding-top: 14px;
@@ -159,6 +164,10 @@
 
 .admin-llm-config__actions button.secondary {
   background: var(--cs-secondary);
+}
+
+.admin-llm-config__actions button.danger {
+  background: #b42318;
 }
 
 .admin-llm-config__actions button:disabled {

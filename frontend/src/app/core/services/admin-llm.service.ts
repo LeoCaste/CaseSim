@@ -26,10 +26,10 @@ export class AdminLlmService {
     provider: 'openai',
     model: 'gpt-4o-mini',
     baseUrl: 'https://api.openai.com/v1/chat/completions',
-    enabled: true,
-    apiKeyConfigured: true,
-    maskedApiKey: '************7890',
-    updatedAt: new Date().toISOString(),
+    enabled: false,
+    apiKeyConfigured: false,
+    maskedApiKey: null,
+    updatedAt: null,
     patientBehavior: { ...RECOMMENDED_PATIENT_BEHAVIOR_CONFIG }
   };
 
@@ -59,7 +59,13 @@ export class AdminLlmService {
         .pipe(
           timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
-          catchError((error) => throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible cargar configuración LLM.'))))
+          catchError((error) => {
+            if (this.isNotFoundError(error)) {
+              return of(this.buildDefaultConfig());
+            }
+
+            return throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible cargar configuración LLM.')));
+          })
         );
     }
 
@@ -92,6 +98,29 @@ export class AdminLlmService {
       patientBehavior: {
         ...payload.patientBehavior
       }
+    };
+
+    return of(this.mockConfig);
+  }
+
+  removeApiKey(payload: UpdateLlmConfigPayload): Observable<LlmConfig> {
+    if (!environment.useMocks) {
+      return this.http
+        .put<BackendLlmConfigResponse>(`${this.apiBaseUrl}/admin/llm/config`, this.mapUpdatePayload(payload, { clearApiKey: true }))
+        .pipe(
+          timeout(this.requestTimeoutMs),
+          map((response) => this.mapConfigResponse(response)),
+          catchError((error) =>
+            throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible eliminar la API key.')))
+          )
+        );
+    }
+
+    this.mockConfig = {
+      ...this.mockConfig,
+      apiKeyConfigured: false,
+      maskedApiKey: null,
+      updatedAt: new Date().toISOString()
     };
 
     return of(this.mockConfig);
@@ -209,7 +238,10 @@ export class AdminLlmService {
     };
   }
 
-  private mapUpdatePayload(payload: UpdateLlmConfigPayload): BackendUpdateLlmConfigRequest {
+  private mapUpdatePayload(
+    payload: UpdateLlmConfigPayload,
+    options?: { clearApiKey?: boolean }
+  ): BackendUpdateLlmConfigRequest {
     const basePrompt = payload.patientBehavior.basePrompt ?? '';
     const additionalRules = payload.patientBehavior.additionalRules ?? '';
     const noInformationReply = payload.patientBehavior.noInformationReply ?? '';
@@ -219,7 +251,7 @@ export class AdminLlmService {
       model: payload.model,
       baseUrl: payload.baseUrl,
       enabled: payload.enabled,
-      apiKey: payload.apiKey?.trim() ? payload.apiKey.trim() : null,
+      apiKey: options?.clearApiKey ? '' : payload.apiKey?.trim() ? payload.apiKey.trim() : null,
       systemPrompt: basePrompt.trim(),
       patientBehaviorRules: additionalRules.trim(),
       noInfoResponse: noInformationReply.trim(),
@@ -367,6 +399,24 @@ export class AdminLlmService {
     }
 
     return fallback;
+  }
+
+  private isNotFoundError(error: unknown): boolean {
+    const maybeError = error as { status?: number };
+    return maybeError?.status === 404;
+  }
+
+  private buildDefaultConfig(): LlmConfig {
+    return {
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      baseUrl: 'https://api.openai.com/v1/chat/completions',
+      enabled: false,
+      apiKeyConfigured: false,
+      maskedApiKey: null,
+      updatedAt: null,
+      patientBehavior: { ...RECOMMENDED_PATIENT_BEHAVIOR_CONFIG }
+    };
   }
 }
 

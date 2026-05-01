@@ -52,24 +52,7 @@ public class LlmAdminService {
         Optional<LlmConfig> configOpt = llmConfigRepository.findFirstByOrderByUpdatedAtDesc();
         if (configOpt.isPresent()) {
             LlmConfig config = configOpt.get();
-            String decryptedApiKey = llmApiKeyCipher.decrypt(config.getApiKeySecret());
-            return new LlmConfigResponse(
-                    config.getProvider(),
-                    config.getModel(),
-                    LlmProviderSupport.resolveBaseUrl(normalizeProvider(config.getProvider()), config.getBaseUrl()),
-                    config.isEnabled(),
-                    StringUtils.hasText(decryptedApiKey),
-                    maskApiKey(decryptedApiKey),
-                    defaultSystemPrompt(config.getSystemPrompt()),
-                    defaultBehaviorRules(config.getPatientBehaviorRules()),
-                    defaultNoInfoResponse(config.getNoInfoResponse()),
-                    defaultRevealStrategy(config.getRevealStrategy()),
-                    sanitizeMaxHistoryMessages(config.getMaxHistoryMessages()),
-                    sanitizeTemperature(config.getTemperature()),
-                    sanitizeMaxTokens(config.getMaxTokens()),
-                    config.isEnabledSafetyFilter(),
-                    config.getUpdatedAt()
-            );
+            return toResponse(config);
         }
 
         return new LlmConfigResponse(
@@ -149,23 +132,38 @@ public class LlmAdminService {
         }
 
         applyToRuntimeProperties(saved);
-        return new LlmConfigResponse(
-                saved.getProvider(),
-                saved.getModel(),
-                saved.getBaseUrl(),
-                saved.isEnabled(),
-                StringUtils.hasText(llmApiKeyCipher.decrypt(saved.getApiKeySecret())),
-                maskApiKey(llmApiKeyCipher.decrypt(saved.getApiKeySecret())),
-                saved.getSystemPrompt(),
-                saved.getPatientBehaviorRules(),
-                saved.getNoInfoResponse(),
-                saved.getRevealStrategy(),
-                saved.getMaxHistoryMessages(),
-                saved.getTemperature(),
-                saved.getMaxTokens(),
-                saved.isEnabledSafetyFilter(),
-                saved.getUpdatedAt()
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public LlmConfigResponse deleteApiKey() {
+        Optional<LlmConfig> configOpt = llmConfigRepository.findFirstByOrderByUpdatedAtDesc();
+        if (configOpt.isEmpty()) {
+            llmProperties.setApiKey("");
+            return getConfig();
+        }
+
+        LlmConfig config = configOpt.get();
+        config.update(
+                normalizeProvider(config.getProvider()),
+                config.getModel(),
+                resolveBaseUrl(normalizeProvider(config.getProvider()), config.getBaseUrl()),
+                config.isEnabled(),
+                null,
+                LocalDateTime.now(),
+                defaultSystemPrompt(config.getSystemPrompt()),
+                defaultBehaviorRules(config.getPatientBehaviorRules()),
+                defaultNoInfoResponse(config.getNoInfoResponse()),
+                defaultRevealStrategy(config.getRevealStrategy()),
+                sanitizeMaxHistoryMessages(config.getMaxHistoryMessages()),
+                sanitizeTemperature(config.getTemperature()),
+                sanitizeMaxTokens(config.getMaxTokens()),
+                config.isEnabledSafetyFilter()
         );
+
+        LlmConfig saved = llmConfigRepository.save(config);
+        applyToRuntimeProperties(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -288,7 +286,7 @@ public class LlmAdminService {
 
     private String maskApiKey(String apiKey) {
         if (!StringUtils.hasText(apiKey)) {
-            return "";
+            return null;
         }
 
         String trimmed = apiKey.trim();
@@ -316,6 +314,28 @@ public class LlmAdminService {
 
     private String normalizeProvider(String provider) {
         return LlmProviderSupport.normalize(provider);
+    }
+
+    private LlmConfigResponse toResponse(LlmConfig config) {
+        String provider = normalizeProvider(config.getProvider());
+        String decryptedApiKey = llmApiKeyCipher.decrypt(config.getApiKeySecret());
+        return new LlmConfigResponse(
+                provider,
+                config.getModel(),
+                LlmProviderSupport.resolveBaseUrl(provider, config.getBaseUrl()),
+                config.isEnabled(),
+                StringUtils.hasText(decryptedApiKey),
+                maskApiKey(decryptedApiKey),
+                defaultSystemPrompt(config.getSystemPrompt()),
+                defaultBehaviorRules(config.getPatientBehaviorRules()),
+                defaultNoInfoResponse(config.getNoInfoResponse()),
+                defaultRevealStrategy(config.getRevealStrategy()),
+                sanitizeMaxHistoryMessages(config.getMaxHistoryMessages()),
+                sanitizeTemperature(config.getTemperature()),
+                sanitizeMaxTokens(config.getMaxTokens()),
+                config.isEnabledSafetyFilter(),
+                config.getUpdatedAt()
+        );
     }
 
     private void validateProvider(String provider) {

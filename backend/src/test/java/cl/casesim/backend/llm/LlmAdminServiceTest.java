@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -173,5 +174,37 @@ class LlmAdminServiceTest {
         assertEquals(0.6, response.temperature());
         assertEquals(300, response.maxTokens());
         assertFalse(response.enabledSafetyFilter());
+    }
+
+    @Test
+    void deleteApiKeyShouldClearPersistedSecretAndKeepOtherConfig() {
+        LocalDateTime now = LocalDateTime.now();
+        LlmConfig existing = new LlmConfig(
+                UUID.randomUUID(),
+                "openai",
+                "gpt-4o-mini",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                llmApiKeyCipher.encrypt("sk-to-delete"),
+                now,
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE,
+                6,
+                0.4,
+                350,
+                true
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(existing));
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.deleteApiKey();
+
+        assertFalse(response.apiKeyConfigured());
+        assertNull(response.maskedApiKey());
+        assertEquals("openai", response.provider());
+        assertEquals("gpt-4o-mini", response.model());
+        assertEquals("", llmProperties.getApiKey());
     }
 }

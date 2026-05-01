@@ -61,6 +61,7 @@ export class AdminLlmConfigPage implements OnInit {
 
   isLoading = false;
   isSaving = false;
+  isDeletingApiKey = false;
   isTestingConnection = false;
   loadError = '';
   saveMessage = '';
@@ -91,7 +92,7 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onSave(): void {
-    if (this.isSaving || this.isLoading || this.isTestingConnection) {
+    if (this.isSaving || this.isDeletingApiKey || this.isLoading || this.isTestingConnection) {
       return;
     }
 
@@ -151,7 +152,7 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onTestConnection(): void {
-    if (this.isTestingConnection || this.isSaving || this.isLoading) {
+    if (this.isTestingConnection || this.isSaving || this.isDeletingApiKey || this.isLoading) {
       return;
     }
 
@@ -178,6 +179,60 @@ export class AdminLlmConfigPage implements OnInit {
         error: () => {
           this.testFeedback = 'No se pudo conectar con el proveedor';
           this.testFeedbackStatus = 'error';
+          this.triggerViewUpdate();
+        }
+      });
+  }
+
+  onRemoveApiKey(): void {
+    if (!this.config?.apiKeyConfigured || this.isDeletingApiKey || this.isSaving || this.isTestingConnection || this.isLoading) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '¿Eliminar API key actual? Esta acción desactiva el acceso al proveedor hasta configurar una nueva key.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.saveMessage = '';
+    this.saveError = '';
+    this.testFeedback = '';
+    this.testFeedbackStatus = null;
+    this.isDeletingApiKey = true;
+    this.triggerViewUpdate();
+
+    const payload: UpdateLlmConfigPayload = {
+      ...this.buildSanitizedPayload(this.form),
+      apiKey: ''
+    };
+
+    this.adminLlmService
+      .removeApiKey(payload)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.isDeletingApiKey = false;
+          this.triggerViewUpdate();
+        })
+      )
+      .subscribe({
+        next: (updatedConfig) => {
+          this.config = {
+            ...updatedConfig,
+            apiKeyConfigured: false,
+            maskedApiKey: null
+          };
+          this.form.apiKey = '';
+          this.saveMessage = 'API key eliminada correctamente.';
+          this.saveError = '';
+          this.triggerViewUpdate();
+        },
+        error: (error: unknown) => {
+          this.saveError = error instanceof Error ? error.message : 'No fue posible eliminar la API key.';
+          this.saveMessage = '';
           this.triggerViewUpdate();
         }
       });
