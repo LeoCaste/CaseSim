@@ -52,6 +52,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private static final String DEFAULT_SAFE_NO_INFO_RESPONSE = "No tengo información asociada a eso.";
     private static final String TECHNICAL_FALLBACK_RESPONSE = "Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?";
     private static final String CONTEXT_FALLBACK_RESPONSE = "No pude cargar el contexto clínico de esta sesión. Intenta nuevamente en unos segundos o reinicia la sesión.";
+    private static final String QUOTA_FALLBACK_RESPONSE = "Estoy con alta demanda en este momento. Si te parece, continuamos con preguntas concretas de síntomas, tiempos o antecedentes mientras se restablece el servicio.";
     private static final List<String> LEVEL_2_HINTS = List.of("que", "como", "donde", "cuando", "cuanto", "tiene", "siente", "dolor", "fiebre", "tos", "sintoma", "vomito", "nausea");
     private static final List<String> LEVEL_3_HINTS = List.of("desde", "antecedente", "alergia", "medicamento", "cirugia", "hospital", "laboratorio", "examen", "resultado", "familiar", "cronico", "tratamiento");
     private static final List<String> TEMPORAL_HINTS = List.of("desde cuando", "hace cuanto", "inicio", "empezo", "comenzo", "cuanto tiempo", "desde");
@@ -102,7 +103,11 @@ public class LlmPatientResponseService implements PatientResponseService {
                     resolvedModel,
                     noInfoResolution,
                     "LLM_DISABLED_OR_MISSING_API_KEY",
-                    new RuntimeException("LLM deshabilitado o API key no configurada")
+                    new RuntimeException("LLM deshabilitado o API key no configurada"),
+                    requestId,
+                    null,
+                    0,
+                    estimatedPromptTokens
             );
         }
 
@@ -145,13 +150,17 @@ public class LlmPatientResponseService implements PatientResponseService {
                     .map(LlmClient.ChatPromptMessage::content)
                     .mapToInt(llmUsageService::estimateTokens)
                     .sum();
+            int promptChars = promptMessages.stream()
+                    .map(LlmClient.ChatPromptMessage::content)
+                    .mapToInt(content -> content == null ? 0 : content.length())
+                    .sum();
 
             log.info(
                     "LLM request prepared requestId={} provider={} model={} promptChars={} revealStrategy={} noInfoConfigured={}",
                     requestId,
                     resolvedProvider,
                     resolvedModel,
-                    promptMessages.stream().map(LlmClient.ChatPromptMessage::content).mapToInt(String::length).sum(),
+                    promptChars,
                     llmProperties.getRevealStrategy(),
                     hasText(noInfoResolution.value())
             );
@@ -168,6 +177,19 @@ public class LlmPatientResponseService implements PatientResponseService {
                         llmProperties.getTemperature(),
                         llmProperties.getMaxTokens()
                 );
+                log.info(
+                        "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
+                        requestId,
+                        session.getId(),
+                        context.clinicalCaseId(),
+                        resolvedProvider,
+                        resolvedModel,
+                        "PROVIDER_PRIMARY",
+                        promptChars,
+                        estimatedPromptTokens,
+                        llmResponse == null ? 0 : llmResponse.length(),
+                        llmUsageService.estimateTokens(llmResponse)
+                );
             } catch (OpenAiLlmClient.LlmClientException ex) {
                 llmResponse = tryGenerateFallbackPatientResponse(
                         context,
@@ -178,6 +200,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                         ex
                 );
                 if (!hasText(llmResponse)) {
+                    String fallbackCause = classifyFallbackCause(ex);
                     String contextualFallback = buildContextualPatientFallback(context, userMessage, noInfoResolution);
                     if (hasText(contextualFallback)) {
                         return registerAndReturnLocalPatientFallback(
@@ -187,9 +210,13 @@ public class LlmPatientResponseService implements PatientResponseService {
                                 resolvedProvider,
                                 resolvedModel,
                                 noInfoResolution,
-                                "PROVIDER_CALL_ERROR",
+                                "PROVIDER_CALL_ERROR|" + fallbackCause,
                                 ex,
-                                contextualFallback
+                                contextualFallback,
+                                requestId,
+                                context.clinicalCaseId(),
+                                promptChars,
+                                estimatedPromptTokens
                         );
                     }
                     return registerAndReturnTechnicalFallback(
@@ -199,10 +226,27 @@ public class LlmPatientResponseService implements PatientResponseService {
                             resolvedProvider,
                             resolvedModel,
                             noInfoResolution,
-                            "PROVIDER_CALL_ERROR",
-                            ex
+                            "PROVIDER_CALL_ERROR|" + fallbackCause,
+                            ex,
+                            requestId,
+                            context.clinicalCaseId(),
+                            promptChars,
+                            estimatedPromptTokens
                     );
                 }
+                log.info(
+                        "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
+                        requestId,
+                        session.getId(),
+                        context.clinicalCaseId(),
+                        resolvedProvider,
+                        resolvedModel,
+                        "PROVIDER_COMPACT_RETRY",
+                        promptChars,
+                        estimatedPromptTokens,
+                        llmResponse.length(),
+                        llmUsageService.estimateTokens(llmResponse)
+                );
             }
 
             String safeResponse = responseSafetyFilter.applyOrFallback(
@@ -212,6 +256,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             );
             String finalResponse = avoidConsecutiveRepetition(safeResponse, history, userMessage, context, noInfoResolution);
             boolean fallbackUsed = noInfoResolution.value().equals(finalResponse);
+            String responseOrigin = fallbackUsed ? "FALLBACK_NO_INFO_OR_SAFETY" : "PROVIDER";
             log.info("LLM response completed requestId={} provider={} model={} fallbackUsed={} noInfoSource={} noInfoResponse={} safetyFilterApplied={}",
                     requestId,
                     resolvedProvider,
@@ -220,6 +265,20 @@ public class LlmPatientResponseService implements PatientResponseService {
                     noInfoResolution.source(),
                     maskForLog(noInfoResolution.value()),
                     fallbackUsed);
+            if (fallbackUsed) {
+                log.warn(
+                        "LLM FALLBACK requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} reason={}",
+                        requestId,
+                        session.getId(),
+                        context.clinicalCaseId(),
+                        resolvedProvider,
+                        resolvedModel,
+                        responseOrigin,
+                        promptChars,
+                        estimatedPromptTokens,
+                        "SAFETY_OR_NO_INFO_RESPONSE"
+                );
+            }
 
             safeRegisterUsage(
                     session.getId(),
@@ -242,7 +301,11 @@ public class LlmPatientResponseService implements PatientResponseService {
                     resolvedModel,
                     noInfoResolution,
                     "CONTEXT_LOAD_ERROR",
-                    ex
+                    ex,
+                    requestId,
+                    null,
+                    0,
+                    estimatedPromptTokens
             );
         } catch (RuntimeException ex) {
             return registerAndReturnTechnicalFallback(
@@ -253,7 +316,11 @@ public class LlmPatientResponseService implements PatientResponseService {
                     resolvedModel,
                     noInfoResolution,
                     "PROMPT_OR_CONTEXT_ERROR",
-                    ex
+                    ex,
+                    requestId,
+                    null,
+                    0,
+                    estimatedPromptTokens
             );
         }
     }
@@ -266,7 +333,11 @@ public class LlmPatientResponseService implements PatientResponseService {
             String resolvedModel,
             NoInfoResolution noInfoResolution,
             String stage,
-            RuntimeException ex
+            RuntimeException ex,
+            String requestId,
+            UUID caseId,
+            int promptChars,
+            int promptTokensEstimate
     ) {
         String fallback = responseSafetyFilter.applyOrFallback(
                 CONTEXT_FALLBACK_RESPONSE,
@@ -286,6 +357,21 @@ public class LlmPatientResponseService implements PatientResponseService {
                 errorType,
                 noInfoResolution.source(),
                 sanitizedReason
+        );
+        log.warn(
+                "LLM FALLBACK requestId={} sessionId={} caseId={} provider={} model={} origin={} stage={} cause={} exceptionClass={} exceptionMessage={} promptChars={} promptTokensEstimate={}",
+                requestId,
+                session.getId(),
+                caseId,
+                resolvedProvider,
+                resolvedModel,
+                "FALLBACK_CONTEXT",
+                stage,
+                classifyFallbackCause(ex),
+                errorType,
+                sanitizedReason,
+                promptChars,
+                promptTokensEstimate
         );
         safeRegisterUsage(
                 session.getId(),
@@ -308,7 +394,11 @@ public class LlmPatientResponseService implements PatientResponseService {
             String resolvedModel,
             NoInfoResolution noInfoResolution,
             String stage,
-            RuntimeException ex
+            RuntimeException ex,
+            String requestId,
+            UUID caseId,
+            int promptChars,
+            int promptTokensEstimate
     ) {
         String fallback = responseSafetyFilter.applyOrFallback(
                 TECHNICAL_FALLBACK_RESPONSE,
@@ -329,6 +419,21 @@ public class LlmPatientResponseService implements PatientResponseService {
                 maskForLog(noInfoResolution.value()),
                 llmProperties.isEnabledSafetyFilter(),
                 sanitizedReason
+        );
+        log.warn(
+                "LLM FALLBACK requestId={} sessionId={} caseId={} provider={} model={} origin={} stage={} cause={} exceptionClass={} exceptionMessage={} promptChars={} promptTokensEstimate={}",
+                requestId,
+                session.getId(),
+                caseId,
+                resolvedProvider,
+                resolvedModel,
+                "FALLBACK_TECHNICAL",
+                stage,
+                classifyFallbackCause(ex),
+                errorType,
+                sanitizedReason,
+                promptChars,
+                promptTokensEstimate
         );
         safeRegisterUsage(
                 session.getId(),
@@ -352,13 +457,18 @@ public class LlmPatientResponseService implements PatientResponseService {
             NoInfoResolution noInfoResolution,
             String stage,
             RuntimeException ex,
-            String localFallback
+            String localFallback,
+            String requestId,
+            UUID caseId,
+            int promptChars,
+            int promptTokensEstimate
     ) {
         String safeResponse = responseSafetyFilter.applyOrFallback(
                 localFallback,
                 llmProperties.isEnabledSafetyFilter(),
                 noInfoResolution.value()
         );
+        String fallbackCause = classifyFallbackCause(ex);
         String errorType = ex.getClass().getSimpleName();
         String sanitizedReason = sanitizeError(ex.getMessage());
         String reason = stage + "|" + errorType + "|" + sanitizedReason + "|LOCAL_PATIENT_FALLBACK";
@@ -371,6 +481,33 @@ public class LlmPatientResponseService implements PatientResponseService {
                 errorType,
                 sanitizedReason
         );
+        log.warn(
+                "LLM FALLBACK requestId={} sessionId={} caseId={} provider={} model={} origin={} stage={} cause={} exceptionClass={} exceptionMessage={} promptChars={} promptTokensEstimate={}",
+                requestId,
+                session.getId(),
+                caseId,
+                resolvedProvider,
+                resolvedModel,
+                "FALLBACK_LOCAL_PATIENT",
+                stage,
+                fallbackCause,
+                errorType,
+                sanitizedReason,
+                promptChars,
+                promptTokensEstimate
+        );
+        if ("QUOTA_EXCEEDED".equals(fallbackCause)) {
+            log.warn(
+                    "LLM FALLBACK QUOTA_EXCEEDED requestId={} sessionId={} caseId={} provider={} model={} stage={} origin={}",
+                    requestId,
+                    session.getId(),
+                    caseId,
+                    resolvedProvider,
+                    resolvedModel,
+                    stage,
+                    "FALLBACK_LOCAL_PATIENT"
+            );
+        }
         safeRegisterUsage(
                 session.getId(),
                 resolvedProvider,
@@ -392,14 +529,73 @@ public class LlmPatientResponseService implements PatientResponseService {
         if (context == null) {
             return null;
         }
+        if (isLikelyQuotaMessage(userMessage)) {
+            return QUOTA_FALLBACK_RESPONSE;
+        }
         if (hasText(context.chiefComplaint())) {
-            if (!hasText(userMessage) || userMessage.trim().length() <= 12) {
+            if (!hasText(userMessage) || userMessage.trim().length() <= 12 || isLikelyGreeting(userMessage)) {
                 String patientRef = hasText(context.patientName()) ? context.patientName().trim() : "la paciente";
                 return "Hola, soy " + patientRef + ". " + context.chiefComplaint().trim();
+            }
+
+            String normalizedMessage = normalize(userMessage);
+            if (normalizedMessage.contains("desde") || normalizedMessage.contains("hace cuanto") || normalizedMessage.contains("cuanto tiempo")) {
+                String temporalAlternative = firstTemporalFactValue(context);
+                if (hasText(temporalAlternative)) {
+                    return temporalAlternative;
+                }
+            }
+
+            String alternativeFact = firstUsableFactValue(context, context.chiefComplaint());
+            if (hasText(alternativeFact)) {
+                return alternativeFact;
             }
             return context.chiefComplaint().trim();
         }
         return noInfoResolution == null ? null : noInfoResolution.value();
+    }
+
+    private String firstUsableFactValue(PromptBuilderService.ClinicalPromptContext context, String valueToAvoid) {
+        if (context == null || context.facts() == null || context.facts().isEmpty()) {
+            return null;
+        }
+        String normalizedAvoid = normalize(valueToAvoid);
+        for (String fact : context.facts()) {
+            if (!hasText(fact)) {
+                continue;
+            }
+            String factValue = extractFactValue(fact.trim());
+            if (!hasText(factValue)) {
+                continue;
+            }
+            if (normalize(factValue).equals(normalizedAvoid)) {
+                continue;
+            }
+            return factValue;
+        }
+        return null;
+    }
+
+    private String firstTemporalFactValue(PromptBuilderService.ClinicalPromptContext context) {
+        if (context == null || context.facts() == null || context.facts().isEmpty()) {
+            return null;
+        }
+        for (String fact : context.facts()) {
+            if (!hasText(fact)) {
+                continue;
+            }
+            String factValue = extractFactValue(fact.trim());
+            if (!hasText(factValue)) {
+                continue;
+            }
+            if (normalize(factValue).contains("desde")
+                    || normalize(factValue).contains("hace")
+                    || normalize(factValue).contains("inicio")
+                    || normalize(factValue).contains("comenzo")) {
+                return factValue;
+            }
+        }
+        return null;
     }
 
     private String avoidConsecutiveRepetition(
@@ -863,6 +1059,13 @@ public class LlmPatientResponseService implements PatientResponseService {
             String resolvedModel,
             OpenAiLlmClient.LlmClientException firstError
     ) {
+        if ("QUOTA_EXCEEDED".equals(classifyFallbackCause(firstError))) {
+            log.warn("LLM compact retry skipped due to quota provider={} model={} clinicalCaseId={}",
+                    resolvedProvider,
+                    resolvedModel,
+                    originalContext.clinicalCaseId());
+            return null;
+        }
         log.warn(
                 "LLM primary call failed; attempting compact retry provider={} model={} clinicalCaseId={} reason={}",
                 resolvedProvider,
@@ -958,6 +1161,54 @@ public class LlmPatientResponseService implements PatientResponseService {
             sanitized = sanitized.substring(0, 400);
         }
         return sanitized;
+    }
+
+    private String classifyFallbackCause(RuntimeException ex) {
+        if (ex == null) {
+            return "UNKNOWN";
+        }
+        String message = sanitizeError(ex.getMessage()).toLowerCase(Locale.ROOT);
+        if (message.contains("timeout") || message.contains("timed out")) {
+            return "TIMEOUT";
+        }
+        if (message.contains("context") && (message.contains("length") || message.contains("token") || message.contains("max"))) {
+            return "TOKEN_LIMIT_OR_CONTEXT_LENGTH";
+        }
+        if (message.contains("json") || message.contains("parse") || message.contains("parseable")) {
+            return "PARSE_JSON";
+        }
+        if (message.contains("payload") || message.contains("messages") || message.contains("input")) {
+            return "PROMPT_MALFORMED_OR_PAYLOAD_INVALID";
+        }
+        if (message.contains("status=429")
+                || message.contains("quota")
+                || message.contains("insufficient")
+                || message.contains("rate limit")) {
+            return "QUOTA_EXCEEDED";
+        }
+        if (message.contains("model_invalid") || (message.contains("model") && (message.contains("invalid") || message.contains("not found") || message.contains("does not exist")))) {
+            return "MODEL_OR_PARAMETER_INCOMPATIBILITY";
+        }
+        if (message.contains("serializ") || message.contains("deserialize")) {
+            return "SERIALIZATION";
+        }
+        if (message.contains("null")) {
+            return "NULL_VALUES";
+        }
+        if (message.contains("response vac") || message.contains("no parseable") || message.contains("http error") || message.contains("provider")) {
+            return "PROVIDER_RESPONSE_INVALID";
+        }
+        return "UNKNOWN";
+    }
+
+    private boolean isLikelyQuotaMessage(String userMessage) {
+        String normalized = normalize(userMessage);
+        return normalized.contains("quota")
+                || normalized.contains("sin cuota")
+                || normalized.contains("sin saldo")
+                || normalized.contains("no responde")
+                || normalized.contains("no contestas")
+                || normalized.contains("silencio");
     }
 
     private void safeRegisterUsage(

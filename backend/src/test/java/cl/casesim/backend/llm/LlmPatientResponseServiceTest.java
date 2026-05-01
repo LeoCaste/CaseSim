@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -537,6 +538,42 @@ class LlmPatientResponseServiceTest {
         LlmUsage fallbackUsage = fallbackCaptor.getValue();
         assertTrue(readBooleanField(fallbackUsage, "fallbackUsed"));
         assertTrue(readStringField(fallbackUsage, "error").contains("PROVIDER_CALL_ERROR"));
+    }
+
+    @Test
+    void provider429RetornaFallbackLocalNoNulo() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("Error HTTP proveedor LLM status=429 detail=You exceeded your current quota type: insufficient_quota"));
+
+        String response = service.generateResponse(session, "¿Qué siente ahora?");
+
+        assertNotNull(response);
+        assertFalse(response.isBlank());
+        assertFalse(response.contains("Perdón, me cuesta responder"));
+        verify(llmClient, times(1)).generateChatCompletion(any(), anyDouble(), anyInt());
+
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(readBooleanField(usage, "fallbackUsed"));
+        assertTrue(readStringField(usage, "error").contains("status=429"));
+    }
+
+    @Test
+    void multiplesTurnosConsecutivosCon429SiguenRespondiendoSinSilencio() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("Error HTTP proveedor LLM status=429 detail=insufficient_quota"));
+
+        String responseTurno1 = service.generateResponse(session, "hola");
+        String responseTurno2 = service.generateResponse(session, "¿Desde cuándo?");
+        String responseTurno3 = service.generateResponse(session, "¿Tiene antecedentes?");
+
+        assertTrue(responseTurno1 != null && !responseTurno1.isBlank());
+        assertTrue(responseTurno2 != null && !responseTurno2.isBlank());
+        assertTrue(responseTurno3 != null && !responseTurno3.isBlank());
+        verify(llmClient, times(3)).generateChatCompletion(any(), anyDouble(), anyInt());
     }
 
     private boolean readBooleanField(LlmUsage usage, String fieldName) {

@@ -189,5 +189,6 @@ class SessionServiceTest {
         ArgumentCaptor<ChatMessage> savedCaptor = ArgumentCaptor.forClass(ChatMessage.class);
         verify(chatMessageRepository, times(2)).save(savedCaptor.capture());
         assertEquals("ASSISTANT", savedCaptor.getAllValues().get(1).getRol());
+        assertEquals("EN_CURSO", session.getEstado());
     }
 }

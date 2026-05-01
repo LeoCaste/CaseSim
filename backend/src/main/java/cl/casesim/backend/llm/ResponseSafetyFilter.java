@@ -22,8 +22,7 @@ public class ResponseSafetyFilter {
 
             Pattern.compile("\\bdiagn[oó]stic(o|a)?\\b", Pattern.CASE_INSENSITIVE),
             Pattern.compile("\\bevalu(a|aci[oó]n|arte|aci[oó]n\\s+del\\s+estudiante|aci[oó]n\\s+del\\s+alumno)\\b", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("\\b(m[eé]dico|doctora?|doctor)\\b", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("\\b(profesor(a)?|docente)\\b", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("\\b(soy|act[uú]o\s+como)\\s+(m[eé]dico|doctora?|doctor|profesor(a)?|docente)\\b", Pattern.CASE_INSENSITIVE),
 
             Pattern.compile("razonamiento\\s+cl[ií]nico", Pattern.CASE_INSENSITIVE),
             Pattern.compile("diagn[oó]stico\\s+diferencial", Pattern.CASE_INSENSITIVE),
