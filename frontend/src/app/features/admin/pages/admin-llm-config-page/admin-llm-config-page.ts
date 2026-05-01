@@ -104,6 +104,12 @@ export class AdminLlmConfigPage implements OnInit {
       return;
     }
 
+    const modelValidationError = this.validateModel(this.form.provider, this.form.model);
+    if (modelValidationError) {
+      this.saveError = modelValidationError;
+      return;
+    }
+
     const validationError = this.validatePatientBehavior(this.form.patientBehavior);
     if (validationError) {
       this.saveError = validationError;
@@ -260,7 +266,14 @@ export class AdminLlmConfigPage implements OnInit {
 
   get modelOptions(): LlmModel[] {
     const provider = this.normalizeProvider(this.form.provider);
-    return this.modelsByProvider[provider] ?? [];
+    const options = [...(this.modelsByProvider[provider] ?? [])];
+    const currentModel = this.form.model?.trim();
+
+    if (currentModel && !options.includes(currentModel as LlmModel)) {
+      options.unshift(currentModel as LlmModel);
+    }
+
+    return options;
   }
 
   get isModelCustom(): boolean {
@@ -360,7 +373,11 @@ export class AdminLlmConfigPage implements OnInit {
       return (trimmedModel || 'gpt-4o-mini') as LlmModel;
     }
 
-    return options.includes(trimmedModel as LlmModel) ? (trimmedModel as LlmModel) : options[0];
+    if (!trimmedModel) {
+      return options[0];
+    }
+
+    return trimmedModel as LlmModel;
   }
 
   private resolveBaseUrl(baseUrl: string | null | undefined, provider: string): string {
@@ -407,6 +424,28 @@ export class AdminLlmConfigPage implements OnInit {
 
     if (behavior.maxHistoryMessages > 30) {
       return 'Historial máximo debe ser menor o igual a 30.';
+    }
+
+    return null;
+  }
+
+  private validateModel(providerInput: string, modelInput: string): string | null {
+    const provider = this.normalizeProvider(providerInput);
+    const model = modelInput?.trim();
+
+    if (!model) {
+      return 'Debes ingresar un modelo válido.';
+    }
+
+    if (provider === 'openai-compatible') {
+      return /^[\w./:-]{2,120}$/.test(model)
+        ? null
+        : 'El modelo contiene caracteres inválidos. Usa letras, números y separadores habituales (./:-_).';
+    }
+
+    const validModels = this.modelsByProvider[provider] ?? [];
+    if (validModels.length > 0 && !validModels.includes(model as LlmModel)) {
+      return `Modelo no permitido para ${provider}. Selecciona uno de la lista.`;
     }
 
     return null;

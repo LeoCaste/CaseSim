@@ -47,7 +47,17 @@ export class SimulationAssignmentService {
     return forkJoin({
       clinicalCase: this.http
         .get<BackendClinicalCaseResponse>(`${this.apiBaseUrl}/clinical-cases/${caseId}`)
-        .pipe(timeout(this.assignmentContextTimeoutMs)),
+        .pipe(
+          timeout(this.assignmentContextTimeoutMs),
+          catchError(() =>
+            of({
+              id: caseId,
+              title: 'Caso clínico',
+              patientName: 'Paciente simulado',
+              chiefComplaint: 'Motivo no disponible'
+            })
+          )
+        ),
       students: this.http
         .get<BackendProfessorStudentResponse[]>(`${this.apiBaseUrl}/professor/students`)
         .pipe(timeout(this.assignmentContextTimeoutMs))

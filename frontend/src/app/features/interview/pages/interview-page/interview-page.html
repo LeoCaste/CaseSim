@@ -3,10 +3,10 @@
     <header class="patient-header">
       <div>
         <p class="patient-header__eyebrow">Paciente simulado</p>
-        <h1>{{ session.patientName }}</h1>
-        <p>{{ session.age }} años · Sexo {{ session.sex }} · {{ session.context }}</p>
+        <h1>{{ patientNameDisplay }}</h1>
+        <p>{{ patientAgeDisplay }} · Sexo {{ patientSexDisplay }} · {{ session.context }}</p>
         <p class="patient-header__reason">
-          Motivo principal: {{ session.reason }}
+          Motivo principal: {{ chiefComplaintDisplay }}
         </p>
       </div>
 
@@ -47,6 +47,10 @@
 
           <p>{{ message.content }}</p>
         </section>
+
+        <p class="conversation-state" *ngIf="!isLoading && !loadError && messages.length === 0">
+          Aún no hay mensajes en esta entrevista.
+        </p>
 
         <section class="clinical-message patient loading" *ngIf="isSendingMessage">
           <div class="message-meta">
@@ -93,7 +97,7 @@
           placeholder="Escribe tu intervención clínica..."
           [(ngModel)]="clinicalIntervention"
           (keydown)="onInterventionKeydown($event)"
-          [disabled]="isSendingMessage || isSubmittingFinalDiagnosis"
+          [disabled]="isLoading || !session.id || isSendingMessage || isSubmittingFinalDiagnosis"
         ></textarea>
 
         <div class="intervention-actions">
@@ -101,7 +105,7 @@
             class="cs-button primary"
             type="button"
             (click)="sendIntervention()"
-            [disabled]="isSendingMessage || isSubmittingFinalDiagnosis"
+            [disabled]="isLoading || !session.id || isSendingMessage || isSubmittingFinalDiagnosis"
           >
             {{ isSendingMessage ? 'Enviando...' : 'Enviar mensaje' }}
           </button>
@@ -110,7 +114,7 @@
             class="cs-button danger secondary-danger"
             type="button"
             (click)="openFinalDiagnosisModal()"
-            [disabled]="isSendingMessage || isSubmittingFinalDiagnosis"
+            [disabled]="isLoading || !session.id || isSendingMessage || isSubmittingFinalDiagnosis"
           >
             {{ isSubmittingFinalDiagnosis ? 'Finalizando...' : 'Diagnóstico final' }}
           </button>

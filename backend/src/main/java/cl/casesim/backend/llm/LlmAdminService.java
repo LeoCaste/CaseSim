@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @Transactional(readOnly = true)
@@ -22,6 +23,7 @@ public class LlmAdminService {
     private static final int DEFAULT_MAX_HISTORY_MESSAGES = 6;
     private static final int DEFAULT_MAX_TOKENS = 350;
     private static final double DEFAULT_TEMPERATURE = 0.4;
+    private static final Pattern GENERIC_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$");
 
     private final LlmConfigRepository llmConfigRepository;
     private final LlmProperties llmProperties;
@@ -82,6 +84,7 @@ public class LlmAdminService {
         LocalDateTime now = LocalDateTime.now();
         String provider = normalizeProvider(request.provider());
         validateProvider(provider);
+        String model = normalizeAndValidateModel(provider, request.model());
         String baseUrl = resolveBaseUrl(provider, request.baseUrl());
         String systemPrompt = defaultSystemPrompt(request.resolvedSystemPrompt());
         String behaviorRules = defaultBehaviorRules(request.resolvedPatientBehaviorRules());
@@ -97,7 +100,7 @@ public class LlmAdminService {
             saved = llmConfigRepository.save(new LlmConfig(
                     UUID.randomUUID(),
                     provider,
-                    request.model().trim(),
+                    model,
                     baseUrl,
                     request.enabled(),
                     encryptedApiKey,
@@ -114,7 +117,7 @@ public class LlmAdminService {
         } else {
             existing.update(
                     provider,
-                    request.model().trim(),
+                    model,
                     baseUrl,
                     request.enabled(),
                     encryptedApiKey,
@@ -342,6 +345,38 @@ public class LlmAdminService {
         if (!LlmProviderSupport.isSupported(provider)) {
             throw new BadRequestException("Provider no soportado. Use: openai, openai-compatible, anthropic, gemini o groq.");
         }
+    }
+
+    private String normalizeAndValidateModel(String provider, String model) {
+        if (!StringUtils.hasText(model)) {
+            throw new BadRequestException("El modelo es obligatorio.");
+        }
+
+        String normalized = model.trim().toLowerCase(Locale.ROOT)
+                .replace('_', '-')
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-");
+
+        if (normalized.startsWith("gpt4")) {
+            normalized = "gpt-4" + normalized.substring("gpt4".length());
+        }
+        if (normalized.startsWith("gpt3.5")) {
+            normalized = "gpt-3.5" + normalized.substring("gpt3.5".length());
+        }
+        if (normalized.endsWith("-min")) {
+            normalized = normalized + "i";
+        }
+
+        if (!GENERIC_MODEL_PATTERN.matcher(normalized).matches()) {
+            throw new BadRequestException("Modelo inválido. Use un identificador sin espacios (ej: gpt-4.1-mini).");
+        }
+
+        if (LlmProviderSupport.OPENAI.equals(provider)
+                && !(normalized.startsWith("gpt-") || normalized.startsWith("o"))) {
+            throw new BadRequestException("Modelo no válido para OpenAI. Ejemplo esperado: gpt-4.1-mini.");
+        }
+
+        return normalized;
     }
 
     private String resolveBaseUrl(String provider, String baseUrl) {

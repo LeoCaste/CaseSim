@@ -27,6 +27,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -35,8 +36,11 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.reset;
 
 class LlmPatientResponseServiceTest {
 
@@ -151,10 +155,24 @@ class LlmPatientResponseServiceTest {
         service.generateResponse(session, "Hola");
 
         String contextualPrompt = getContextualPrompt();
+        assertTrue(contextualPrompt.contains("Motivo de consulta principal: Dolor abdominal"));
         assertTrue(contextualPrompt.contains("motivo: Dolor abdominal"));
         assertFalse(contextualPrompt.contains("fiebre: Tengo fiebre desde ayer"));
         assertFalse(contextualPrompt.contains("antecedente: Tuve cirugía hace 2 años"));
         verify(sessionRevealedFactRepository, never()).save(any(SessionRevealedFact.class));
+    }
+
+    @Test
+    void anteErrorProveedorIntentaReintentoCompactoAntesDeFallbackTecnico() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("respuesta vacia"))
+                .thenReturn("Como paciente, tengo dolor abdominal desde ayer.");
+
+        String response = service.generateResponse(session, "Hola");
+
+        assertTrue(response.contains("dolor abdominal"));
+        verify(llmClient, times(2)).generateChatCompletion(any(), anyDouble(), anyInt());
     }
 
     @Test
@@ -271,32 +289,288 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
-    void siLlmDeshabilitadoRetornaNoInfoConfiguradaYNoHardcodeMock() {
+    void siLlmDeshabilitadoRetornaFallbackTecnico() {
         properties.setEnabled(false);
-        clinicalCase = new ClinicalCase(
-                clinicalCase.getId(),
-                clinicalCase.getTitulo(),
-                clinicalCase.getDescripcion(),
-                clinicalCase.getPacienteNombre(),
-                clinicalCase.getPacienteEdad(),
-                clinicalCase.getPacienteSexo(),
-                clinicalCase.getMotivoConsulta(),
-                "RESPUESTA_CASO",
-                clinicalCase.isActivo(),
-                clinicalCase.getCreadoPor(),
-                clinicalCase.getCreadoEn()
-        );
-        when(clinicalCaseRepository.findById(clinicalCase.getId())).thenReturn(Optional.of(clinicalCase));
 
         String response = service.generateResponse(session, "hola");
 
-        assertEquals("RESPUESTA_CASO", response);
+        assertEquals("Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?", response);
+    }
+
+    @Test
+    void promptIncluyeReglaParaNoUsarNoInfoSiHayFactsDisponibles() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+
+        service.generateResponse(session, "hola");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
+        String noInfoGuard = promptCaptor.getValue().get(2).content();
+        String systemLayeredPrompt = promptCaptor.getValue().get(0).content();
+
+        assertTrue(noInfoGuard.contains("NO uses la respuesta sin información"));
+        assertTrue(systemLayeredPrompt.contains("motivo: Dolor abdominal"));
+    }
+
+    @Test
+    void dosSesionesConCasosDistintosConstruyenPromptsDistintos() {
+        UUID activityId2 = UUID.randomUUID();
+        UUID caseId2 = UUID.randomUUID();
+        SimulationSession session2 = new SimulationSession(
+                UUID.randomUUID(),
+                activityId2,
+                UUID.randomUUID(),
+                "EN_CURSO",
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+
+        SimulationActivity activity2 = new SimulationActivity(
+                activityId2,
+                UUID.randomUUID(),
+                caseId2,
+                "Actividad 2",
+                null,
+                "FORMATIVO",
+                false,
+                null,
+                true,
+                UUID.randomUUID(),
+                LocalDateTime.now()
+        );
+
+        ClinicalCase clinicalCase2 = new ClinicalCase(
+                caseId2,
+                "Caso 2",
+                "Historia 2",
+                "Paciente 2",
+                50,
+                "M",
+                "Dolor torácico",
+                "No tengo información asociada a eso.",
+                true,
+                UUID.randomUUID(),
+                LocalDateTime.now()
+        );
+
+        ClinicalCaseFact fact2 = new ClinicalCaseFact(
+                UUID.randomUUID(),
+                caseId2,
+                "GENERAL",
+                "dolor_toracico",
+                "Siento una presión en el pecho desde anoche",
+                1,
+                null,
+                false,
+                0
+        );
+
+        when(simulationActivityRepository.findById(activityId2)).thenReturn(Optional.of(activity2));
+        when(clinicalCaseRepository.findById(caseId2)).thenReturn(Optional.of(clinicalCase2));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId2)).thenReturn(List.of(fact2));
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId2)).thenReturn(List.of());
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session2.getId())).thenReturn(Set.of());
+
+        service.generateResponse(session, "hola caso 1");
+        String promptCase1 = getLastContextualPrompt();
+
+        service.generateResponse(session2, "hola caso 2");
+        String promptCase2 = getLastContextualPrompt();
+
+        assertTrue(promptCase1.contains("Caso"));
+        assertTrue(promptCase2.contains("Caso 2"));
+        assertTrue(promptCase1.contains("motivo: Dolor abdominal"));
+        assertTrue(promptCase2.contains("dolor_toracico: Siento una presión en el pecho desde anoche"));
+        assertNotEquals(promptCase1, promptCase2);
+    }
+
+    @Test
+    void saludoConContextoValidoNoCaeEnFallbackTecnicoSiProveedorFalla() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of());
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"));
+
+        String response = service.generateResponse(session, "Hola");
+
+        assertTrue(response.contains("Dolor abdominal") || response.contains("Paciente"));
+        assertFalse(response.contains("Perdón, me cuesta responder"));
+    }
+
+    @Test
+    void segundoTurnoConPreguntaDirigidaNoRepiteLiteralSiHayFactDisponible() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(sessionRevealedFactRepository.existsBySessionIdAndFactId(session.getId(), level2Fact.getId())).thenReturn(false);
+
+        ChatMessage previousUser = new ChatMessage(
+                UUID.randomUUID(),
+                session.getId(),
+                "USER",
+                "Hola",
+                1,
+                LocalDateTime.now().minusMinutes(1)
+        );
+        ChatMessage previousAssistant = new ChatMessage(
+                UUID.randomUUID(),
+                session.getId(),
+                "ASSISTANT",
+                "Dolor abdominal",
+                2,
+                LocalDateTime.now().minusSeconds(30)
+        );
+        when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
+                .thenReturn(List.of(previousAssistant, previousUser));
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Dolor abdominal");
+
+        String response = service.generateResponse(session, "¿Hace cuánto tiene fiebre?");
+
+        assertNotEquals("Dolor abdominal", response);
+        assertEquals("Tengo fiebre desde ayer", response);
+    }
+
+    @Test
+    void historialRecienteSeIncluyeEnPromptYAfectaSalida() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(sessionRevealedFactRepository.existsBySessionIdAndFactId(session.getId(), level2Fact.getId())).thenReturn(false);
+
+        ChatMessage previousUser = new ChatMessage(
+                UUID.randomUUID(),
+                session.getId(),
+                "USER",
+                "Hola",
+                1,
+                LocalDateTime.now().minusMinutes(1)
+        );
+        ChatMessage previousAssistant = new ChatMessage(
+                UUID.randomUUID(),
+                session.getId(),
+                "ASSISTANT",
+                "Dolor abdominal",
+                2,
+                LocalDateTime.now().minusSeconds(30)
+        );
+        when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
+                .thenReturn(List.of(previousAssistant, previousUser));
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Dolor abdominal");
+
+        String response = service.generateResponse(session, "¿Desde cuándo?");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmClient, atLeastOnce()).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
+        List<LlmClient.ChatPromptMessage> messages = promptCaptor.getValue();
+
+        assertTrue(messages.stream().anyMatch(msg -> "assistant".equals(msg.role()) && "Dolor abdominal".equals(msg.content())));
+        assertTrue(messages.stream().anyMatch(msg -> "user".equals(msg.role()) && "Hola".equals(msg.content())));
+        assertNotEquals("Dolor abdominal", response);
+    }
+
+    @Test
+    void seguimientoTemporalPriorizaFactDeInicioYSinRepetirMotivo() {
+        ClinicalCaseFact temporalFact = new ClinicalCaseFact(
+                UUID.randomUUID(),
+                clinicalCase.getId(),
+                "GENERAL",
+                "inicio_sintomas",
+                "Comencé con tos seca hace 10 días",
+                2,
+                null,
+                false,
+                1
+        );
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId()))
+                .thenReturn(List.of(level1Fact, temporalFact, level3Fact));
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(sessionRevealedFactRepository.existsBySessionIdAndFactId(session.getId(), temporalFact.getId())).thenReturn(false);
+
+        ChatMessage previousAssistant = new ChatMessage(
+                UUID.randomUUID(),
+                session.getId(),
+                "ASSISTANT",
+                "Dolor abdominal",
+                2,
+                LocalDateTime.now().minusSeconds(30)
+        );
+        ChatMessage previousUser = new ChatMessage(
+                UUID.randomUUID(),
+                session.getId(),
+                "USER",
+                "hola",
+                1,
+                LocalDateTime.now().minusMinutes(1)
+        );
+        when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
+                .thenReturn(List.of(previousAssistant, previousUser));
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Dolor abdominal");
+
+        String response = service.generateResponse(session, "¿Hace cuánto se siente así?");
+
+        assertEquals("Comencé con tos seca hace 10 días", response);
+        assertNotEquals("Dolor abdominal", response);
+    }
+
+    @Test
+    void registraMetricaEnExitoYFallback() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("respuesta segura");
+
+        service.generateResponse(session, "hola");
+
+        ArgumentCaptor<LlmUsage> successCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(successCaptor.capture());
+        LlmUsage successUsage = successCaptor.getValue();
+        assertFalse(readBooleanField(successUsage, "fallbackUsed"));
+        assertEquals(null, readStringField(successUsage, "error"));
+
+        reset(llmUsageRepository);
+        when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"))
+                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"));
+
+        service.generateResponse(session, "hola");
+
+        ArgumentCaptor<LlmUsage> fallbackCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository).save(fallbackCaptor.capture());
+        LlmUsage fallbackUsage = fallbackCaptor.getValue();
+        assertTrue(readBooleanField(fallbackUsage, "fallbackUsed"));
+        assertTrue(readStringField(fallbackUsage, "error").contains("PROVIDER_CALL_ERROR"));
+    }
+
+    private boolean readBooleanField(LlmUsage usage, String fieldName) {
+        try {
+            var field = LlmUsage.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.getBoolean(usage);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
+    }
+
+    private String readStringField(LlmUsage usage, String fieldName) {
+        try {
+            var field = LlmUsage.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return (String) field.get(usage);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
     }
 
     @SuppressWarnings("unchecked")
-    private String getContextualPrompt() {
+    private String getLastContextualPrompt() {
         ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
-        verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
-        return promptCaptor.getValue().get(3).content();
+        verify(llmClient, atLeastOnce()).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
+        return promptCaptor.getValue().stream()
+                .map(LlmClient.ChatPromptMessage::content)
+                .filter(content -> content.contains("Contexto clínico del caso:"))
+                .findFirst()
+                .orElse("");
+    }
+
+    private String getContextualPrompt() {
+        return getLastContextualPrompt();
     }
 }

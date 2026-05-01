@@ -204,23 +204,74 @@ export class InterviewSessionService {
     };
 
     return this.http.get<BackendStudentActivityResponse[]>(`${this.apiBaseUrl}/student/activities`).pipe(
-      map((activities): ActivityContext => {
+      switchMap((activities): Observable<ActivityContext> => {
         const activity = activities.find((item) => {
           const id = item.activityId ?? item.id;
           return id === activityId;
         });
 
-        return {
-          caseName: activity?.title ?? activity?.titulo ?? 'Caso clínico',
-          patientName: activity?.patientName ?? activity?.nombrePaciente ?? 'Paciente simulado',
-          age: 0,
-          sex: this.normalizeSex('X'),
-          context: '',
-          reason: activity?.description ?? activity?.descripcion ?? ''
+        const fallbackFromActivity: ActivityContext = {
+          caseName: this.readFirstString(activity?.title, activity?.titulo) ?? 'Caso clínico',
+          patientName: this.readFirstString(activity?.patientName, activity?.nombrePaciente) ?? 'Paciente simulado',
+          age: this.readFirstNumber(activity?.patientAge, activity?.edadPaciente) ?? 0,
+          sex: this.normalizeSex(this.readFirstString(activity?.patientSex, activity?.sexoPaciente) ?? 'X'),
+          context: this.readFirstString(activity?.context, activity?.descripcionContexto) ?? '',
+          reason:
+            this.readFirstString(activity?.chiefComplaint, activity?.motivoConsulta, activity?.description, activity?.descripcion) ??
+            ''
         };
+
+        const clinicalCaseId = this.readFirstString(activity?.clinicalCaseId, activity?.casoClinicoId);
+
+        if (!clinicalCaseId) {
+          return of(fallbackFromActivity);
+        }
+
+        return this.http.get<BackendClinicalCaseResponse>(`${this.apiBaseUrl}/clinical-cases/${clinicalCaseId}`).pipe(
+          map((clinicalCase): ActivityContext => ({
+            caseName: this.readFirstString(activity?.title, activity?.titulo, clinicalCase.title) ?? 'Caso clínico',
+            patientName:
+              this.readFirstString(activity?.patientName, activity?.nombrePaciente, clinicalCase.patientName) ??
+              'Paciente simulado',
+            age: this.readFirstNumber(activity?.patientAge, activity?.edadPaciente, clinicalCase.patientAge) ?? 0,
+            sex: this.normalizeSex(
+              this.readFirstString(activity?.patientSex, activity?.sexoPaciente, clinicalCase.patientSex) ?? 'X'
+            ),
+            context: this.readFirstString(activity?.context, activity?.descripcionContexto, clinicalCase.description) ?? '',
+            reason:
+              this.readFirstString(
+                activity?.chiefComplaint,
+                activity?.motivoConsulta,
+                activity?.description,
+                activity?.descripcion,
+                clinicalCase.chiefComplaint
+              ) ?? ''
+          })),
+          catchError(() => of(fallbackFromActivity))
+        );
       }),
       catchError(() => of(fallbackContext))
     );
+  }
+
+  private readFirstString(...values: Array<string | null | undefined>): string | null {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  private readFirstNumber(...values: Array<number | null | undefined>): number | null {
+    for (const value of values) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   private normalizeSex(value: unknown): PatientSex {
@@ -305,12 +356,32 @@ interface BackendChatMessageResponse {
 interface BackendStudentActivityResponse {
   activityId?: string;
   id?: string;
+  clinicalCaseId?: string;
+  casoClinicoId?: string;
   title?: string;
   titulo?: string;
   description?: string;
   descripcion?: string;
   patientName?: string;
   nombrePaciente?: string;
+  patientAge?: number;
+  edadPaciente?: number;
+  patientSex?: string;
+  sexoPaciente?: string;
+  chiefComplaint?: string;
+  motivoConsulta?: string;
+  context?: string;
+  descripcionContexto?: string;
+}
+
+interface BackendClinicalCaseResponse {
+  id: string;
+  title?: string;
+  description?: string;
+  patientName?: string;
+  patientAge?: number;
+  patientSex?: string;
+  chiefComplaint?: string;
 }
 
 interface ActivityContext {

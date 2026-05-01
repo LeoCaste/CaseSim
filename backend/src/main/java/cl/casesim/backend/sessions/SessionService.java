@@ -3,7 +3,11 @@ package cl.casesim.backend.sessions;
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ConflictException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
+import cl.casesim.backend.clinicalcases.ClinicalCase;
+import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
 import cl.casesim.backend.llm.ResponseSafetyFilter;
+import cl.casesim.backend.simulations.SimulationActivity;
+import cl.casesim.backend.simulations.SimulationActivityRepository;
 import cl.casesim.backend.sessions.dto.ChatMessageResponse;
 import cl.casesim.backend.sessions.dto.CreateSessionRequest;
 import cl.casesim.backend.sessions.dto.FinalDiagnosisRequest;
@@ -27,22 +31,29 @@ public class SessionService {
     private static final String SESSION_FINISHED = "FINALIZADA";
     private static final String SESSION_EXPIRED = "EXPIRADA";
     private static final String FINALIZED_SESSION_CONFLICT_MESSAGE = "Ya existe una sesión finalizada para esta actividad y estudiante. Use otra actividad o estudiante para una nueva sesión.";
+    private static final String ASSISTANT_TECHNICAL_FALLBACK = "Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?";
 
     private final SimulationSessionRepository simulationSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final PatientResponseService patientResponseService;
     private final ResponseSafetyFilter responseSafetyFilter;
+    private final SimulationActivityRepository simulationActivityRepository;
+    private final ClinicalCaseRepository clinicalCaseRepository;
 
     public SessionService(
             SimulationSessionRepository simulationSessionRepository,
             ChatMessageRepository chatMessageRepository,
             PatientResponseService patientResponseService,
-            ResponseSafetyFilter responseSafetyFilter
+            ResponseSafetyFilter responseSafetyFilter,
+            SimulationActivityRepository simulationActivityRepository,
+            ClinicalCaseRepository clinicalCaseRepository
     ) {
         this.simulationSessionRepository = simulationSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.patientResponseService = patientResponseService;
         this.responseSafetyFilter = responseSafetyFilter;
+        this.simulationActivityRepository = simulationActivityRepository;
+        this.clinicalCaseRepository = clinicalCaseRepository;
     }
 
     @Transactional
@@ -114,9 +125,19 @@ public class SessionService {
                 LocalDateTime.now()
         ));
 
-        String assistantContent = responseSafetyFilter.applyOrFallback(
-                patientResponseService.generateResponse(session, userContent)
-        );
+        String assistantRawContent;
+        try {
+            assistantRawContent = patientResponseService.generateResponse(session, userContent);
+        } catch (RuntimeException ex) {
+            assistantRawContent = ASSISTANT_TECHNICAL_FALLBACK;
+        }
+
+        String assistantContent;
+        try {
+            assistantContent = responseSafetyFilter.applyOrFallback(assistantRawContent);
+        } catch (RuntimeException ex) {
+            assistantContent = ASSISTANT_TECHNICAL_FALLBACK;
+        }
 
         ChatMessage savedAssistantMessage = chatMessageRepository.save(new ChatMessage(
                 UUID.randomUUID(),
@@ -161,16 +182,29 @@ public class SessionService {
     }
 
     private SessionResponse toSessionResponse(SimulationSession session) {
+        SimulationActivity activity = simulationActivityRepository.findById(session.getActividadId())
+                .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada con id: " + session.getActividadId()));
+
+        ClinicalCase clinicalCase = clinicalCaseRepository.findById(activity.getCasoId())
+                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado con id: " + activity.getCasoId()));
+
         return new SessionResponse(
                 session.getId(),
                 session.getActividadId(),
+                clinicalCase.getId(),
                 session.getEstudianteId(),
                 session.getEstado(),
                 session.getIniciadaEn(),
                 session.getFinalizadaEn(),
                 session.getCreadaEn(),
                 session.getDiagnosticoFinal(),
-                session.getRazonamientoFinal()
+                session.getRazonamientoFinal(),
+                new SessionResponse.ClinicalCaseSummary(
+                        clinicalCase.getPacienteNombre(),
+                        clinicalCase.getPacienteEdad(),
+                        clinicalCase.getPacienteSexo(),
+                        clinicalCase.getMotivoConsulta()
+                )
         );
     }
 

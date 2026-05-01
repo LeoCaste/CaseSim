@@ -111,6 +111,56 @@ class LlmAdminServiceTest {
     }
 
     @Test
+    void updateConfigShouldNormalizeCommonOpenAiModelTypos() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "gpt4.1 min",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                "sk-new",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("gpt-4.1-mini", response.model());
+        assertEquals("gpt-4.1-mini", llmProperties.getModel());
+    }
+
+    @Test
+    void updateConfigShouldRejectClearlyInvalidOpenAiModel() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "modelo-raro",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                "sk-new",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+    }
+
+    @Test
     void updateConfigShouldFailWhenMaxTokensOutOfRange() {
         UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
                 "openai",

@@ -29,11 +29,11 @@ export class InterviewPage implements OnInit {
   finalReasoning = '';
   session: InterviewSessionData = {
     id: '',
-    patientName: 'Catalina Paz Soto',
-    age: 22,
-    sex: 'F',
-    context: 'Consulta ambulatoria',
-    reason: 'tos seca y fatiga de 5 días',
+    patientName: '',
+    age: 0,
+    sex: 'X',
+    context: '',
+    reason: '',
     messages: []
   };
   isLoading = false;
@@ -85,10 +85,11 @@ export class InterviewPage implements OnInit {
   sendIntervention(): void {
     const content = this.clinicalIntervention.trim();
 
-    if (!content || this.isSendingMessage || this.isSubmittingFinalDiagnosis) {
+    if (!content || this.isLoading || !this.session.id || this.isSendingMessage || this.isSubmittingFinalDiagnosis) {
       return;
     }
 
+    this.loadError = '';
     this.isSendingMessage = true;
 
     this.interviewSessionService
@@ -103,8 +104,10 @@ export class InterviewPage implements OnInit {
       )
       .subscribe({
         next: (newMessages) => {
-          this.messages = [...this.messages, ...newMessages.map((message) => this.mapMessage(message))];
+          const mappedNewMessages = newMessages.map((message) => this.mapMessage(message));
+          this.messages = this.mergeMessagesWithoutDuplicates(this.messages, mappedNewMessages);
           this.clinicalIntervention = '';
+          this.loadError = '';
           this.scrollConversationToBottom();
           this.cdr.detectChanges();
         },
@@ -204,5 +207,45 @@ export class InterviewPage implements OnInit {
 
       panel.scrollTop = panel.scrollHeight;
     });
+  }
+
+  private mergeMessagesWithoutDuplicates(
+    currentMessages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }>,
+    incomingMessages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }>
+  ): Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }> {
+    const existingKeys = new Set(currentMessages.map((message) => this.buildMessageKey(message)));
+    const nextMessages = [...currentMessages];
+
+    for (const message of incomingMessages) {
+      const key = this.buildMessageKey(message);
+      if (existingKeys.has(key)) {
+        continue;
+      }
+
+      existingKeys.add(key);
+      nextMessages.push(message);
+    }
+
+    return nextMessages;
+  }
+
+  private buildMessageKey(message: { role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }): string {
+    return `${message.role}|${message.time}|${message.content}`;
+  }
+
+  get patientNameDisplay(): string {
+    return this.session.patientName?.trim() || 'Paciente simulado';
+  }
+
+  get patientAgeDisplay(): string {
+    return this.session.age > 0 ? `${this.session.age} años` : 'Edad sin registro';
+  }
+
+  get patientSexDisplay(): string {
+    return this.session.sex?.trim() || 'X';
+  }
+
+  get chiefComplaintDisplay(): string {
+    return this.session.reason?.trim() || 'Sin motivo principal registrado.';
   }
 }
