@@ -14,8 +14,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import java.util.List;
 
 class JwtAuthenticationFilterTest {
 
@@ -38,6 +41,7 @@ class JwtAuthenticationFilterTest {
                 .build();
 
         when(jwtService.extractUsername(token)).thenReturn(username);
+        when(jwtService.extractRoles(token)).thenReturn(List.of("PROFESOR"));
         when(userDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
         when(jwtService.isValidToken(token, userDetails)).thenReturn(true);
 
@@ -67,6 +71,7 @@ class JwtAuthenticationFilterTest {
                 .build();
 
         when(jwtService.extractUsername(token)).thenReturn(username);
+        when(jwtService.extractRoles(token)).thenReturn(List.of("PROFESOR"));
         when(userDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
         when(jwtService.isValidToken(token, userDetails)).thenReturn(true);
 
@@ -93,6 +98,36 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, new MockFilterChain());
 
         assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    @Test
+    void shouldNormalizeSubjectAndMapProfessorRoleFromJwtClaim() throws Exception {
+        JwtService jwtService = mock(JwtService.class);
+        UserDetailsService userDetailsService = mock(UserDetailsService.class);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService, userDetailsService);
+
+        String token = "valid-token";
+        String normalizedUsername = "francisco@ufrontera.cl";
+        UserDetails userDetails = User.withUsername(normalizedUsername)
+                .password("ignored")
+                .roles("PROFESOR")
+                .build();
+
+        when(jwtService.extractUsername(token)).thenReturn("  Francisco@ufrontera.cl ");
+        when(jwtService.extractRoles(token)).thenReturn(List.of("PROFESOR"));
+        when(userDetailsService.loadUserByUsername(normalizedUsername)).thenReturn(userDetails);
+        when(jwtService.isValidToken(token, userDetails)).thenReturn(true);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertEquals(normalizedUsername, SecurityContextHolder.getContext().getAuthentication().getName());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> "ROLE_PROFESOR".equals(a.getAuthority())));
     }
 
     @Test

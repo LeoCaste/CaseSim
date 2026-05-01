@@ -5,6 +5,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
+
 @Service
 public class UserPrincipalService implements UserDetailsService {
 
@@ -16,7 +18,8 @@ public class UserPrincipalService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        AppUser user = userRepository.findByEmailIgnoreCase(email)
+        String normalizedEmail = normalizeEmail(email);
+        AppUser user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no autorizado."));
 
         if (!user.isActivo() || user.getRoles().isEmpty()) {
@@ -24,5 +27,12 @@ public class UserPrincipalService implements UserDetailsService {
         }
 
         return UserPrincipal.fromEntity(user);
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return "";
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

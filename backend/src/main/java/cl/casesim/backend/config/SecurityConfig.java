@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,6 +29,8 @@ import java.util.List;
 @Configuration
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -41,6 +45,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/pre-check").permitAll()
@@ -52,18 +57,31 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/simulations").hasRole("PROFESOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/student/activities").hasRole("ESTUDIANTE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/clinical-cases/**").hasAnyRole("ESTUDIANTE", "PROFESOR", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/clinical-cases/**").hasRole("PROFESOR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/clinical-cases/**").hasRole("PROFESOR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/clinical-cases/**").hasRole("PROFESOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/clinical-cases/**").hasAnyRole("PROFESOR", "ADMIN")
                         .requestMatchers("/api/v1/sessions/**").hasAnyRole("ESTUDIANTE", "PROFESOR", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) ->
-                                writeSecurityError(response, HttpStatus.UNAUTHORIZED, "No autenticado."))
-                        .accessDeniedHandler((request, response, accessDeniedException) ->
-                                writeSecurityError(response, HttpStatus.FORBIDDEN, "Acceso denegado."))
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            Object reason = request.getAttribute(JwtAuthenticationFilter.AUTH_FAILURE_REASON_ATTR);
+                            log.warn("401 no autenticado. method={} endpoint={} motivo={}",
+                                    request.getMethod(),
+                                    request.getRequestURI(),
+                                    reason);
+                            writeSecurityError(response, HttpStatus.UNAUTHORIZED, "No autenticado.");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            log.warn("403 acceso denegado. method={} endpoint={} principal={} motivo={}",
+                                    request.getMethod(),
+                                    request.getRequestURI(),
+                                    request.getUserPrincipal() == null ? "anonymous" : request.getUserPrincipal().getName(),
+                                    accessDeniedException.getMessage());
+                            writeSecurityError(response, HttpStatus.FORBIDDEN, "Acceso denegado.");
+                        })
                 )
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable);
