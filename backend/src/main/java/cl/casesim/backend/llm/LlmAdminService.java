@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +21,8 @@ import java.util.regex.Pattern;
 @Service
 @Transactional(readOnly = true)
 public class LlmAdminService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LlmAdminService.class);
 
     private static final int DEFAULT_MAX_HISTORY_MESSAGES = 6;
     private static final int DEFAULT_MAX_TOKENS = 350;
@@ -47,7 +51,10 @@ public class LlmAdminService {
 
     @PostConstruct
     public void loadPersistedConfig() {
-        llmConfigRepository.findFirstByOrderByUpdatedAtDesc().ifPresent(this::applyToRuntimeProperties);
+        llmConfigRepository.findFirstByOrderByUpdatedAtDesc().ifPresent(config -> {
+            applyToRuntimeProperties(config);
+            logRuntimeBaseUrlNormalizationIfNeeded(normalizeProvider(config.getProvider()), config.getBaseUrl());
+        });
     }
 
     public LlmConfigResponse getConfig() {
@@ -221,7 +228,7 @@ public class LlmAdminService {
         String provider = normalizeProvider(config.getProvider());
         llmProperties.setProvider(provider);
         llmProperties.setModel(config.getModel() == null ? "" : config.getModel().trim());
-        llmProperties.setBaseUrl(resolveBaseUrl(provider, config.getBaseUrl()));
+        llmProperties.setBaseUrl(resolveRuntimeBaseUrl(provider, config.getBaseUrl()));
         llmProperties.setEnabled(config.isEnabled());
         String apiKey = llmApiKeyCipher.decrypt(config.getApiKeySecret());
         llmProperties.setApiKey(apiKey == null ? "" : apiKey.trim());
@@ -385,5 +392,49 @@ public class LlmAdminService {
             throw new BadRequestException("baseUrl es obligatoria para el provider seleccionado.");
         }
         return resolved;
+    }
+
+    private String resolveRuntimeBaseUrl(String provider, String configuredBaseUrl) {
+        String resolved = resolveBaseUrl(provider, configuredBaseUrl);
+        if (!LlmProviderSupport.GROQ.equals(provider)) {
+            return resolved;
+        }
+
+        if (!isGroqAllowedHost(resolved)) {
+            return LlmProviderSupport.defaultBaseUrl(LlmProviderSupport.GROQ);
+        }
+        return resolved;
+    }
+
+    private void logRuntimeBaseUrlNormalizationIfNeeded(String provider, String configuredBaseUrl) {
+        if (!LlmProviderSupport.GROQ.equals(provider)) {
+            return;
+        }
+        if (!StringUtils.hasText(configuredBaseUrl) || isGroqAllowedHost(configuredBaseUrl)) {
+            return;
+        }
+
+        log.info(
+                "Normalizando baseUrl en runtime para provider=groq por host incompatible. configuredBaseUrl={} runtimeBaseUrl={}",
+                configuredBaseUrl,
+                LlmProviderSupport.defaultBaseUrl(LlmProviderSupport.GROQ)
+        );
+    }
+
+    private boolean isGroqAllowedHost(String baseUrl) {
+        try {
+            URI uri = new URI(baseUrl.trim());
+            String host = uri.getHost();
+            if (!StringUtils.hasText(host)) {
+                return false;
+            }
+            String normalized = host.trim().toLowerCase(Locale.ROOT);
+            return "api.groq.com".equals(normalized)
+                    || normalized.endsWith(".groq.com")
+                    || "localhost".equals(normalized)
+                    || "127.0.0.1".equals(normalized);
+        } catch (URISyntaxException ignored) {
+            return false;
+        }
     }
 }

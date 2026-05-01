@@ -257,4 +257,31 @@ class LlmAdminServiceTest {
         assertEquals("gpt-4o-mini", response.model());
         assertEquals("", llmProperties.getApiKey());
     }
+
+    @Test
+    void loadPersistedConfigShouldNormalizeGroqBaseUrlInRuntimeWhenHostIsOpenAi() {
+        LlmConfig config = new LlmConfig(
+                UUID.randomUUID(),
+                "groq",
+                "llama-3.1-8b-instant",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                llmApiKeyCipher.encrypt("gsk_test"),
+                LocalDateTime.now(),
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE,
+                6,
+                0.4,
+                350,
+                true
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(config));
+
+        service.loadPersistedConfig();
+
+        assertEquals("groq", llmProperties.getProvider());
+        assertEquals("https://api.groq.com/openai/v1/chat/completions", llmProperties.getBaseUrl());
+    }
 }

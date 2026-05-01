@@ -110,7 +110,7 @@ public class OpenAiLlmClient implements LlmClient {
     ) {
         String requestMode = resolveOpenAiRequestMode(provider);
         return switch (provider) {
-            case LlmProviderSupport.OPENAI, LlmProviderSupport.OPENAI_COMPATIBLE, LlmProviderSupport.GROQ -> restClient.post()
+            case LlmProviderSupport.OPENAI, LlmProviderSupport.OPENAI_COMPATIBLE -> restClient.post()
                     .uri(resolveOpenAiCompatibleUrl(provider))
                     .header("Authorization", "Bearer " + llmProperties.getApiKey().trim())
                     .contentType(MediaType.APPLICATION_JSON)

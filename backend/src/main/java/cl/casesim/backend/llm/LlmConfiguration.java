@@ -27,8 +27,18 @@ public class LlmConfiguration {
     }
 
     @Bean
-    public LlmClient llmClient(LlmProperties llmProperties) {
+    public OpenAiLlmClient openAiLlmClient(LlmProperties llmProperties) {
         return new OpenAiLlmClient(llmProperties);
+    }
+
+    @Bean
+    public GroqLlmClient groqLlmClient(LlmProperties llmProperties) {
+        return new GroqLlmClient(llmProperties);
+    }
+
+    @Bean
+    public LlmClient llmClient(LlmProperties llmProperties, OpenAiLlmClient openAiLlmClient, GroqLlmClient groqLlmClient) {
+        return new LlmClientRouter(llmProperties, openAiLlmClient, groqLlmClient);
     }
 
     @Bean
