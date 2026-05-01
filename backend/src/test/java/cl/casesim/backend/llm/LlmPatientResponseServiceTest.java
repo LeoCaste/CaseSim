@@ -146,7 +146,7 @@ class LlmPatientResponseServiceTest {
         when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of(level1Fact, level2Fact, level3Fact));
         when(clinicalCasePersonalityRepository.findByCasoId(clinicalCase.getId())).thenReturn(List.of());
         when(responseSafetyFilter.applyOrFallback(anyString(), anyBoolean(), anyString())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("respuesta segura");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("respuesta segura", null, null));
     }
 
     @Test
@@ -166,14 +166,14 @@ class LlmPatientResponseServiceTest {
     @Test
     void anteErrorProveedorIntentaReintentoCompactoAntesDeFallbackTecnico() {
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("respuesta vacia"))
-                .thenReturn("Como paciente, tengo dolor abdominal desde ayer.");
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("respuesta vacia"))
+                .thenReturn(new LlmResponse("Como paciente, tengo dolor abdominal desde ayer.", null, null));
 
         String response = service.generateResponse(session, "Hola");
 
         assertTrue(response.contains("dolor abdominal"));
-        verify(llmClient, times(2)).generateChatCompletion(any(), anyDouble(), anyInt());
+        verify(llmClient, times(2)).generate(any());
     }
 
     @Test
@@ -267,7 +267,7 @@ class LlmPatientResponseServiceTest {
         properties.setEnabledSafetyFilter(false);
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
         when(responseSafetyFilter.applyOrFallback(anyString(), eq(false), anyString())).thenReturn(ResponseSafetyFilter.SAFE_FALLBACK);
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Soy una IA");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("Soy una IA", null, null));
 
         String response = service.generateResponse(session, "hola");
 
@@ -282,9 +282,9 @@ class LlmPatientResponseServiceTest {
         service.generateResponse(session, "¿Qué alergias tiene?");
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
-        verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
-        String noInfoInstruction = promptCaptor.getValue().get(1).content();
+        ArgumentCaptor<LlmRequest> requestCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmClient).generate(requestCaptor.capture());
+        String noInfoInstruction = requestCaptor.getValue().messages().get(1).content();
         assertTrue(noInfoInstruction.contains("No tengo información asociada a eso."));
         assertFalse(noInfoInstruction.contains("NO_INFO_ADMIN"));
     }
@@ -305,10 +305,10 @@ class LlmPatientResponseServiceTest {
         service.generateResponse(session, "hola");
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
-        verify(llmClient).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
-        String noInfoGuard = promptCaptor.getValue().get(2).content();
-        String systemLayeredPrompt = promptCaptor.getValue().get(0).content();
+        ArgumentCaptor<LlmRequest> requestCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmClient).generate(requestCaptor.capture());
+        String noInfoGuard = requestCaptor.getValue().messages().get(2).content();
+        String systemLayeredPrompt = requestCaptor.getValue().messages().get(0).content();
 
         assertTrue(noInfoGuard.contains("NO uses la respuesta sin información"));
         assertTrue(systemLayeredPrompt.contains("motivo: Dolor abdominal"));
@@ -390,9 +390,9 @@ class LlmPatientResponseServiceTest {
     void saludoConContextoValidoNoCaeEnFallbackTecnicoSiProveedorFalla() {
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
         when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of());
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"));
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("MODEL_INVALID"))
+                .thenThrow(new LlmClientException("MODEL_INVALID"));
 
         String response = service.generateResponse(session, "Hola");
 
@@ -423,7 +423,7 @@ class LlmPatientResponseServiceTest {
         );
         when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
                 .thenReturn(List.of(previousAssistant, previousUser));
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Dolor abdominal");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("Dolor abdominal", null, null));
 
         String response = service.generateResponse(session, "¿Hace cuánto tiene fiebre?");
 
@@ -454,14 +454,14 @@ class LlmPatientResponseServiceTest {
         );
         when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
                 .thenReturn(List.of(previousAssistant, previousUser));
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Dolor abdominal");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("Dolor abdominal", null, null));
 
         String response = service.generateResponse(session, "¿Desde cuándo?");
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
-        verify(llmClient, atLeastOnce()).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
-        List<LlmClient.ChatPromptMessage> messages = promptCaptor.getValue();
+        ArgumentCaptor<LlmRequest> requestCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmClient, atLeastOnce()).generate(requestCaptor.capture());
+        List<LlmMessage> messages = requestCaptor.getValue().messages();
 
         assertTrue(messages.stream().anyMatch(msg -> "assistant".equals(msg.role()) && "Dolor abdominal".equals(msg.content())));
         assertTrue(messages.stream().anyMatch(msg -> "user".equals(msg.role()) && "Hola".equals(msg.content())));
@@ -504,7 +504,7 @@ class LlmPatientResponseServiceTest {
         );
         when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
                 .thenReturn(List.of(previousAssistant, previousUser));
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("Dolor abdominal");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("Dolor abdominal", null, null));
 
         String response = service.generateResponse(session, "¿Hace cuánto se siente así?");
 
@@ -515,7 +515,7 @@ class LlmPatientResponseServiceTest {
     @Test
     void registraMetricaEnExitoYFallback() {
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt())).thenReturn("respuesta segura");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("respuesta segura", null, null));
 
         service.generateResponse(session, "hola");
 
@@ -527,9 +527,9 @@ class LlmPatientResponseServiceTest {
 
         reset(llmUsageRepository);
         when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("MODEL_INVALID"));
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("MODEL_INVALID"))
+                .thenThrow(new LlmClientException("MODEL_INVALID"));
 
         service.generateResponse(session, "hola");
 
@@ -543,15 +543,15 @@ class LlmPatientResponseServiceTest {
     @Test
     void provider429RetornaFallbackLocalNoNulo() {
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("Error HTTP proveedor LLM status=429 detail=You exceeded your current quota type: insufficient_quota"));
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("Error HTTP proveedor LLM status=429 detail=You exceeded your current quota type: insufficient_quota"));
 
         String response = service.generateResponse(session, "¿Qué siente ahora?");
 
         assertNotNull(response);
         assertFalse(response.isBlank());
         assertFalse(response.contains("Perdón, me cuesta responder"));
-        verify(llmClient, times(1)).generateChatCompletion(any(), anyDouble(), anyInt());
+        verify(llmClient, times(2)).generate(any());
 
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
@@ -563,8 +563,8 @@ class LlmPatientResponseServiceTest {
     @Test
     void multiplesTurnosConsecutivosCon429SiguenRespondiendoSinSilencio() {
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
-        when(llmClient.generateChatCompletion(any(), anyDouble(), anyInt()))
-                .thenThrow(new OpenAiLlmClient.LlmClientException("Error HTTP proveedor LLM status=429 detail=insufficient_quota"));
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("Error HTTP proveedor LLM status=429 detail=insufficient_quota"));
 
         String responseTurno1 = service.generateResponse(session, "hola");
         String responseTurno2 = service.generateResponse(session, "¿Desde cuándo?");
@@ -573,7 +573,7 @@ class LlmPatientResponseServiceTest {
         assertTrue(responseTurno1 != null && !responseTurno1.isBlank());
         assertTrue(responseTurno2 != null && !responseTurno2.isBlank());
         assertTrue(responseTurno3 != null && !responseTurno3.isBlank());
-        verify(llmClient, times(3)).generateChatCompletion(any(), anyDouble(), anyInt());
+        verify(llmClient, times(6)).generate(any());
     }
 
     private boolean readBooleanField(LlmUsage usage, String fieldName) {
@@ -598,10 +598,10 @@ class LlmPatientResponseServiceTest {
 
     @SuppressWarnings("unchecked")
     private String getLastContextualPrompt() {
-        ArgumentCaptor<List<LlmClient.ChatPromptMessage>> promptCaptor = ArgumentCaptor.forClass(List.class);
-        verify(llmClient, atLeastOnce()).generateChatCompletion(promptCaptor.capture(), anyDouble(), anyInt());
-        return promptCaptor.getValue().stream()
-                .map(LlmClient.ChatPromptMessage::content)
+        ArgumentCaptor<LlmRequest> requestCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmClient, atLeastOnce()).generate(requestCaptor.capture());
+        return requestCaptor.getValue().messages().stream()
+                .map(LlmMessage::content)
                 .filter(content -> content.contains("Contexto clínico del caso:"))
                 .findFirst()
                 .orElse("");

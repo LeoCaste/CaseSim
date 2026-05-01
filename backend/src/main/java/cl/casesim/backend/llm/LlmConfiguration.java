@@ -27,18 +27,36 @@ public class LlmConfiguration {
     }
 
     @Bean
-    public OpenAiLlmClient openAiLlmClient(LlmProperties llmProperties) {
-        return new OpenAiLlmClient(llmProperties);
+    public LlmProviderUrlResolver llmProviderUrlResolver() {
+        return new LlmProviderUrlResolver();
     }
 
     @Bean
-    public GroqLlmClient groqLlmClient(LlmProperties llmProperties) {
-        return new GroqLlmClient(llmProperties);
+    public LlmProviderErrorMapper llmProviderErrorMapper() {
+        return new LlmProviderErrorMapper();
+    }
+
+    @Bean
+    public OpenAiLlmClient openAiLlmClient(
+            LlmProperties llmProperties,
+            LlmProviderUrlResolver urlResolver,
+            LlmProviderErrorMapper errorMapper
+    ) {
+        return new OpenAiLlmClient(llmProperties, urlResolver, errorMapper);
+    }
+
+    @Bean
+    public GroqLlmClient groqLlmClient(
+            LlmProperties llmProperties,
+            LlmProviderUrlResolver urlResolver,
+            LlmProviderErrorMapper errorMapper
+    ) {
+        return new GroqLlmClient(llmProperties, urlResolver, errorMapper);
     }
 
     @Bean
     public LlmClient llmClient(LlmProperties llmProperties, OpenAiLlmClient openAiLlmClient, GroqLlmClient groqLlmClient) {
-        return new LlmClientRouter(llmProperties, openAiLlmClient, groqLlmClient);
+        return new LlmClientRouter(llmProperties, java.util.List.of(openAiLlmClient, groqLlmClient));
     }
 
     @Bean

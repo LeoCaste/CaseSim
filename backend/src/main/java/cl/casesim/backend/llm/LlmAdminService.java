@@ -192,7 +192,8 @@ public class LlmAdminService {
                 return new TestConnectionResponse(false, error);
             }
 
-            content = llmClient.generateChatCompletion(List.of(new LlmClient.ChatPromptMessage("user", "ping")));
+            LlmResponse response = llmClient.generate(new LlmRequest(List.of(new LlmMessage("user", "ping")), model, null, null));
+            content = response == null ? "" : response.content();
             if (!StringUtils.hasText(content)) {
                 fallbackUsed = true;
                 error = "Proveedor respondió sin contenido.";

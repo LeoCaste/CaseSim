@@ -19,9 +19,13 @@ public class OpenAiLlmClient implements LlmClient {
 
     private final RestClient restClient;
     private final LlmProperties llmProperties;
+    private final LlmProviderUrlResolver urlResolver;
+    private final LlmProviderErrorMapper errorMapper;
 
-    public OpenAiLlmClient(LlmProperties llmProperties) {
+    public OpenAiLlmClient(LlmProperties llmProperties, LlmProviderUrlResolver urlResolver, LlmProviderErrorMapper errorMapper) {
         this.llmProperties = llmProperties;
+        this.urlResolver = urlResolver;
+        this.errorMapper = errorMapper;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(llmProperties.getTimeoutMs());
         requestFactory.setReadTimeout(llmProperties.getTimeoutMs());
@@ -32,19 +36,22 @@ public class OpenAiLlmClient implements LlmClient {
     }
 
     @Override
-    public String generateChatCompletion(List<ChatPromptMessage> messages) {
-        return generateChatCompletion(messages, llmProperties.getTemperature(), llmProperties.getMaxTokens());
+    public String providerType() {
+        return LlmProviderSupport.OPENAI;
     }
 
     @Override
-    public String generateChatCompletion(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    public LlmResponse generate(LlmRequest request) {
+        List<LlmMessage> messages = request.messages();
+        Double temperature = request.temperature();
+        Integer maxTokens = request.maxTokens();
         String provider = LlmProviderSupport.normalize(llmProperties.getProvider());
         if (!LlmProviderSupport.isSupported(provider)) {
-            throw new LlmClientException("Proveedor no implementado: " + provider);
+            throw new cl.casesim.backend.llm.LlmClientException("Proveedor no implementado: " + provider);
         }
 
         if (!StringUtils.hasText(llmProperties.getApiKey())) {
-            throw new LlmClientException("API key no configurada.");
+            throw new cl.casesim.backend.llm.LlmClientException("API key no configurada.");
         }
 
         int attempts = Math.max(1, llmProperties.getMaxRetries() + 1);
@@ -71,40 +78,46 @@ public class OpenAiLlmClient implements LlmClient {
                         response == null ? List.of() : response.keySet());
                 String content = extractContent(provider, response);
                 if (!StringUtils.hasText(content)) {
-                    throw new LlmClientException("Proveedor LLM devolvió respuesta vacía o no parseable.");
+                    throw new cl.casesim.backend.llm.LlmClientException("Proveedor LLM devolvió respuesta vacía o no parseable.");
                 }
                 log.info("LLM client parsed response provider={} mode={} textLength={}",
                         provider,
                         requestMode,
                         content.length());
-                return content;
+                return new LlmResponse(
+                        content,
+                        null,
+                        new LlmProviderResult(provider, llmProperties.getModel(), resolveOpenAiCompatibleUrl(provider), null)
+                );
             } catch (RestClientException ex) {
                 if (ex instanceof ResourceAccessException) {
                     if (attempt == attempts) {
-                        throw new LlmClientException("Timeout al invocar proveedor LLM", ex);
+                        LlmProviderError pe = new LlmProviderError(LlmErrorCategory.TIMEOUT, null, "timeout");
+                        throw new cl.casesim.backend.llm.LlmClientException("Timeout al invocar proveedor LLM", ex, pe);
                     }
                     continue;
                 }
                 if (ex instanceof RestClientResponseException responseException) {
+                    LlmProviderError providerError = errorMapper.map(responseException.getStatusCode().value(), responseException.getResponseBodyAsString());
                     String message = buildHttpErrorMessage(responseException, requestPath);
                     if (attempt == attempts) {
-                        throw new LlmClientException(message, ex);
+                        throw new cl.casesim.backend.llm.LlmClientException(message, ex, providerError);
                     }
                     continue;
                 }
                 if (attempt == attempts) {
-                    throw new LlmClientException("Error invocando proveedor LLM", ex);
+                    throw new cl.casesim.backend.llm.LlmClientException("Error invocando proveedor LLM", ex, new LlmProviderError(LlmErrorCategory.UNKNOWN, null, "runtime_error"));
                 }
             }
         }
 
-        throw new LlmClientException("No fue posible obtener respuesta del proveedor LLM");
+        throw new cl.casesim.backend.llm.LlmClientException("No fue posible obtener respuesta del proveedor LLM");
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> executeProviderRequest(
             String provider,
-            List<ChatPromptMessage> messages,
+            List<LlmMessage> messages,
             Double temperature,
             Integer maxTokens
     ) {
@@ -131,18 +144,18 @@ public class OpenAiLlmClient implements LlmClient {
                     .body(buildGeminiPayload(messages, temperature, maxTokens))
                     .retrieve()
                     .body(Map.class);
-            default -> throw new LlmClientException("Proveedor no implementado: " + provider);
+            default -> throw new cl.casesim.backend.llm.LlmClientException("Proveedor no implementado: " + provider);
         };
     }
 
-    private Map<String, Object> buildOpenAiPayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens, String requestMode) {
+    private Map<String, Object> buildOpenAiPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens, String requestMode) {
         if ("responses".equals(requestMode)) {
             return buildOpenAiResponsesPayload(messages, temperature, maxTokens);
         }
         return buildOpenAiCompatiblePayload(messages, temperature, maxTokens);
     }
 
-    private Map<String, Object> buildOpenAiCompatiblePayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    private Map<String, Object> buildOpenAiCompatiblePayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
         double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
         int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
         return Map.of(
@@ -153,7 +166,7 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
-    private Map<String, Object> buildOpenAiResponsesPayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    private Map<String, Object> buildOpenAiResponsesPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
         double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
         int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
         return Map.of(
@@ -169,7 +182,7 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
-    private Map<String, Object> buildAnthropicPayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    private Map<String, Object> buildAnthropicPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
         double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
         int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
         return Map.of(
@@ -184,7 +197,7 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
-    private Map<String, Object> buildGeminiPayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    private Map<String, Object> buildGeminiPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
         double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
         int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
         return Map.of(
@@ -203,10 +216,10 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
-    private String buildSystemPrompt(List<ChatPromptMessage> messages) {
+    private String buildSystemPrompt(List<LlmMessage> messages) {
         return messages.stream()
                 .filter(message -> "system".equalsIgnoreCase(message.role()))
-                .map(ChatPromptMessage::content)
+                .map(LlmMessage::content)
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .reduce((left, right) -> left + "\n\n" + right)
@@ -379,7 +392,7 @@ public class OpenAiLlmClient implements LlmClient {
     }
 
     private String resolveOpenAiCompatibleUrl(String provider) {
-        return LlmProviderSupport.resolveBaseUrl(provider, llmProperties.getBaseUrl());
+        return urlResolver.resolve(provider, llmProperties.getBaseUrl());
     }
 
     private String resolveOpenAiRequestMode(String provider) {
@@ -404,11 +417,11 @@ public class OpenAiLlmClient implements LlmClient {
     }
 
     private String resolveAnthropicUrl() {
-        return LlmProviderSupport.resolveBaseUrl(LlmProviderSupport.ANTHROPIC, llmProperties.getBaseUrl());
+        return urlResolver.resolve(LlmProviderSupport.ANTHROPIC, llmProperties.getBaseUrl());
     }
 
     private String resolveGeminiUrl() {
-        String configured = LlmProviderSupport.resolveBaseUrl(LlmProviderSupport.GEMINI, llmProperties.getBaseUrl());
+        String configured = urlResolver.resolve(LlmProviderSupport.GEMINI, llmProperties.getBaseUrl());
         String base = configured.endsWith("/") ? configured.substring(0, configured.length() - 1) : configured;
         String model = StringUtils.hasText(llmProperties.getModel()) ? llmProperties.getModel().trim() : "gemini-1.5-flash";
         String encodedKey = URLEncoder.encode(llmProperties.getApiKey().trim(), StandardCharsets.UTF_8);
@@ -451,13 +464,4 @@ public class OpenAiLlmClient implements LlmClient {
         return sanitized.length() > 240 ? sanitized.substring(0, 240) + "..." : sanitized;
     }
 
-    public static class LlmClientException extends RuntimeException {
-        public LlmClientException(String message) {
-            super(message);
-        }
-
-        public LlmClientException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
-}

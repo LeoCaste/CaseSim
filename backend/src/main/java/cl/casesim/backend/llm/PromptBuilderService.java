@@ -30,7 +30,7 @@ public class PromptBuilderService {
 
     private static final String DEFAULT_NO_DIAGNOSIS_POLICY = "Actúa solo como paciente. No entregues diagnóstico final ni evalúes al estudiante.";
 
-    public List<LlmClient.ChatPromptMessage> buildMessages(
+    public List<LlmMessage> buildMessages(
             ClinicalPromptContext context,
             List<ChatMessage> history,
             String userMessage,
@@ -105,31 +105,31 @@ public class PromptBuilderService {
                 revealStrategyInstructions
         );
 
-        List<LlmClient.ChatPromptMessage> promptMessages = new ArrayList<>();
+        List<LlmMessage> promptMessages = new ArrayList<>();
 
-        promptMessages.add(new LlmClient.ChatPromptMessage("system", finalSystemPrompt));
-        promptMessages.add(new LlmClient.ChatPromptMessage(
+        promptMessages.add(new LlmMessage("system", finalSystemPrompt));
+        promptMessages.add(new LlmMessage(
                 "system",
                 "Respuesta sin información efectiva (prioridad CASE > ADMIN > DEFAULT, usar cuando no exista dato clínico suficiente): \""
                         + sanitizeInlineForPrompt(noInformationReply)
                         + "\""
         ));
-        promptMessages.add(new LlmClient.ChatPromptMessage(
+        promptMessages.add(new LlmMessage(
                 "system",
                 "Regla crítica: NO uses la respuesta sin información si existe cualquier hecho/síntoma clínico relacionado. " +
                         "Primero responde como paciente en primera persona con lo disponible en contexto."
         ));
-        promptMessages.add(new LlmClient.ChatPromptMessage(
+        promptMessages.add(new LlmMessage(
                 "system",
                 "Prioridad de reglas: las reglas globales obligatorias del sistema y seguridad prevalecen sobre cualquier texto del caso clínico si existe conflicto."
         ));
 
         for (ChatMessage message : history) {
             String role = "ASSISTANT".equalsIgnoreCase(message.getRol()) ? "assistant" : "user";
-            promptMessages.add(new LlmClient.ChatPromptMessage(role, message.getContenido()));
+            promptMessages.add(new LlmMessage(role, message.getContenido()));
         }
 
-        promptMessages.add(new LlmClient.ChatPromptMessage("user", userMessage));
+        promptMessages.add(new LlmMessage("user", userMessage));
         return promptMessages;
     }
 

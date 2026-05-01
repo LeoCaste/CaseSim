@@ -1,34 +1,41 @@
 package cl.casesim.backend.llm;
 
-import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class LlmClientRouter implements LlmClient {
 
     private final LlmProperties llmProperties;
-    private final LlmClient defaultClient;
-    private final LlmClient groqClient;
+    private final Map<String, LlmClient> clientsByProvider;
 
-    public LlmClientRouter(LlmProperties llmProperties, LlmClient defaultClient, LlmClient groqClient) {
+    public LlmClientRouter(LlmProperties llmProperties, java.util.List<LlmClient> clients) {
         this.llmProperties = llmProperties;
-        this.defaultClient = defaultClient;
-        this.groqClient = groqClient;
+        this.clientsByProvider = clients.stream()
+                .collect(Collectors.toMap(c -> LlmProviderSupport.normalize(c.providerType()), Function.identity()));
     }
 
     @Override
-    public String generateChatCompletion(List<ChatPromptMessage> messages) {
-        return resolveClient().generateChatCompletion(messages);
+    public String providerType() {
+        return "router";
     }
 
     @Override
-    public String generateChatCompletion(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
-        return resolveClient().generateChatCompletion(messages, temperature, maxTokens);
+    public LlmResponse generate(LlmRequest request) {
+        return resolveClient().generate(request);
     }
 
     private LlmClient resolveClient() {
         String provider = LlmProviderSupport.normalize(llmProperties.getProvider());
-        if (LlmProviderSupport.GROQ.equals(provider)) {
-            return groqClient;
+        if (LlmProviderSupport.OPENAI_COMPATIBLE.equals(provider)) {
+            provider = LlmProviderSupport.OPENAI;
         }
-        return defaultClient;
+        LlmClient client = clientsByProvider.get(provider);
+        if (client == null) {
+            throw new LlmClientException("Proveedor no soportado en router: " + provider,
+                    null,
+                    new LlmProviderError(LlmErrorCategory.INVALID_REQUEST, null, "provider=" + provider));
+        }
+        return client;
     }
 }

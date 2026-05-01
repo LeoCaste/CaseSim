@@ -134,7 +134,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     llmProperties.getRevealStrategy() == null ? RevealStrategy.PROGRESSIVE : llmProperties.getRevealStrategy()
             );
 
-            List<LlmClient.ChatPromptMessage> promptMessages = promptBuilderService.buildMessages(
+            List<LlmMessage> promptMessages = promptBuilderService.buildMessages(
                     context,
                     history,
                     userMessage,
@@ -147,11 +147,11 @@ public class LlmPatientResponseService implements PatientResponseService {
             );
 
             estimatedPromptTokens = promptMessages.stream()
-                    .map(LlmClient.ChatPromptMessage::content)
+                    .map(LlmMessage::content)
                     .mapToInt(llmUsageService::estimateTokens)
                     .sum();
             int promptChars = promptMessages.stream()
-                    .map(LlmClient.ChatPromptMessage::content)
+                    .map(LlmMessage::content)
                     .mapToInt(content -> content == null ? 0 : content.length())
                     .sum();
 
@@ -172,11 +172,13 @@ public class LlmPatientResponseService implements PatientResponseService {
 
             String llmResponse;
             try {
-                llmResponse = llmClient.generateChatCompletion(
+                LlmResponse providerResponse = llmClient.generate(new LlmRequest(
                         promptMessages,
+                        llmProperties.getModel(),
                         llmProperties.getTemperature(),
                         llmProperties.getMaxTokens()
-                );
+                ));
+                llmResponse = providerResponse == null ? "" : providerResponse.content();
                 log.info(
                         "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
                         requestId,
@@ -190,7 +192,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                         llmResponse == null ? 0 : llmResponse.length(),
                         llmUsageService.estimateTokens(llmResponse)
                 );
-            } catch (OpenAiLlmClient.LlmClientException ex) {
+            } catch (LlmClientException ex) {
                 llmResponse = tryGenerateFallbackPatientResponse(
                         context,
                         userMessage,
@@ -1057,7 +1059,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             NoInfoResolution noInfoResolution,
             String resolvedProvider,
             String resolvedModel,
-            OpenAiLlmClient.LlmClientException firstError
+            LlmClientException firstError
     ) {
         if ("QUOTA_EXCEEDED".equals(classifyFallbackCause(firstError))) {
             log.warn("LLM compact retry skipped due to quota provider={} model={} clinicalCaseId={}",
@@ -1099,7 +1101,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 compactFacts.isEmpty() ? originalContext.facts() : compactFacts
         );
 
-        List<LlmClient.ChatPromptMessage> compactPrompt = promptBuilderService.buildMessages(
+        List<LlmMessage> compactPrompt = promptBuilderService.buildMessages(
                 compactContext,
                 List.of(),
                 userMessage,
@@ -1112,14 +1114,16 @@ public class LlmPatientResponseService implements PatientResponseService {
         );
 
         try {
-            String retryResponse = llmClient.generateChatCompletion(
+            LlmResponse retryProviderResponse = llmClient.generate(new LlmRequest(
                     compactPrompt,
+                    llmProperties.getModel(),
                     llmProperties.getTemperature(),
                     llmProperties.getMaxTokens()
-            );
+            ));
+            String retryResponse = retryProviderResponse == null ? "" : retryProviderResponse.content();
             log.info("LLM compact retry succeeded provider={} model={}", resolvedProvider, resolvedModel);
             return retryResponse;
-        } catch (OpenAiLlmClient.LlmClientException retryError) {
+        } catch (LlmClientException retryError) {
             log.warn(
                     "LLM compact retry failed provider={} model={} reason={}",
                     resolvedProvider,
@@ -1130,7 +1134,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
     }
 
-    private String buildPromptPreview(List<LlmClient.ChatPromptMessage> promptMessages) {
+    private String buildPromptPreview(List<LlmMessage> promptMessages) {
         if (promptMessages == null || promptMessages.isEmpty()) {
             return "<empty-prompt>";
         }
@@ -1166,6 +1170,9 @@ public class LlmPatientResponseService implements PatientResponseService {
     private String classifyFallbackCause(RuntimeException ex) {
         if (ex == null) {
             return "UNKNOWN";
+        }
+        if (ex instanceof LlmClientException llmEx && llmEx.providerError() != null && llmEx.providerError().category() != null) {
+            return llmEx.providerError().category().name();
         }
         String message = sanitizeError(ex.getMessage()).toLowerCase(Locale.ROOT);
         if (message.contains("timeout") || message.contains("timed out")) {

@@ -24,7 +24,7 @@ class PromptBuilderServiceTest {
                 RevealStrategy.PROGRESSIVE
         );
 
-        List<LlmClient.ChatPromptMessage> messages = promptBuilderService.buildMessages(context, List.of(), "Me siento peor", behaviorConfig);
+        List<LlmMessage> messages = promptBuilderService.buildMessages(context, List.of(), "Me siento peor", behaviorConfig);
         String systemPrompt = messages.getFirst().content();
         String noInfoPrompt = messages.get(1).content();
         String noInfoGuardPrompt = messages.get(2).content();
@@ -76,7 +76,7 @@ class PromptBuilderServiceTest {
                 LocalDateTime.now()
         );
 
-        List<LlmClient.ChatPromptMessage> messages = promptBuilderService.buildMessages(
+        List<LlmMessage> messages = promptBuilderService.buildMessages(
                 context,
                 List.of(userHistory, assistantHistory),
                 "¿Tiene fiebre?",

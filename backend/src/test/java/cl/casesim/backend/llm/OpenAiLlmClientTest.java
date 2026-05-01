@@ -12,7 +12,7 @@ class OpenAiLlmClientTest {
     @Test
     void extractOpenAiResponsesContentUsaOutputTextDirecto() {
         LlmProperties properties = new LlmProperties();
-        OpenAiLlmClient client = new OpenAiLlmClient(properties);
+        OpenAiLlmClient client = new OpenAiLlmClient(properties, new LlmProviderUrlResolver(), new LlmProviderErrorMapper());
 
         String content = client.extractOpenAiResponsesContent(Map.of("output_text", " Hola desde Responses API "));
 
@@ -22,7 +22,7 @@ class OpenAiLlmClientTest {
     @Test
     void extractOpenAiResponsesContentConcatenaBloquesDeOutput() {
         LlmProperties properties = new LlmProperties();
-        OpenAiLlmClient client = new OpenAiLlmClient(properties);
+        OpenAiLlmClient client = new OpenAiLlmClient(properties, new LlmProviderUrlResolver(), new LlmProviderErrorMapper());
 
         Map<String, Object> response = Map.of(
                 "output", List.of(

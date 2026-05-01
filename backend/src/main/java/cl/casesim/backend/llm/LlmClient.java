@@ -1,15 +1,14 @@
 package cl.casesim.backend.llm;
 
-import java.util.List;
-
 public interface LlmClient {
 
-    String generateChatCompletion(List<ChatPromptMessage> messages);
+    String providerType();
 
-    default String generateChatCompletion(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
-        return generateChatCompletion(messages);
-    }
+    LlmResponse generate(LlmRequest request);
 
-    record ChatPromptMessage(String role, String content) {
+    default String generateChatCompletion(java.util.List<LlmMessage> messages, Double temperature, Integer maxTokens) {
+        LlmRequest request = new LlmRequest(messages, null, temperature, maxTokens);
+        LlmResponse response = generate(request);
+        return response == null ? "" : response.content();
     }
 }

@@ -71,7 +71,7 @@ class LlmAdminServiceTest {
         llmProperties.setProvider("openai");
         llmProperties.setModel("gpt-4o-mini");
         llmProperties.setApiKey("sk-test");
-        when(llmClient.generateChatCompletion(any())).thenReturn("pong");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("pong", null, null));
 
         TestConnectionResponse response = service.testConnection();
 

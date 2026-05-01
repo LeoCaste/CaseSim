@@ -22,9 +22,13 @@ public class GroqLlmClient implements LlmClient {
 
     private final RestClient restClient;
     private final LlmProperties llmProperties;
+    private final LlmProviderUrlResolver urlResolver;
+    private final LlmProviderErrorMapper errorMapper;
 
-    public GroqLlmClient(LlmProperties llmProperties) {
+    public GroqLlmClient(LlmProperties llmProperties, LlmProviderUrlResolver urlResolver, LlmProviderErrorMapper errorMapper) {
         this.llmProperties = llmProperties;
+        this.urlResolver = urlResolver;
+        this.errorMapper = errorMapper;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(llmProperties.getTimeoutMs());
         requestFactory.setReadTimeout(llmProperties.getTimeoutMs());
@@ -35,22 +39,25 @@ public class GroqLlmClient implements LlmClient {
     }
 
     @Override
-    public String generateChatCompletion(List<ChatPromptMessage> messages) {
-        return generateChatCompletion(messages, llmProperties.getTemperature(), llmProperties.getMaxTokens());
+    public String providerType() {
+        return LlmProviderSupport.GROQ;
     }
 
     @Override
-    public String generateChatCompletion(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    public LlmResponse generate(LlmRequest request) {
+        List<LlmMessage> messages = request.messages();
+        Double temperature = request.temperature();
+        Integer maxTokens = request.maxTokens();
         String provider = LlmProviderSupport.normalize(llmProperties.getProvider());
         if (!LlmProviderSupport.GROQ.equals(provider)) {
-            throw new OpenAiLlmClient.LlmClientException("Proveedor no implementado: " + provider);
+            throw new LlmClientException("Proveedor no implementado: " + provider);
         }
         if (!StringUtils.hasText(llmProperties.getApiKey())) {
-            throw new OpenAiLlmClient.LlmClientException("API key no configurada.");
+            throw new LlmClientException("API key no configurada.");
         }
 
         int attempts = Math.max(1, llmProperties.getMaxRetries() + 1);
-        String resolvedUrl = resolveGroqUrl();
+        String resolvedUrl = urlResolver.resolve(LlmProviderSupport.GROQ, llmProperties.getBaseUrl());
         String requestPath = resolveRequestPath(resolvedUrl);
         String requestHost = resolveRequestHost(resolvedUrl);
         String authHeader = "Bearer " + llmProperties.getApiKey().trim();
@@ -80,19 +87,20 @@ public class GroqLlmClient implements LlmClient {
 
                 String content = extractGroqContent(response);
                 if (!StringUtils.hasText(content)) {
-                    throw new OpenAiLlmClient.LlmClientException("Proveedor LLM devolvió respuesta vacía o no parseable.");
+                    throw new LlmClientException("Proveedor LLM devolvió respuesta vacía o no parseable.");
                 }
-                return content;
+                return new LlmResponse(content, null, new LlmProviderResult(provider, llmProperties.getModel(), resolvedUrl, null));
             } catch (RestClientException ex) {
                 if (ex instanceof ResourceAccessException) {
                     if (attempt == attempts) {
-                        throw new OpenAiLlmClient.LlmClientException("Timeout al invocar proveedor LLM", ex);
+                        throw new LlmClientException("Timeout al invocar proveedor LLM", ex);
                     }
                     continue;
                 }
                 if (ex instanceof RestClientResponseException responseException) {
                     int status = responseException.getStatusCode().value();
-                    String category = mapHttpErrorCategory(status, responseException.getResponseBodyAsString());
+                    LlmProviderError providerError = errorMapper.map(status, responseException.getResponseBodyAsString());
+                    String category = providerError.category().name();
                     log.warn("LLM client http error provider={} model={} host={} path={} status={} category={} errorBody={} authHeaderPresent={} authPrefix={}",
                             provider,
                             llmProperties.getModel(),
@@ -105,20 +113,20 @@ public class GroqLlmClient implements LlmClient {
                             maskedAuthPrefix(authHeader));
                     String message = buildHttpErrorMessage(responseException, requestPath);
                     if (attempt == attempts) {
-                        throw new OpenAiLlmClient.LlmClientException(message, ex);
+                        throw new LlmClientException(message, ex, providerError);
                     }
                     continue;
                 }
                 if (attempt == attempts) {
-                    throw new OpenAiLlmClient.LlmClientException("Error invocando proveedor LLM", ex);
+                    throw new LlmClientException("Error invocando proveedor LLM", ex);
                 }
             }
         }
 
-        throw new OpenAiLlmClient.LlmClientException("No fue posible obtener respuesta del proveedor LLM");
+        throw new LlmClientException("No fue posible obtener respuesta del proveedor LLM");
     }
 
-    Map<String, Object> buildGroqPayload(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+    Map<String, Object> buildGroqPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
         double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
         int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
         return Map.of(
@@ -158,7 +166,7 @@ public class GroqLlmClient implements LlmClient {
     }
 
     String mapHttpErrorMessage(int status, String body, String requestPath) {
-        String category = mapHttpErrorCategory(status, body);
+        String category = errorMapper.map(status, body).category().name();
 
         String sanitizedBody = sanitizeProviderBody(body);
         String suffix = StringUtils.hasText(sanitizedBody) ? " detail=" + sanitizedBody : "";

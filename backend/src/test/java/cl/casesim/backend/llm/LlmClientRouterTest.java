@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LlmClientRouterTest {
 
@@ -13,12 +14,12 @@ class LlmClientRouterTest {
         LlmProperties properties = new LlmProperties();
         properties.setProvider("groq");
 
-        RecordingClient defaultClient = new RecordingClient("default");
+        RecordingClient defaultClient = new RecordingClient("openai", "default");
         RecordingClient groqClient = new RecordingClient("groq");
 
-        LlmClientRouter router = new LlmClientRouter(properties, defaultClient, groqClient);
+        LlmClientRouter router = new LlmClientRouter(properties, List.of(defaultClient, groqClient));
 
-        String result = router.generateChatCompletion(List.of(new LlmClient.ChatPromptMessage("user", "hola")), 0.4, 100);
+        String result = router.generateChatCompletion(List.of(new LlmMessage("user", "hola")), 0.4, 100);
 
         assertEquals("groq", result);
         assertEquals(0, defaultClient.calls);
@@ -30,36 +31,53 @@ class LlmClientRouterTest {
         LlmProperties properties = new LlmProperties();
         properties.setProvider("openai");
 
-        RecordingClient defaultClient = new RecordingClient("default");
+        RecordingClient defaultClient = new RecordingClient("openai", "default");
         RecordingClient groqClient = new RecordingClient("groq");
 
-        LlmClientRouter router = new LlmClientRouter(properties, defaultClient, groqClient);
+        LlmClientRouter router = new LlmClientRouter(properties, List.of(defaultClient, groqClient));
 
-        String result = router.generateChatCompletion(List.of(new LlmClient.ChatPromptMessage("user", "hola")), 0.4, 100);
+        String result = router.generateChatCompletion(List.of(new LlmMessage("user", "hola")), 0.4, 100);
 
         assertEquals("default", result);
         assertEquals(1, defaultClient.calls);
         assertEquals(0, groqClient.calls);
     }
 
+    @Test
+    void providerDesconocidoFallaClaro() {
+        LlmProperties properties = new LlmProperties();
+        properties.setProvider("desconocido");
+        LlmClientRouter router = new LlmClientRouter(properties, List.of(new RecordingClient("openai"), new RecordingClient("groq")));
+
+        LlmClientException ex = assertThrows(LlmClientException.class,
+                () -> router.generate(new LlmRequest(List.of(new LlmMessage("user", "hola")), "m", 0.1, 10)));
+        assertEquals(LlmErrorCategory.INVALID_REQUEST, ex.providerError().category());
+    }
+
     private static class RecordingClient implements LlmClient {
+        private final String provider;
         private final String response;
         private int calls = 0;
 
         private RecordingClient(String response) {
+            this.provider = response;
+            this.response = response;
+        }
+
+        private RecordingClient(String provider, String response) {
+            this.provider = provider;
             this.response = response;
         }
 
         @Override
-        public String generateChatCompletion(List<ChatPromptMessage> messages) {
-            calls++;
-            return response;
+        public String providerType() {
+            return provider;
         }
 
         @Override
-        public String generateChatCompletion(List<ChatPromptMessage> messages, Double temperature, Integer maxTokens) {
+        public LlmResponse generate(LlmRequest request) {
             calls++;
-            return response;
+            return new LlmResponse(response, null, null);
         }
     }
 }
