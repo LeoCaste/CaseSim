@@ -23,6 +23,8 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class LlmUsageService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LlmUsageService.class);
+
     private static final int MAX_PROVIDER_LENGTH = 80;
     private static final int MAX_MODEL_LENGTH = 100;
     private static final BigDecimal TOKENS_PER_THOUSAND = new BigDecimal("1000");
@@ -62,6 +64,11 @@ public class LlmUsageService {
             boolean fallbackUsed,
             String error
     ) {
+        if (sessionId == null) {
+            log.debug("Se omite persistencia de uso LLM sin sesion_id (provider={}, model={}).", provider, model);
+            return;
+        }
+
         LocalDateTime now = LocalDateTime.now();
         int safeTokensInput = Math.max(tokensInput, 0);
         int safeTokensOutput = Math.max(tokensOutput, 0);

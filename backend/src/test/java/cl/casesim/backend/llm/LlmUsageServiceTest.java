@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -227,5 +228,67 @@ class LlmUsageServiceTest {
         LlmUsage saved = captor.getValue();
         assertEquals("unknown", ReflectionTestUtils.getField(saved, "provider"));
         assertEquals(100, ((String) ReflectionTestUtils.getField(saved, "model")).length());
+    }
+
+    @Test
+    void registerCallShouldSkipPersistenceWhenSessionIdIsNull() {
+        service.registerCall(
+                null,
+                "groq",
+                "llama-3.3-70b-versatile",
+                10,
+                10,
+                100,
+                false,
+                null
+        );
+
+        verify(llmUsageRepository, never()).save(any(LlmUsage.class));
+    }
+
+    @Test
+    void registerCallShouldPersistRealErrorWhenNoFallback() {
+        when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.registerCall(
+                UUID.randomUUID(),
+                "groq",
+                "llama-3.3-70b-versatile",
+                10,
+                8,
+                150,
+                false,
+                "  PROVIDER_TIMEOUT  "
+        );
+
+        ArgumentCaptor<LlmUsage> captor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository).save(captor.capture());
+        LlmUsage saved = captor.getValue();
+
+        assertEquals(false, ReflectionTestUtils.getField(saved, "fallbackUsed"));
+        assertEquals("PROVIDER_TIMEOUT", ReflectionTestUtils.getField(saved, "error"));
+    }
+
+    @Test
+    void registerCallShouldNormalizeBlankErrorToNull() {
+        when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.registerCall(
+                UUID.randomUUID(),
+                "openai",
+                "gpt-4o-mini",
+                10,
+                8,
+                110,
+                true,
+                "   "
+        );
+
+        ArgumentCaptor<LlmUsage> captor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository).save(captor.capture());
+        LlmUsage saved = captor.getValue();
+
+        assertEquals(true, ReflectionTestUtils.getField(saved, "fallbackUsed"));
+        assertNull(ReflectionTestUtils.getField(saved, "error"));
     }
 }

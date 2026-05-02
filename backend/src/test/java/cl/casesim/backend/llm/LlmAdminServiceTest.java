@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -73,6 +74,23 @@ class LlmAdminServiceTest {
         llmProperties.setModel("gpt-4o-mini");
         llmProperties.setApiKey("sk-test");
         when(llmClient.generate(any())).thenReturn(new LlmResponse("pong", null, null));
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertTrue(response.success());
+        assertEquals("Conexión exitosa.", response.message());
+        verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+    }
+
+    @Test
+    void testConnectionShouldSucceedEvenWhenMetricsRegistrationFails() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("gpt-4o-mini");
+        llmProperties.setApiKey("sk-test");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse("pong", null, null));
+        doThrow(new RuntimeException("insert failed")).when(llmUsageService)
+                .registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
 
         TestConnectionResponse response = service.testConnection();
 

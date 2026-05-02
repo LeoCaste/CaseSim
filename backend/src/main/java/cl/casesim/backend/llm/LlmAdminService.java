@@ -214,16 +214,20 @@ public class LlmAdminService {
             return new TestConnectionResponse(false, "No fue posible conectar con el proveedor LLM.");
         } finally {
             int latency = (int) (System.currentTimeMillis() - startedAt);
-            llmUsageService.registerCall(
-                    null,
-                    provider,
-                    model,
-                    llmUsageService.estimateTokens("ping"),
-                    llmUsageService.estimateTokens(content),
-                    latency,
-                    fallbackUsed,
-                    error
-            );
+            try {
+                llmUsageService.registerCall(
+                        null,
+                        provider,
+                        model,
+                        llmUsageService.estimateTokens("ping"),
+                        llmUsageService.estimateTokens(content),
+                        latency,
+                        fallbackUsed,
+                        error
+                );
+            } catch (RuntimeException metricsException) {
+                log.warn("No se pudo registrar métrica de test de conexión LLM: {}", sanitizeError(metricsException.getMessage()));
+            }
         }
     }
 

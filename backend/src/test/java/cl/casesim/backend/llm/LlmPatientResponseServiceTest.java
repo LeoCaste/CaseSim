@@ -174,6 +174,12 @@ class LlmPatientResponseServiceTest {
 
         assertTrue(response.contains("dolor abdominal"));
         verify(llmClient, times(2)).generate(any());
+
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertFalse(readBooleanField(usage, "fallbackUsed"));
+        assertEquals(null, readStringField(usage, "error"));
     }
 
     @Test

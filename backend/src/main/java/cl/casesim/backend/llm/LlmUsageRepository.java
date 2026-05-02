@@ -36,7 +36,7 @@ public interface LlmUsageRepository extends JpaRepository<LlmUsage, UUID> {
               and (:model is null or lower(modelo) = :model)
               and (
                 :status = 'all'
-                or (:status = 'error' and error_detalle is not null and trim(error_detalle) <> '')
+                or (:status = 'error' and fallback_usado = false and error_detalle is not null and trim(error_detalle) <> '')
                 or (:status = 'fallback' and fallback_usado = true)
               )
             group by cast(creado_en as date)
@@ -57,7 +57,7 @@ public interface LlmUsageRepository extends JpaRepository<LlmUsage, UUID> {
               coalesce(sum(completion_tokens), 0) as totalCompletionTokens,
               avg(latencia_ms) as avgLatencyMs,
               coalesce(sum(case when fallback_usado then 1 else 0 end), 0) as fallbackCount,
-              coalesce(sum(case when error_detalle is not null and trim(error_detalle) <> '' then 1 else 0 end), 0) as errorCount
+              coalesce(sum(case when fallback_usado = false and error_detalle is not null and trim(error_detalle) <> '' then 1 else 0 end), 0) as errorCount
             from uso_llm
             """, nativeQuery = true)
     LlmUsageSummaryProjection getSummary();
@@ -70,14 +70,14 @@ public interface LlmUsageRepository extends JpaRepository<LlmUsage, UUID> {
               coalesce(sum(completion_tokens), 0) as totalCompletionTokens,
               avg(latencia_ms) as avgLatencyMs,
               coalesce(sum(case when fallback_usado then 1 else 0 end), 0) as fallbackCount,
-              coalesce(sum(case when error_detalle is not null and trim(error_detalle) <> '' then 1 else 0 end), 0) as errorCount
+              coalesce(sum(case when fallback_usado = false and error_detalle is not null and trim(error_detalle) <> '' then 1 else 0 end), 0) as errorCount
             from uso_llm
             where (:fromDate is null or cast(creado_en as date) >= :fromDate)
               and (:toDate is null or cast(creado_en as date) <= :toDate)
               and (:model is null or lower(modelo) = :model)
               and (
                 :status = 'all'
-                or (:status = 'error' and error_detalle is not null and trim(error_detalle) <> '')
+                or (:status = 'error' and fallback_usado = false and error_detalle is not null and trim(error_detalle) <> '')
                 or (:status = 'fallback' and fallback_usado = true)
               )
             """, nativeQuery = true)
