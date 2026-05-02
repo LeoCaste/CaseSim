@@ -50,14 +50,6 @@ describe('AdminLlmConfigPage', () => {
     expect(component.form.baseUrl).toBe('https://api.groq.com/openai/v1');
   });
 
-  it('debe actualizar modelo al cambiar provider cuando modelo actual no pertenece al nuevo provider', () => {
-    component.form.model = 'gpt-4o-mini';
-
-    component.onProviderChange('anthropic');
-
-    expect(component.form.model).toBe('gpt-4o-mini');
-  });
-
   it('debe seleccionar modelo sugerido por defecto cuando provider cambia y modelo está vacío', () => {
     component.form.model = '';
 
@@ -66,12 +58,8 @@ describe('AdminLlmConfigPage', () => {
     expect(component.form.model).toBe('llama-3.1-8b-instant');
   });
 
-  it('debe mostrar búsqueda al elegir "Buscar otro modelo..."', () => {
-    component.onModelOptionChange('__search_other_model__');
-    fixture.detectChanges();
-
-    const searchInput: HTMLInputElement = fixture.nativeElement.querySelector('#modelSearch');
-    expect(searchInput).toBeTruthy();
+  it('debe exponer solo OpenAI y Groq en selector de proveedor', () => {
+    expect(component.providers).toEqual(['openai', 'groq']);
   });
 
   it('no debe permitir guardar cuando modelo no está en catálogo conocido', () => {

@@ -25,6 +25,11 @@ public final class LlmProviderSupport {
             OLLAMA
     );
 
+    private static final Set<String> CONFIGURABLE_FOR_REAL_OPERATION = Set.of(
+            OPENAI,
+            GROQ
+    );
+
     private LlmProviderSupport() {
     }
 
@@ -37,6 +42,10 @@ public final class LlmProviderSupport {
 
     public static boolean isSupported(String provider) {
         return SUPPORTED.contains(normalize(provider));
+    }
+
+    public static boolean isConfigurableForRealOperation(String provider) {
+        return CONFIGURABLE_FOR_REAL_OPERATION.contains(normalize(provider));
     }
 
     public static String defaultBaseUrl(String provider) {

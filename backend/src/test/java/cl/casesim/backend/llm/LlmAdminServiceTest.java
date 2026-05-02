@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -158,6 +159,97 @@ class LlmAdminServiceTest {
         when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
 
         assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+    }
+
+    @Test
+    void updateConfigShouldRejectAnthropicAsNotImplementedForRealOperation() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "anthropic",
+                "claude-3-5-sonnet",
+                null,
+                true,
+                "sk-new",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+
+        assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+    }
+
+    @Test
+    void updateConfigShouldRequireApiKeyWhenNoExistingConfig() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "gpt-4.1-mini",
+                null,
+                true,
+                "   ",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+    }
+
+    @Test
+    void updateConfigShouldNotOverrideExistingApiKeyWhenRequestApiKeyIsBlank() {
+        LocalDateTime now = LocalDateTime.now();
+        LlmConfig existing = new LlmConfig(
+                UUID.randomUUID(),
+                "openai",
+                "gpt-4o-mini",
+                "https://api.openai.com/v1/chat/completions",
+                true,
+                llmApiKeyCipher.encrypt("sk-existing"),
+                now,
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE,
+                6,
+                0.4,
+                350,
+                true
+        );
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "gpt-4.1-mini",
+                null,
+                true,
+                "   ",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(existing));
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertTrue(response.apiKeyConfigured());
+        assertNotNull(response.maskedApiKey());
+        assertEquals("sk-existing", llmProperties.getApiKey());
     }
 
     @Test

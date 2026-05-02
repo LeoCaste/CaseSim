@@ -13,7 +13,7 @@ import {
   RECOMMENDED_PATIENT_BEHAVIOR_CONFIG,
   UpdateLlmConfigPayload
 } from '../../../../core/models/admin-llm.model';
-import { LLM_PROVIDER_CATALOG, LLM_PROVIDER_LIST } from '../../../../core/models/llm-provider-catalog';
+import { ADMIN_LLM_ACTIVE_PROVIDERS, LLM_PROVIDER_CATALOG } from '../../../../core/models/llm-provider-catalog';
 import { AdminLlmService } from '../../../../core/services/admin-llm.service';
 import { UserContext } from '../../../../core/services/user-context';
 
@@ -46,11 +46,7 @@ export class AdminLlmConfigPage implements OnInit {
   saveError = '';
   testFeedback = '';
   testFeedbackStatus: 'success' | 'error' | null = null;
-  modelSelectorMode: 'suggested' | 'search' = 'suggested';
-  modelSearchTerm = '';
-  selectedSearchModel = '';
-
-  readonly providers: LlmProvider[] = LLM_PROVIDER_LIST;
+  readonly providers: LlmProvider[] = ADMIN_LLM_ACTIVE_PROVIDERS;
   readonly revealStrategies: PatientRevealStrategy[] = ['PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'];
   readonly basePromptMaxLength = 4000;
   readonly additionalRulesMaxLength = 3000;
@@ -59,9 +55,6 @@ export class AdminLlmConfigPage implements OnInit {
   readonly maxTokensMax = 1024;
   readonly suggestedModelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
     Object.entries(LLM_PROVIDER_CATALOG).map(([provider, defaults]) => [provider, defaults.suggestedModels])
-  ) as Record<LlmProvider, LlmModel[]>;
-  readonly knownModelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
-    Object.entries(LLM_PROVIDER_CATALOG).map(([provider, defaults]) => [provider, defaults.knownModels])
   ) as Record<LlmProvider, LlmModel[]>;
 
   constructor(
@@ -137,7 +130,6 @@ export class AdminLlmConfigPage implements OnInit {
             apiKey: '',
             patientBehavior: this.clonePatientBehavior(updatedConfig.patientBehavior)
           };
-          this.syncModelSelectorState();
           this.saveMessage = 'Configuración guardada correctamente.';
           this.triggerViewUpdate();
         },
@@ -250,7 +242,6 @@ export class AdminLlmConfigPage implements OnInit {
     }
 
     this.form.baseUrl = this.resolveBaseUrl(null, provider);
-    this.syncModelSelectorState();
   }
 
   getProviderLabel(providerInput: string): string {
@@ -261,34 +252,6 @@ export class AdminLlmConfigPage implements OnInit {
   get modelOptions(): LlmModel[] {
     const provider = this.normalizeProvider(this.form.provider);
     return [...(this.suggestedModelsByProvider[provider] ?? [])];
-  }
-
-  get filteredKnownModels(): LlmModel[] {
-    const provider = this.normalizeProvider(this.form.provider);
-    const known = this.knownModelsByProvider[provider] ?? [];
-    const term = this.modelSearchTerm.trim().toLowerCase();
-    if (!term) {
-      return known;
-    }
-
-    return known.filter((model) => model.toLowerCase().includes(term));
-  }
-
-  get shouldShowModelSearch(): boolean {
-    return this.modelSelectorMode === 'search';
-  }
-
-  get hasUnknownModelMatch(): boolean {
-    return this.filteredKnownModels.length === 0;
-  }
-
-  get isCurrentModelSuggested(): boolean {
-    const currentModel = this.form.model?.trim();
-    if (!currentModel) {
-      return false;
-    }
-
-    return this.modelOptions.includes(currentModel as LlmModel);
   }
 
   get isApiKeyRequired(): boolean {
@@ -340,7 +303,9 @@ export class AdminLlmConfigPage implements OnInit {
             apiKey: '',
             patientBehavior: this.clonePatientBehavior(config.patientBehavior)
           };
-          this.syncModelSelectorState();
+          if (!this.form.model?.trim()) {
+            this.form.model = this.getProviderDefaultModel(provider);
+          }
           this.triggerViewUpdate();
         },
         error: (error: unknown) => {
@@ -360,18 +325,6 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private normalizeProvider(provider: string): LlmProvider {
-    if (provider === 'openai-compatible') {
-      return 'openai-compatible';
-    }
-
-    if (provider === 'anthropic') {
-      return 'anthropic';
-    }
-
-    if (provider === 'gemini') {
-      return 'gemini';
-    }
-
     if (provider === 'groq') {
       return 'groq';
     }
@@ -380,7 +333,7 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private normalizeModel(provider: LlmProvider, model: string): LlmModel {
-    const options = this.knownModelsByProvider[provider] ?? [];
+    const options = this.modelOptionsByProvider(provider);
     const trimmedModel = model?.trim();
     const defaultModel = this.getProviderDefaultModel(provider);
 
@@ -392,6 +345,9 @@ export class AdminLlmConfigPage implements OnInit {
       return defaultModel;
     }
 
+    if (!options.includes(trimmedModel as LlmModel)) {
+      return defaultModel;
+    }
 
     return trimmedModel as LlmModel;
   }
@@ -453,9 +409,9 @@ export class AdminLlmConfigPage implements OnInit {
       return 'Debes seleccionar un modelo válido.';
     }
 
-    const validModels = this.knownModelsByProvider[provider] ?? [];
+    const validModels = this.modelOptionsByProvider(provider);
     if (validModels.length > 0 && !validModels.includes(model as LlmModel)) {
-      return `Modelo no permitido para ${provider}. Selecciona un modelo conocido.`;
+      return `Modelo no permitido para ${this.getProviderLabel(provider)}. Selecciona un modelo sugerido.`;
     }
 
     return null;
@@ -466,46 +422,12 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onModelOptionChange(value: string): void {
-    const customSearchToken = '__search_other_model__';
-    if (value === customSearchToken) {
-      this.modelSelectorMode = 'search';
-      this.modelSearchTerm = '';
-      this.selectedSearchModel = '';
-      return;
-    }
-
     this.form.model = value;
-    this.modelSelectorMode = 'suggested';
-    this.modelSearchTerm = '';
-    this.selectedSearchModel = '';
-  }
-
-  onSearchModelSelect(model: string): void {
-    this.selectedSearchModel = model;
-    this.form.model = model;
-  }
-
-  onUseSearchedModel(): void {
-    if (!this.selectedSearchModel) {
-      this.saveError = 'Debes seleccionar un modelo de la lista de resultados.';
-      return;
-    }
-
-    this.form.model = this.selectedSearchModel;
-    this.modelSelectorMode = 'suggested';
-    this.modelSearchTerm = '';
-    this.selectedSearchModel = '';
     this.saveError = '';
   }
 
-  onCancelModelSearch(): void {
-    this.syncModelSelectorState();
-  }
-
-  private syncModelSelectorState(): void {
-    this.modelSearchTerm = '';
-    this.selectedSearchModel = '';
-    this.modelSelectorMode = this.isCurrentModelSuggested ? 'suggested' : 'search';
+  private modelOptionsByProvider(provider: LlmProvider): LlmModel[] {
+    return [...(this.suggestedModelsByProvider[provider] ?? [])];
   }
 
   private clonePatientBehavior(source: PatientBehaviorConfig): PatientBehaviorConfig {

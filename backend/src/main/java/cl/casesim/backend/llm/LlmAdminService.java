@@ -86,13 +86,14 @@ public class LlmAdminService {
     @Transactional
     public LlmConfigResponse updateConfig(UpdateLlmConfigRequest request) {
         LlmConfig existing = llmConfigRepository.findFirstByOrderByUpdatedAtDesc().orElse(null);
-        String resolvedApiKey = resolveApiKey(request.apiKey(), existing);
-        String encryptedApiKey = llmApiKeyCipher.encrypt(resolvedApiKey);
         LocalDateTime now = LocalDateTime.now();
         String provider = normalizeProvider(request.provider());
         validateProvider(provider);
         String model = normalizeAndValidateModel(provider, request.model());
         String baseUrl = resolveBaseUrl(provider, request.baseUrl());
+        String resolvedApiKey = resolveApiKey(request.apiKey(), existing);
+        ensureApiKeyAvailable(resolvedApiKey);
+        String encryptedApiKey = llmApiKeyCipher.encrypt(resolvedApiKey);
         String systemPrompt = defaultSystemPrompt(request.resolvedSystemPrompt());
         String behaviorRules = defaultBehaviorRules(request.resolvedPatientBehaviorRules());
         String noInfoResponse = defaultNoInfoResponse(request.resolvedNoInfoResponse());
@@ -289,10 +290,19 @@ public class LlmAdminService {
     private String resolveApiKey(String requestApiKey, LlmConfig existing) {
         if (requestApiKey != null) {
             String normalized = requestApiKey.trim();
-            return normalized.isEmpty() ? null : normalized;
+            if (normalized.isEmpty()) {
+                return existing == null ? null : llmApiKeyCipher.decrypt(existing.getApiKeySecret());
+            }
+            return normalized;
         }
 
         return existing == null ? null : llmApiKeyCipher.decrypt(existing.getApiKeySecret());
+    }
+
+    private void ensureApiKeyAvailable(String apiKey) {
+        if (!StringUtils.hasText(apiKey)) {
+            throw new BadRequestException("La API key es obligatoria cuando no existe una configurada.");
+        }
     }
 
     private String maskApiKey(String apiKey) {
@@ -350,8 +360,8 @@ public class LlmAdminService {
     }
 
     private void validateProvider(String provider) {
-        if (!LlmProviderSupport.isSupported(provider)) {
-            throw new BadRequestException("Provider no soportado. Use: openai, openai-compatible, anthropic, gemini, groq, openrouter u ollama.");
+        if (!LlmProviderSupport.isConfigurableForRealOperation(provider)) {
+            throw new BadRequestException("Provider no soportado para operación real. Use: openai o groq.");
         }
     }
 

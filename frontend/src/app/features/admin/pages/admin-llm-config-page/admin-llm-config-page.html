@@ -40,49 +40,14 @@
         <label for="model">Modelo</label>
         <select
           id="model"
-          [ngModel]="isCurrentModelSuggested ? form.model : ''"
+          [ngModel]="form.model"
           (ngModelChange)="onModelOptionChange($event)"
           [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
         >
           <option value="" disabled>Selecciona un modelo recomendado</option>
           <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
-          <option value="__search_other_model__">Buscar otro modelo...</option>
         </select>
-
-        <small>Puedes escribir manualmente otro modelo compatible con el proveedor.</small>
-
-        <div *ngIf="shouldShowModelSearch" class="admin-llm-config__model-search">
-          <input
-            id="modelSearch"
-            type="text"
-            [(ngModel)]="modelSearchTerm"
-            [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
-            placeholder="Busca un modelo conocido del proveedor"
-          />
-
-          <p *ngIf="hasUnknownModelMatch" class="admin-llm-config__hint">
-            No se encontraron modelos conocidos para este proveedor.
-          </p>
-
-          <ul *ngIf="!hasUnknownModelMatch" class="admin-llm-config__model-results" role="listbox" aria-label="Resultados de modelos">
-            <li *ngFor="let model of filteredKnownModels">
-              <button
-                type="button"
-                class="admin-llm-config__model-result-btn"
-                (click)="onSearchModelSelect(model)"
-                [class.is-selected]="selectedSearchModel === model"
-                [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
-              >
-                {{ model }}
-              </button>
-            </li>
-          </ul>
-
-          <div class="admin-llm-config__inline-actions">
-            <button type="button" class="link" (click)="onUseSearchedModel()" [disabled]="!selectedSearchModel">Usar modelo seleccionado</button>
-            <button type="button" class="link" (click)="onCancelModelSearch()">Cancelar</button>
-          </div>
-        </div>
+        <small>Selecciona un modelo sugerido para el proveedor activo.</small>
       </div>
 
       <div class="admin-llm-config__row">
@@ -99,7 +64,8 @@
           [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
         />
         <small *ngIf="hasApiKeyMask">API key actual: {{ config.maskedApiKey }}</small>
-        <small *ngIf="isApiKeyRequired">Dejar vacío para mantener la API key actual.</small>
+        <small *ngIf="isApiKeyRequired && config.apiKeyConfigured">Dejar vacío para mantener la API key actual.</small>
+        <small *ngIf="isApiKeyRequired && !config.apiKeyConfigured">API key requerida para habilitar este proveedor.</small>
         <small *ngIf="!isApiKeyRequired">Este proveedor no requiere API key.</small>
       </div>
 
