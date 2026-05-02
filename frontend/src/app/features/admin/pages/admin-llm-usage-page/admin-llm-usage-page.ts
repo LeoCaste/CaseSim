@@ -101,6 +101,10 @@ export class AdminLlmUsagePage implements OnInit {
     return !this.isLoading && !this.loadError && this.usage.length === 0;
   }
 
+  hasActiveFiltersApplied(): boolean {
+    return Boolean(this.activeFilters.from || this.activeFilters.to || this.activeFilters.model || this.activeFilters.status);
+  }
+
   retryLoad(): void {
     this.loadSnapshot(this.activeFilters);
   }
@@ -257,7 +261,9 @@ export class AdminLlmUsagePage implements OnInit {
       filters.model = this.filterForm.model;
     }
 
-    filters.status = this.filterForm.status;
+    if (this.filterForm.status !== 'all') {
+      filters.status = this.filterForm.status;
+    }
 
     return filters;
   }

@@ -98,7 +98,10 @@
   </section>
 
   <section *ngIf="hasNoMetrics()" class="admin-llm-usage__empty">
-    <p>No se encontraron métricas para los filtros seleccionados.</p>
+    <p *ngIf="hasActiveFiltersApplied(); else noMetricsHistory">No se encontraron métricas para los filtros seleccionados.</p>
+    <ng-template #noMetricsHistory>
+      <p>Aún no hay métricas LLM registradas para mostrar.</p>
+    </ng-template>
   </section>
 
   <section *ngIf="!isLoading && !loadError && usage.length > 0" class="admin-llm-usage__panel admin-llm-usage__panel--table">

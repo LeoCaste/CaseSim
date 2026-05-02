@@ -218,7 +218,7 @@ export class AdminLlmService {
       params = params.set('model', filters.model);
     }
 
-    if (filters.status) {
+    if (filters.status && filters.status !== 'all') {
       params = params.set('status', filters.status);
     }
 
