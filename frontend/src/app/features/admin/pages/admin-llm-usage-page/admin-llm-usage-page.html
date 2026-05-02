@@ -2,109 +2,132 @@
   <header class="admin-llm-usage__header">
     <p class="admin-llm-usage__eyebrow">Administración</p>
     <h1>Métricas LLM</h1>
-    <p>Revisión operativa de consumo, latencia y comportamiento de fallback.</p>
+    <p>Monitorea consumo, latencia, errores y fallback del proveedor LLM.</p>
   </header>
 
-  <section class="admin-llm-usage__filters">
-    <div class="admin-llm-usage__filter-field">
-      <label for="from">Fecha desde</label>
-      <input id="from" name="from" type="date" [(ngModel)]="filterForm.from" />
-    </div>
+  <section class="admin-llm-usage__panel admin-llm-usage__panel--filters">
+    <h2 class="admin-llm-usage__section-title">Filtros</h2>
+    <form class="admin-llm-usage__filters" (ngSubmit)="applyFilters()">
+      <div class="admin-llm-usage__filter-field">
+        <label for="from">Fecha desde</label>
+        <input id="from" name="from" type="date" [(ngModel)]="filterForm.from" [disabled]="isLoading" />
+      </div>
 
-    <div class="admin-llm-usage__filter-field">
-      <label for="to">Fecha hasta</label>
-      <input id="to" name="to" type="date" [(ngModel)]="filterForm.to" />
-    </div>
+      <div class="admin-llm-usage__filter-field">
+        <label for="to">Fecha hasta</label>
+        <input id="to" name="to" type="date" [(ngModel)]="filterForm.to" [disabled]="isLoading" />
+      </div>
 
-    <div class="admin-llm-usage__filter-field">
-      <label for="model">Modelo</label>
-      <select id="model" name="model" [(ngModel)]="filterForm.model">
-        <option value="">Todos</option>
-        <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
-      </select>
-    </div>
+      <div class="admin-llm-usage__filter-field">
+        <label for="model">Modelo</label>
+        <select id="model" name="model" [(ngModel)]="filterForm.model" [disabled]="isLoading">
+          <option value="">Todos los modelos</option>
+          <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
+        </select>
+      </div>
 
-    <div class="admin-llm-usage__filter-field">
-      <label for="status">Estado</label>
-      <select id="status" name="status" [(ngModel)]="filterForm.status">
-        <option value="all">Todos</option>
-        <option value="error">Error</option>
-        <option value="fallback">Fallback</option>
-      </select>
-    </div>
+      <div class="admin-llm-usage__filter-field">
+        <label for="status">Estado</label>
+        <select id="status" name="status" [(ngModel)]="filterForm.status" [disabled]="isLoading">
+          <option value="all">Todos los estados</option>
+          <option value="error">Error</option>
+          <option value="fallback">Fallback</option>
+        </select>
+      </div>
 
-    <div class="admin-llm-usage__filter-actions">
-      <button type="button" (click)="applyFilters()" [disabled]="isLoading">Aplicar filtros</button>
-      <button type="button" class="secondary" (click)="clearFilters()" [disabled]="isLoading">Limpiar filtros</button>
-    </div>
+      <div class="admin-llm-usage__filter-actions">
+        <button type="submit" [disabled]="isLoading">Aplicar filtros</button>
+        <button type="button" class="secondary" (click)="clearFilters()" [disabled]="isLoading">Limpiar filtros</button>
+      </div>
+    </form>
+
+    <p class="admin-llm-usage__filters-context">{{ getActiveFiltersContext() }}</p>
   </section>
 
-  <p *ngIf="loadError" class="admin-llm-usage__error">{{ loadError }}</p>
+  <section *ngIf="loadError" class="admin-llm-usage__error" role="alert">
+    <p>{{ loadError }}</p>
+    <button type="button" class="secondary" (click)="retryLoad()" [disabled]="isLoading">Reintentar</button>
+  </section>
+
   <p *ngIf="isLoading" class="admin-llm-usage__loading">Cargando métricas...</p>
 
-  <section *ngIf="!isLoading && summary" class="admin-llm-usage__summary-grid">
-    <article class="admin-llm-usage__summary-card">
-      <span>Total llamadas</span>
-      <strong>{{ summary.totalCalls }}</strong>
-    </article>
-    <article class="admin-llm-usage__summary-card">
-      <span>Total tokens</span>
-      <strong>{{ summary.totalTokens }}</strong>
-    </article>
-    <article class="admin-llm-usage__summary-card">
-      <span>Latencia promedio (ms)</span>
-      <strong>{{ summary.avgLatencyMs ?? '-' }}</strong>
-    </article>
-    <article class="admin-llm-usage__summary-card">
-      <span>Fallbacks</span>
-      <strong>{{ summary.fallbackCount }}</strong>
-    </article>
-    <article class="admin-llm-usage__summary-card">
-      <span>Errores</span>
-      <strong>{{ summary.errorCount }}</strong>
-    </article>
-    <article class="admin-llm-usage__summary-card">
-      <span>Costo estimado USD</span>
-      <strong>{{ getEstimatedCostUsd() | currency: 'USD':'symbol':'1.2-2' }}</strong>
-    </article>
-    <article class="admin-llm-usage__summary-card">
-      <span>Costo estimado CLP</span>
-      <strong>{{ getEstimatedCostClp() | currency: 'CLP':'symbol':'1.0-0' }}</strong>
-    </article>
-  </section>
+  <section *ngIf="!isLoading && summary" class="admin-llm-usage__panel admin-llm-usage__panel--summary">
+    <h2 class="admin-llm-usage__section-title">Resumen del período</h2>
+    <div class="admin-llm-usage__summary-grid">
+      <article class="admin-llm-usage__summary-card">
+        <span>Llamadas</span>
+        <strong>{{ formatCount(summary.totalCalls) }}</strong>
+      </article>
+      <article class="admin-llm-usage__summary-card">
+        <span>Tokens estimados</span>
+        <strong>{{ formatCount(summary.totalTokens) }}</strong>
+      </article>
+      <article class="admin-llm-usage__summary-card">
+        <span>Latencia prom.</span>
+        <strong>{{ formatLatency(summary.avgLatencyMs) }}</strong>
+        <small>Promedio del período</small>
+      </article>
+      <article class="admin-llm-usage__summary-card">
+        <span>Fallbacks</span>
+        <strong>{{ formatCount(summary.fallbackCount) }}</strong>
+        <small>{{ getFallbackInterpretation() }}</small>
+      </article>
+      <article class="admin-llm-usage__summary-card">
+        <span>Errores</span>
+        <strong>{{ formatCount(summary.errorCount) }}</strong>
+        <small>{{ getErrorInterpretation() }}</small>
+      </article>
+      <article class="admin-llm-usage__summary-card">
+        <span>Exitosas</span>
+        <strong>{{ getSuccessfulCallsInterpretation() }}</strong>
+      </article>
+      <article class="admin-llm-usage__summary-card admin-llm-usage__summary-card--secondary">
+        <span>Costo estimado USD</span>
+        <strong>{{ formatEstimatedCostUsd() }}</strong>
+      </article>
+      <article class="admin-llm-usage__summary-card admin-llm-usage__summary-card--secondary">
+        <span>Costo estimado CLP</span>
+        <strong>{{ formatEstimatedCostClp() }}</strong>
+      </article>
+    </div>
 
-  <p *ngIf="!isLoading && summary" class="admin-llm-usage__cost-note">
-    Costo estimado según tokens registrados y tarifa configurada.
-  </p>
+    <p class="admin-llm-usage__cost-note">
+      Tokens y costos estimados. Los valores se calculan de forma aproximada a partir del contenido registrado.
+      La medición exacta por proveedor quedará disponible cuando se registren tokens reales del API.
+    </p>
+  </section>
 
   <section *ngIf="hasNoMetrics()" class="admin-llm-usage__empty">
-    <p>No hay métricas disponibles para los filtros seleccionados.</p>
+    <p>No se encontraron métricas para los filtros seleccionados.</p>
   </section>
 
-  <section *ngIf="!isLoading && !loadError && usage.length > 0" class="admin-llm-usage__table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th *ngIf="hasModelColumn()">Modelo</th>
-          <th *ngIf="hasStatusColumn()">Estado</th>
-          <th>Tokens input</th>
-          <th>Tokens output</th>
-          <th>Calls</th>
-          <th>Avg latency (ms)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let item of usage">
-          <td>{{ item.date | date: 'dd/MM/yyyy' }}</td>
-          <td *ngIf="hasModelColumn()">{{ getModelValue(item) }}</td>
-          <td *ngIf="hasStatusColumn()">{{ getStatusValue(item) }}</td>
-          <td>{{ item.tokensInput }}</td>
-          <td>{{ item.tokensOutput }}</td>
-          <td>{{ item.calls }}</td>
-          <td>{{ item.avgLatencyMs ?? '-' }}</td>
-        </tr>
-      </tbody>
-    </table>
+  <section *ngIf="!isLoading && !loadError && usage.length > 0" class="admin-llm-usage__panel admin-llm-usage__panel--table">
+    <h2 class="admin-llm-usage__section-title">Detalle diario</h2>
+    <div class="admin-llm-usage__table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th *ngIf="hasModelColumn()">Modelo</th>
+            <th *ngIf="hasStatusColumn()">Estado</th>
+            <th class="is-numeric">Tokens entrada estim.</th>
+            <th class="is-numeric">Tokens salida estim.</th>
+            <th class="is-numeric">Llamadas</th>
+            <th class="is-numeric">Latencia prom.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of usage">
+            <td>{{ item.date | date: 'dd/MM/yyyy' }}</td>
+            <td *ngIf="hasModelColumn()">{{ getModelValue(item) }}</td>
+            <td *ngIf="hasStatusColumn()">{{ getStatusValue(item) }}</td>
+            <td class="is-numeric">{{ formatCount(item.tokensInput) }}</td>
+            <td class="is-numeric">{{ formatCount(item.tokensOutput) }}</td>
+            <td class="is-numeric">{{ formatCount(item.calls) }}</td>
+            <td class="is-numeric">{{ formatLatency(item.avgLatencyMs) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 </section>

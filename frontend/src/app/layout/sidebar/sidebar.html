@@ -25,10 +25,12 @@
     </ng-container>
 
     <ng-container *ngIf="userContext.getRole() === 'admin'">
+      <p class="sidebar__group-title">Administración</p>
       <a routerLink="/admin/users" routerLinkActive="active">
         Usuarios
       </a>
 
+      <p class="sidebar__group-title">LLM</p>
       <a routerLink="/admin/llm-config" routerLinkActive="active">
         Configuración LLM
       </a>
