@@ -27,7 +27,9 @@ public class LlmClientRouter implements LlmClient {
 
     private LlmClient resolveClient() {
         String provider = LlmProviderSupport.normalize(llmProperties.getProvider());
-        if (LlmProviderSupport.OPENAI_COMPATIBLE.equals(provider)) {
+        if (LlmProviderSupport.OPENAI_COMPATIBLE.equals(provider)
+                || LlmProviderSupport.OPENROUTER.equals(provider)
+                || LlmProviderSupport.OLLAMA.equals(provider)) {
             provider = LlmProviderSupport.OPENAI;
         }
         LlmClient client = clientsByProvider.get(provider);

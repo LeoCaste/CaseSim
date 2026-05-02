@@ -22,7 +22,6 @@ public record UpdateLlmConfigRequest(
         @Size(max = 100, message = "El modelo no puede superar 100 caracteres.")
         String model,
 
-        @NotBlank(message = "La URL base es obligatoria.")
         @Size(max = 500, message = "La URL base no puede superar 500 caracteres.")
         String baseUrl,
 

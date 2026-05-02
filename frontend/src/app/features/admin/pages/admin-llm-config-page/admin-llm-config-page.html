@@ -32,33 +32,56 @@
       <div class="admin-llm-config__row">
         <label for="provider">Proveedor</label>
         <select id="provider" [(ngModel)]="form.provider" (ngModelChange)="onProviderChange($event)">
-          <option *ngFor="let provider of providers" [value]="provider">{{ provider }}</option>
+          <option *ngFor="let provider of providers" [value]="provider">{{ getProviderLabel(provider) }}</option>
         </select>
       </div>
 
       <div class="admin-llm-config__row">
         <label for="model">Modelo</label>
-        <select *ngIf="!isModelCustom" id="model" [(ngModel)]="form.model" [disabled]="isSaving || isDeletingApiKey || isTestingConnection">
+        <select
+          id="model"
+          [ngModel]="isCurrentModelSuggested ? form.model : ''"
+          (ngModelChange)="onModelOptionChange($event)"
+          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
+        >
+          <option value="" disabled>Selecciona un modelo recomendado</option>
           <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
+          <option value="__search_other_model__">Buscar otro modelo...</option>
         </select>
 
-        <input
-          *ngIf="isModelCustom"
-          id="model"
-          type="text"
-          [(ngModel)]="form.model"
-          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
-          placeholder="Ej: meta-llama/llama-3.1-8b-instruct"
-        />
-      </div>
+        <small>Puedes escribir manualmente otro modelo compatible con el proveedor.</small>
 
-      <div class="admin-llm-config__row">
-        <label for="baseUrl">URL base del sistema</label>
-        <input id="baseUrl" type="text" [(ngModel)]="form.baseUrl" [disabled]="isSaving || isDeletingApiKey || isTestingConnection" />
-        <div class="admin-llm-config__inline-actions">
-          <button type="button" class="link" (click)="onRestoreProviderBaseUrl()" [disabled]="isSaving || isDeletingApiKey || isTestingConnection">
-            Restaurar URL sugerida
-          </button>
+        <div *ngIf="shouldShowModelSearch" class="admin-llm-config__model-search">
+          <input
+            id="modelSearch"
+            type="text"
+            [(ngModel)]="modelSearchTerm"
+            [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
+            placeholder="Busca un modelo conocido del proveedor"
+          />
+
+          <p *ngIf="hasUnknownModelMatch" class="admin-llm-config__hint">
+            No se encontraron modelos conocidos para este proveedor.
+          </p>
+
+          <ul *ngIf="!hasUnknownModelMatch" class="admin-llm-config__model-results" role="listbox" aria-label="Resultados de modelos">
+            <li *ngFor="let model of filteredKnownModels">
+              <button
+                type="button"
+                class="admin-llm-config__model-result-btn"
+                (click)="onSearchModelSelect(model)"
+                [class.is-selected]="selectedSearchModel === model"
+                [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
+              >
+                {{ model }}
+              </button>
+            </li>
+          </ul>
+
+          <div class="admin-llm-config__inline-actions">
+            <button type="button" class="link" (click)="onUseSearchedModel()" [disabled]="!selectedSearchModel">Usar modelo seleccionado</button>
+            <button type="button" class="link" (click)="onCancelModelSearch()">Cancelar</button>
+          </div>
         </div>
       </div>
 
@@ -76,7 +99,8 @@
           [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
         />
         <small *ngIf="hasApiKeyMask">API key actual: {{ config.maskedApiKey }}</small>
-        <small>Dejar vacío para mantener la API key actual.</small>
+        <small *ngIf="isApiKeyRequired">Dejar vacío para mantener la API key actual.</small>
+        <small *ngIf="!isApiKeyRequired">Este proveedor no requiere API key.</small>
       </div>
 
       <div class="admin-llm-config__subsection">

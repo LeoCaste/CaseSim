@@ -12,6 +12,7 @@ import {
   LlmUsageSummary,
   UpdateLlmConfigPayload
 } from '../models/admin-llm.model';
+import { LLM_PROVIDER_CATALOG } from '../models/llm-provider-catalog';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -25,7 +26,7 @@ export class AdminLlmService {
   private mockConfig: LlmConfig = {
     provider: 'openai',
     model: 'gpt-4o-mini',
-    baseUrl: 'https://api.openai.com/v1/chat/completions',
+    baseUrl: LLM_PROVIDER_CATALOG.openai.defaultBaseUrl,
     enabled: false,
     apiKeyConfigured: false,
     maskedApiKey: null,
@@ -410,7 +411,7 @@ export class AdminLlmService {
     return {
       provider: 'openai',
       model: 'gpt-4o-mini',
-      baseUrl: 'https://api.openai.com/v1/chat/completions',
+      baseUrl: LLM_PROVIDER_CATALOG.openai.defaultBaseUrl,
       enabled: false,
       apiKeyConfigured: false,
       maskedApiKey: null,

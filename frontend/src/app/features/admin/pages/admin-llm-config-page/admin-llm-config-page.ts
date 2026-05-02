@@ -13,31 +13,9 @@ import {
   RECOMMENDED_PATIENT_BEHAVIOR_CONFIG,
   UpdateLlmConfigPayload
 } from '../../../../core/models/admin-llm.model';
+import { LLM_PROVIDER_CATALOG, LLM_PROVIDER_LIST } from '../../../../core/models/llm-provider-catalog';
 import { AdminLlmService } from '../../../../core/services/admin-llm.service';
 import { UserContext } from '../../../../core/services/user-context';
-
-const PROVIDER_DEFAULTS: Record<LlmProvider, { baseUrl: string; models: LlmModel[] }> = {
-  openai: {
-    baseUrl: 'https://api.openai.com/v1/chat/completions',
-    models: ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4.1']
-  },
-  'openai-compatible': {
-    baseUrl: 'https://api.openai.com/v1/chat/completions',
-    models: []
-  },
-  anthropic: {
-    baseUrl: 'https://api.anthropic.com/v1/messages',
-    models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest']
-  },
-  gemini: {
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
-    models: ['gemini-1.5-flash', 'gemini-1.5-pro']
-  },
-  groq: {
-    baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
-    models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile']
-  }
-};
 
 @Component({
   selector: 'app-admin-llm-config-page',
@@ -68,16 +46,22 @@ export class AdminLlmConfigPage implements OnInit {
   saveError = '';
   testFeedback = '';
   testFeedbackStatus: 'success' | 'error' | null = null;
+  modelSelectorMode: 'suggested' | 'search' = 'suggested';
+  modelSearchTerm = '';
+  selectedSearchModel = '';
 
-  readonly providers: LlmProvider[] = ['openai', 'openai-compatible', 'anthropic', 'gemini', 'groq'];
+  readonly providers: LlmProvider[] = LLM_PROVIDER_LIST;
   readonly revealStrategies: PatientRevealStrategy[] = ['PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'];
   readonly basePromptMaxLength = 4000;
   readonly additionalRulesMaxLength = 3000;
   readonly noInformationReplyMaxLength = 500;
   readonly maxTokensMin = 64;
   readonly maxTokensMax = 1024;
-  readonly modelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
-    Object.entries(PROVIDER_DEFAULTS).map(([provider, defaults]) => [provider, defaults.models])
+  readonly suggestedModelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
+    Object.entries(LLM_PROVIDER_CATALOG).map(([provider, defaults]) => [provider, defaults.suggestedModels])
+  ) as Record<LlmProvider, LlmModel[]>;
+  readonly knownModelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
+    Object.entries(LLM_PROVIDER_CATALOG).map(([provider, defaults]) => [provider, defaults.knownModels])
   ) as Record<LlmProvider, LlmModel[]>;
 
   constructor(
@@ -99,8 +83,13 @@ export class AdminLlmConfigPage implements OnInit {
     this.saveMessage = '';
     this.saveError = '';
 
-    if (!this.form.provider.trim() || !this.form.model.trim() || !this.form.baseUrl.trim()) {
-      this.saveError = 'Completa proveedor y modelo para guardar la configuración.';
+    if (!this.form.provider.trim()) {
+      this.saveError = 'Debes seleccionar un proveedor.';
+      return;
+    }
+
+    if (!this.form.model.trim()) {
+      this.saveError = 'Debes seleccionar un modelo válido.';
       return;
     }
 
@@ -113,6 +102,12 @@ export class AdminLlmConfigPage implements OnInit {
     const validationError = this.validatePatientBehavior(this.form.patientBehavior);
     if (validationError) {
       this.saveError = validationError;
+      return;
+    }
+
+    const trimmedApiKey = this.form.apiKey?.trim() ?? '';
+    if (this.isApiKeyRequired && !this.config?.apiKeyConfigured && !trimmedApiKey) {
+      this.saveError = 'Debes ingresar una API key para este proveedor.';
       return;
     }
 
@@ -133,14 +128,16 @@ export class AdminLlmConfigPage implements OnInit {
           this.config = updatedConfig;
           const provider = this.normalizeProvider(updatedConfig.provider);
           const model = this.normalizeModel(provider, updatedConfig.model);
+          const resolvedBaseUrl = this.resolveBaseUrl(updatedConfig.baseUrl, provider);
           this.form = {
             provider,
             model,
-            baseUrl: this.resolveBaseUrl(updatedConfig.baseUrl, provider),
+            baseUrl: resolvedBaseUrl,
             enabled: updatedConfig.enabled,
             apiKey: '',
             patientBehavior: this.clonePatientBehavior(updatedConfig.patientBehavior)
           };
+          this.syncModelSelectorState();
           this.saveMessage = 'Configuración guardada correctamente.';
           this.triggerViewUpdate();
         },
@@ -246,38 +243,57 @@ export class AdminLlmConfigPage implements OnInit {
 
   onProviderChange(providerInput: string): void {
     const provider = this.normalizeProvider(providerInput);
-    const previousProvider = this.normalizeProvider(this.form.provider);
     this.form.provider = provider;
 
-    const validModels = this.modelsByProvider[provider] ?? [];
-    if (validModels.length > 0 && !validModels.includes(this.form.model as LlmModel)) {
-      this.form.model = validModels[0];
+    if (!this.form.model?.trim()) {
+      this.form.model = this.getProviderDefaultModel(provider);
     }
 
-    if (provider === 'openai-compatible' && previousProvider !== 'openai-compatible' && !this.form.model.trim()) {
-      this.form.model = 'gpt-4o-mini';
-    }
+    this.form.baseUrl = this.resolveBaseUrl(null, provider);
+    this.syncModelSelectorState();
+  }
 
-    const previousDefault = PROVIDER_DEFAULTS[previousProvider]?.baseUrl;
-    if (!this.form.baseUrl.trim() || this.form.baseUrl.trim() === previousDefault) {
-      this.form.baseUrl = this.resolveBaseUrl(null, provider);
-    }
+  getProviderLabel(providerInput: string): string {
+    const provider = this.normalizeProvider(providerInput);
+    return LLM_PROVIDER_CATALOG[provider]?.label ?? provider;
   }
 
   get modelOptions(): LlmModel[] {
     const provider = this.normalizeProvider(this.form.provider);
-    const options = [...(this.modelsByProvider[provider] ?? [])];
-    const currentModel = this.form.model?.trim();
-
-    if (currentModel && !options.includes(currentModel as LlmModel)) {
-      options.unshift(currentModel as LlmModel);
-    }
-
-    return options;
+    return [...(this.suggestedModelsByProvider[provider] ?? [])];
   }
 
-  get isModelCustom(): boolean {
-    return this.normalizeProvider(this.form.provider) === 'openai-compatible';
+  get filteredKnownModels(): LlmModel[] {
+    const provider = this.normalizeProvider(this.form.provider);
+    const known = this.knownModelsByProvider[provider] ?? [];
+    const term = this.modelSearchTerm.trim().toLowerCase();
+    if (!term) {
+      return known;
+    }
+
+    return known.filter((model) => model.toLowerCase().includes(term));
+  }
+
+  get shouldShowModelSearch(): boolean {
+    return this.modelSelectorMode === 'search';
+  }
+
+  get hasUnknownModelMatch(): boolean {
+    return this.filteredKnownModels.length === 0;
+  }
+
+  get isCurrentModelSuggested(): boolean {
+    const currentModel = this.form.model?.trim();
+    if (!currentModel) {
+      return false;
+    }
+
+    return this.modelOptions.includes(currentModel as LlmModel);
+  }
+
+  get isApiKeyRequired(): boolean {
+    const provider = this.normalizeProvider(this.form.provider);
+    return LLM_PROVIDER_CATALOG[provider]?.requiresApiKey ?? true;
   }
 
   get enabledStatusLabel(): string {
@@ -315,14 +331,16 @@ export class AdminLlmConfigPage implements OnInit {
           this.config = config;
           const provider = this.normalizeProvider(config.provider);
           const model = this.normalizeModel(provider, config.model);
+          const resolvedBaseUrl = this.resolveBaseUrl(config.baseUrl, provider);
           this.form = {
             provider,
             model,
-            baseUrl: this.resolveBaseUrl(config.baseUrl, provider),
+            baseUrl: resolvedBaseUrl,
             enabled: config.enabled,
             apiKey: '',
             patientBehavior: this.clonePatientBehavior(config.patientBehavior)
           };
+          this.syncModelSelectorState();
           this.triggerViewUpdate();
         },
         error: (error: unknown) => {
@@ -362,20 +380,18 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private normalizeModel(provider: LlmProvider, model: string): LlmModel {
-    const options = this.modelsByProvider[provider] ?? [];
+    const options = this.knownModelsByProvider[provider] ?? [];
     const trimmedModel = model?.trim();
-
-    if (provider === 'openai-compatible') {
-      return (trimmedModel || 'gpt-4o-mini') as LlmModel;
-    }
+    const defaultModel = this.getProviderDefaultModel(provider);
 
     if (!options.length) {
-      return (trimmedModel || 'gpt-4o-mini') as LlmModel;
+      return (trimmedModel || defaultModel) as LlmModel;
     }
 
     if (!trimmedModel) {
-      return options[0];
+      return defaultModel;
     }
+
 
     return trimmedModel as LlmModel;
   }
@@ -387,7 +403,7 @@ export class AdminLlmConfigPage implements OnInit {
     }
 
     const normalizedProvider = this.normalizeProvider(provider);
-    return PROVIDER_DEFAULTS[normalizedProvider]?.baseUrl ?? PROVIDER_DEFAULTS.openai.baseUrl;
+    return LLM_PROVIDER_CATALOG[normalizedProvider]?.defaultBaseUrl ?? LLM_PROVIDER_CATALOG.openai.defaultBaseUrl;
   }
 
   private buildSanitizedPayload(form: UpdateLlmConfigPayload): UpdateLlmConfigPayload {
@@ -434,25 +450,62 @@ export class AdminLlmConfigPage implements OnInit {
     const model = modelInput?.trim();
 
     if (!model) {
-      return 'Debes ingresar un modelo válido.';
+      return 'Debes seleccionar un modelo válido.';
     }
 
-    if (provider === 'openai-compatible') {
-      return /^[\w./:-]{2,120}$/.test(model)
-        ? null
-        : 'El modelo contiene caracteres inválidos. Usa letras, números y separadores habituales (./:-_).';
-    }
-
-    const validModels = this.modelsByProvider[provider] ?? [];
+    const validModels = this.knownModelsByProvider[provider] ?? [];
     if (validModels.length > 0 && !validModels.includes(model as LlmModel)) {
-      return `Modelo no permitido para ${provider}. Selecciona uno de la lista.`;
+      return `Modelo no permitido para ${provider}. Selecciona un modelo conocido.`;
     }
 
     return null;
   }
 
-  onRestoreProviderBaseUrl(): void {
-    this.form.baseUrl = this.resolveBaseUrl('', this.form.provider);
+  private getProviderDefaultModel(provider: LlmProvider): LlmModel {
+    return LLM_PROVIDER_CATALOG[provider]?.defaultModel ?? LLM_PROVIDER_CATALOG.openai.defaultModel;
+  }
+
+  onModelOptionChange(value: string): void {
+    const customSearchToken = '__search_other_model__';
+    if (value === customSearchToken) {
+      this.modelSelectorMode = 'search';
+      this.modelSearchTerm = '';
+      this.selectedSearchModel = '';
+      return;
+    }
+
+    this.form.model = value;
+    this.modelSelectorMode = 'suggested';
+    this.modelSearchTerm = '';
+    this.selectedSearchModel = '';
+  }
+
+  onSearchModelSelect(model: string): void {
+    this.selectedSearchModel = model;
+    this.form.model = model;
+  }
+
+  onUseSearchedModel(): void {
+    if (!this.selectedSearchModel) {
+      this.saveError = 'Debes seleccionar un modelo de la lista de resultados.';
+      return;
+    }
+
+    this.form.model = this.selectedSearchModel;
+    this.modelSelectorMode = 'suggested';
+    this.modelSearchTerm = '';
+    this.selectedSearchModel = '';
+    this.saveError = '';
+  }
+
+  onCancelModelSearch(): void {
+    this.syncModelSelectorState();
+  }
+
+  private syncModelSelectorState(): void {
+    this.modelSearchTerm = '';
+    this.selectedSearchModel = '';
+    this.modelSelectorMode = this.isCurrentModelSuggested ? 'suggested' : 'search';
   }
 
   private clonePatientBehavior(source: PatientBehaviorConfig): PatientBehaviorConfig {

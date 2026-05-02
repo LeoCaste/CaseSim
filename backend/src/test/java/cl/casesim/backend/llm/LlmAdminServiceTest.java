@@ -111,10 +111,10 @@ class LlmAdminServiceTest {
     }
 
     @Test
-    void updateConfigShouldNormalizeCommonOpenAiModelTypos() {
+    void updateConfigShouldAcceptModelWithoutClosedCatalogValidation() {
         UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
                 "openai",
-                "gpt4.1 min",
+                "my-custom-model-v2026",
                 "https://api.openai.com/v1/chat/completions",
                 true,
                 "sk-new",
@@ -133,15 +133,15 @@ class LlmAdminServiceTest {
 
         LlmConfigResponse response = service.updateConfig(request);
 
-        assertEquals("gpt-4.1-mini", response.model());
-        assertEquals("gpt-4.1-mini", llmProperties.getModel());
+        assertEquals("my-custom-model-v2026", response.model());
+        assertEquals("my-custom-model-v2026", llmProperties.getModel());
     }
 
     @Test
-    void updateConfigShouldRejectClearlyInvalidOpenAiModel() {
+    void updateConfigShouldRejectEmptyModel() {
         UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
                 "openai",
-                "modelo-raro",
+                "   ",
                 "https://api.openai.com/v1/chat/completions",
                 true,
                 "sk-new",

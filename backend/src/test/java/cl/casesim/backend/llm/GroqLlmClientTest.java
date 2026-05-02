@@ -63,7 +63,7 @@ class GroqLlmClientTest {
         properties.setBaseUrl("https://api.groq.com");
 
         GroqLlmClient client = new GroqLlmClient(properties, new LlmProviderUrlResolver(), new LlmProviderErrorMapper());
-        String resolvedUrl = client.resolveGroqUrl();
+        String resolvedUrl = new LlmProviderUrlResolver().resolve("groq", properties.getBaseUrl());
 
         assertEquals("https://api.groq.com/openai/v1/chat/completions", resolvedUrl);
         assertEquals("/openai/v1/chat/completions", client.resolveRequestPath(resolvedUrl));
@@ -76,7 +76,7 @@ class GroqLlmClientTest {
         properties.setBaseUrl("https://api.openai.com/v1/chat/completions");
 
         GroqLlmClient client = new GroqLlmClient(properties, new LlmProviderUrlResolver(), new LlmProviderErrorMapper());
-        String resolvedUrl = client.resolveGroqUrl();
+        String resolvedUrl = new LlmProviderUrlResolver().resolve("groq", properties.getBaseUrl());
 
         assertEquals("https://api.groq.com/openai/v1/chat/completions", resolvedUrl);
     }

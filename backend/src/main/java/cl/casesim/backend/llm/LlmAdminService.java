@@ -351,7 +351,7 @@ public class LlmAdminService {
 
     private void validateProvider(String provider) {
         if (!LlmProviderSupport.isSupported(provider)) {
-            throw new BadRequestException("Provider no soportado. Use: openai, openai-compatible, anthropic, gemini o groq.");
+            throw new BadRequestException("Provider no soportado. Use: openai, openai-compatible, anthropic, gemini, groq, openrouter u ollama.");
         }
     }
 
@@ -360,28 +360,12 @@ public class LlmAdminService {
             throw new BadRequestException("El modelo es obligatorio.");
         }
 
-        String normalized = model.trim().toLowerCase(Locale.ROOT)
-                .replace('_', '-')
+        String normalized = model.trim()
                 .replaceAll("\\s+", "-")
                 .replaceAll("-+", "-");
 
-        if (normalized.startsWith("gpt4")) {
-            normalized = "gpt-4" + normalized.substring("gpt4".length());
-        }
-        if (normalized.startsWith("gpt3.5")) {
-            normalized = "gpt-3.5" + normalized.substring("gpt3.5".length());
-        }
-        if (normalized.endsWith("-min")) {
-            normalized = normalized + "i";
-        }
-
         if (!GENERIC_MODEL_PATTERN.matcher(normalized).matches()) {
             throw new BadRequestException("Modelo inválido. Use un identificador sin espacios (ej: gpt-4.1-mini).");
-        }
-
-        if (LlmProviderSupport.OPENAI.equals(provider)
-                && !(normalized.startsWith("gpt-") || normalized.startsWith("o"))) {
-            throw new BadRequestException("Modelo no válido para OpenAI. Ejemplo esperado: gpt-4.1-mini.");
         }
 
         return normalized;

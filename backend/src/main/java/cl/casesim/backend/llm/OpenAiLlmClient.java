@@ -55,14 +55,19 @@ public class OpenAiLlmClient implements LlmClient {
         }
 
         int attempts = Math.max(1, llmProperties.getMaxRetries() + 1);
-        String requestMode = resolveOpenAiRequestMode(provider);
-        String requestPath = resolveRequestPath(provider);
+        String normalizedBaseUrl = resolveOpenAiCompatibleBaseUrl(provider);
+        String finalPath = urlResolver.resolveChatCompletionsPath(provider);
+        String resolvedUrl = resolveOpenAiCompatibleUrl(provider);
+        boolean customBaseUrl = StringUtils.hasText(llmProperties.getBaseUrl());
+        String requestMode = resolveOpenAiRequestMode(provider, finalPath);
 
-        log.info("LLM client request provider={} model={} mode={} path={} messagesCount={} temperature={} maxTokens={}",
+        log.info("LLM client request provider={} model={} mode={} normalizedBaseUrl={} finalPath={} customBaseUrl={} messagesCount={} temperature={} maxTokens={}",
                 provider,
                 llmProperties.getModel(),
                 requestMode,
-                requestPath,
+                normalizedBaseUrl,
+                finalPath,
+                customBaseUrl,
                 messages == null ? 0 : messages.size(),
                 temperature == null ? llmProperties.getTemperature() : temperature,
                 maxTokens == null ? llmProperties.getMaxTokens() : maxTokens
@@ -71,7 +76,7 @@ public class OpenAiLlmClient implements LlmClient {
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> response = executeProviderRequest(provider, messages, temperature, maxTokens);
+                Map<String, Object> response = executeProviderRequest(provider, resolvedUrl, messages, temperature, maxTokens, requestMode);
                 log.debug("LLM client response shape provider={} mode={} keys={}",
                         provider,
                         requestMode,
@@ -87,7 +92,7 @@ public class OpenAiLlmClient implements LlmClient {
                 return new LlmResponse(
                         content,
                         null,
-                        new LlmProviderResult(provider, llmProperties.getModel(), resolveOpenAiCompatibleUrl(provider), null)
+                        new LlmProviderResult(provider, llmProperties.getModel(), resolvedUrl, null)
                 );
             } catch (RestClientException ex) {
                 if (ex instanceof ResourceAccessException) {
@@ -99,7 +104,7 @@ public class OpenAiLlmClient implements LlmClient {
                 }
                 if (ex instanceof RestClientResponseException responseException) {
                     LlmProviderError providerError = errorMapper.map(responseException.getStatusCode().value(), responseException.getResponseBodyAsString());
-                    String message = buildHttpErrorMessage(responseException, requestPath);
+                    String message = buildHttpErrorMessage(responseException, finalPath);
                     if (attempt == attempts) {
                         throw new cl.casesim.backend.llm.LlmClientException(message, ex, providerError);
                     }
@@ -117,14 +122,15 @@ public class OpenAiLlmClient implements LlmClient {
     @SuppressWarnings("unchecked")
     private Map<String, Object> executeProviderRequest(
             String provider,
+            String resolvedUrl,
             List<LlmMessage> messages,
             Double temperature,
-            Integer maxTokens
+            Integer maxTokens,
+            String requestMode
     ) {
-        String requestMode = resolveOpenAiRequestMode(provider);
         return switch (provider) {
             case LlmProviderSupport.OPENAI, LlmProviderSupport.OPENAI_COMPATIBLE -> restClient.post()
-                    .uri(resolveOpenAiCompatibleUrl(provider))
+                    .uri(resolvedUrl)
                     .header("Authorization", "Bearer " + llmProperties.getApiKey().trim())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(buildOpenAiPayload(messages, temperature, maxTokens, requestMode))
@@ -395,25 +401,15 @@ public class OpenAiLlmClient implements LlmClient {
         return urlResolver.resolve(provider, llmProperties.getBaseUrl());
     }
 
-    private String resolveOpenAiRequestMode(String provider) {
+    private String resolveOpenAiCompatibleBaseUrl(String provider) {
+        return urlResolver.resolveBaseUrl(provider, llmProperties.getBaseUrl());
+    }
+
+    private String resolveOpenAiRequestMode(String provider, String finalPath) {
         if (!(LlmProviderSupport.OPENAI.equals(provider) || LlmProviderSupport.OPENAI_COMPATIBLE.equals(provider))) {
             return "chat_completions";
         }
-        String path = resolveRequestPath(provider);
-        return path.contains("/responses") ? "responses" : "chat_completions";
-    }
-
-    private String resolveRequestPath(String provider) {
-        String url = resolveOpenAiCompatibleUrl(provider);
-        if (!StringUtils.hasText(url)) {
-            return "";
-        }
-        String normalized = url.trim().toLowerCase();
-        int pathStart = normalized.indexOf("/v1/");
-        if (pathStart < 0) {
-            return normalized;
-        }
-        return normalized.substring(pathStart);
+        return finalPath.contains("/responses") ? "responses" : "chat_completions";
     }
 
     private String resolveAnthropicUrl() {

@@ -56,6 +56,11 @@
   justify-content: space-between;
 }
 
+.admin-llm-config__switch-row--inline {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
 .admin-llm-config__row label {
   font-weight: 600;
   color: var(--cs-primary-dark);
@@ -87,8 +92,13 @@
   color: var(--cs-text-muted);
 }
 
+.admin-llm-config__row code {
+  font-size: 12px;
+}
+
 .admin-llm-config__inline-actions {
   display: flex;
+  gap: 12px;
 }
 
 .admin-llm-config__inline-actions .link {
@@ -104,6 +114,38 @@
 .admin-llm-config__inline-actions .link:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.admin-llm-config__model-search {
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--cs-surface-muted);
+}
+
+.admin-llm-config__model-results {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.admin-llm-config__model-result-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-llm-config__model-result-btn.is-selected {
+  border-color: var(--cs-primary);
+  background: #eef4ff;
 }
 
 .admin-llm-config__status {

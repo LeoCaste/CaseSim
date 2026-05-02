@@ -17,9 +17,6 @@ import java.util.Map;
 public class GroqLlmClient implements LlmClient {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GroqLlmClient.class);
-    private static final String GROQ_CHAT_COMPLETIONS_PATH = "/openai/v1/chat/completions";
-    private static final String GROQ_DEFAULT_URL = "https://api.groq.com" + GROQ_CHAT_COMPLETIONS_PATH;
-
     private final RestClient restClient;
     private final LlmProperties llmProperties;
     private final LlmProviderUrlResolver urlResolver;
@@ -57,22 +54,25 @@ public class GroqLlmClient implements LlmClient {
         }
 
         int attempts = Math.max(1, llmProperties.getMaxRetries() + 1);
+        String normalizedBaseUrl = urlResolver.resolveBaseUrl(LlmProviderSupport.GROQ, llmProperties.getBaseUrl());
+        String finalPath = urlResolver.resolveChatCompletionsPath(LlmProviderSupport.GROQ);
         String resolvedUrl = urlResolver.resolve(LlmProviderSupport.GROQ, llmProperties.getBaseUrl());
-        String requestPath = resolveRequestPath(resolvedUrl);
-        String requestHost = resolveRequestHost(resolvedUrl);
+        String requestHost = resolveRequestHost(normalizedBaseUrl);
+        boolean customBaseUrl = StringUtils.hasText(llmProperties.getBaseUrl());
         String authHeader = "Bearer " + llmProperties.getApiKey().trim();
         boolean hasAuthHeader = StringUtils.hasText(authHeader);
 
-        log.info("LLM client request provider={} model={} host={} path={} messagesCount={} temperature={} maxTokens={} authHeaderPresent={} authPrefix={}",
+        log.info("LLM client request provider={} model={} host={} normalizedBaseUrl={} finalPath={} customBaseUrl={} messagesCount={} temperature={} maxTokens={} authHeaderPresent={}",
                 provider,
                 llmProperties.getModel(),
                 requestHost,
-                requestPath,
+                normalizedBaseUrl,
+                finalPath,
+                customBaseUrl,
                 messages == null ? 0 : messages.size(),
                 temperature == null ? llmProperties.getTemperature() : temperature,
                 maxTokens == null ? llmProperties.getMaxTokens() : maxTokens,
-                hasAuthHeader,
-                maskedAuthPrefix(authHeader));
+                hasAuthHeader);
 
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
@@ -101,17 +101,16 @@ public class GroqLlmClient implements LlmClient {
                     int status = responseException.getStatusCode().value();
                     LlmProviderError providerError = errorMapper.map(status, responseException.getResponseBodyAsString());
                     String category = providerError.category().name();
-                    log.warn("LLM client http error provider={} model={} host={} path={} status={} category={} errorBody={} authHeaderPresent={} authPrefix={}",
+                    log.warn("LLM client http error provider={} model={} host={} finalPath={} status={} category={} errorBody={} authHeaderPresent={}",
                             provider,
                             llmProperties.getModel(),
                             requestHost,
-                            requestPath,
+                            finalPath,
                             status,
                             category,
                             sanitizeProviderBody(responseException.getResponseBodyAsString()),
-                            hasAuthHeader,
-                            maskedAuthPrefix(authHeader));
-                    String message = buildHttpErrorMessage(responseException, requestPath);
+                            hasAuthHeader);
+                    String message = buildHttpErrorMessage(responseException, finalPath);
                     if (attempt == attempts) {
                         throw new LlmClientException(message, ex, providerError);
                     }
@@ -207,26 +206,6 @@ public class GroqLlmClient implements LlmClient {
         return sanitized.length() > 240 ? sanitized.substring(0, 240) + "..." : sanitized;
     }
 
-    String resolveGroqUrl() {
-        String configured = llmProperties.getBaseUrl();
-        String normalizedBase = sanitizeGroqBaseUrl(configured);
-        try {
-            URI uri = new URI(normalizedBase);
-            String currentPath = uri.getPath() == null ? "" : uri.getPath().trim();
-            String normalizedPath = normalizeGroqPath(currentPath);
-            URI normalizedUri = new URI(
-                    uri.getScheme(),
-                    uri.getAuthority(),
-                    normalizedPath,
-                    uri.getQuery(),
-                    uri.getFragment()
-            );
-            return normalizedUri.toString();
-        } catch (URISyntaxException ignored) {
-            return GROQ_DEFAULT_URL;
-        }
-    }
-
     String resolveRequestPath(String url) {
         if (!StringUtils.hasText(url)) {
             return "";
@@ -240,64 +219,6 @@ public class GroqLlmClient implements LlmClient {
         }
     }
 
-    private String normalizeGroqPath(String path) {
-        if (!StringUtils.hasText(path) || "/".equals(path)) {
-            return GROQ_CHAT_COMPLETIONS_PATH;
-        }
-
-        String normalized = path.replaceAll("/+", "/");
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-
-        if (normalized.endsWith("/openai/v1/chat/completions") || normalized.endsWith("/v1/chat/completions")) {
-            if (normalized.endsWith("/v1/chat/completions") && !normalized.contains("/openai/")) {
-                return normalized.substring(0, normalized.length() - "/v1/chat/completions".length()) + GROQ_CHAT_COMPLETIONS_PATH;
-            }
-            return normalized;
-        }
-
-        if (normalized.endsWith("/openai")) {
-            return normalized + "/v1/chat/completions";
-        }
-        if (normalized.endsWith("/v1")) {
-            return normalized + "/chat/completions";
-        }
-        return normalized + GROQ_CHAT_COMPLETIONS_PATH;
-    }
-
-    private String sanitizeGroqBaseUrl(String configuredBaseUrl) {
-        if (!StringUtils.hasText(configuredBaseUrl)) {
-            return GROQ_DEFAULT_URL;
-        }
-
-        String trimmed = configuredBaseUrl.trim();
-        try {
-            URI uri = new URI(trimmed);
-            String host = uri.getHost();
-            if (!isAllowedGroqHost(host)) {
-                log.info("Groq baseUrl host no permitido para provider=groq; se usará fallback seguro. configuredHost={} fallbackHost=api.groq.com",
-                        host == null ? "" : host);
-                return GROQ_DEFAULT_URL;
-            }
-            return trimmed;
-        } catch (URISyntaxException ignored) {
-            log.info("Groq baseUrl inválida para provider=groq; se usará fallback seguro. fallbackHost=api.groq.com");
-            return GROQ_DEFAULT_URL;
-        }
-    }
-
-    private boolean isAllowedGroqHost(String host) {
-        if (!StringUtils.hasText(host)) {
-            return false;
-        }
-        String normalized = host.trim().toLowerCase(Locale.ROOT);
-        if ("api.openai.com".equals(normalized) || normalized.endsWith(".openai.com") || "openai.com".equals(normalized)) {
-            return false;
-        }
-        return "api.groq.com".equals(normalized) || normalized.endsWith(".groq.com") || "localhost".equals(normalized) || "127.0.0.1".equals(normalized);
-    }
-
     private String resolveRequestHost(String url) {
         if (!StringUtils.hasText(url)) {
             return "";
@@ -308,14 +229,6 @@ public class GroqLlmClient implements LlmClient {
         } catch (URISyntaxException ignored) {
             return "";
         }
-    }
-
-    private String maskedAuthPrefix(String authorizationHeader) {
-        if (!StringUtils.hasText(authorizationHeader)) {
-            return "none";
-        }
-        String value = authorizationHeader.trim();
-        return value.length() <= 14 ? "present" : value.substring(0, 14) + "***";
     }
 
 }

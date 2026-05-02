@@ -12,8 +12,18 @@ public final class LlmProviderSupport {
     public static final String ANTHROPIC = "anthropic";
     public static final String GEMINI = "gemini";
     public static final String GROQ = "groq";
+    public static final String OPENROUTER = "openrouter";
+    public static final String OLLAMA = "ollama";
 
-    private static final Set<String> SUPPORTED = Set.of(OPENAI, OPENAI_COMPATIBLE, ANTHROPIC, GEMINI, GROQ);
+    private static final Set<String> SUPPORTED = Set.of(
+            OPENAI,
+            OPENAI_COMPATIBLE,
+            ANTHROPIC,
+            GEMINI,
+            GROQ,
+            OPENROUTER,
+            OLLAMA
+    );
 
     private LlmProviderSupport() {
     }
@@ -32,10 +42,12 @@ public final class LlmProviderSupport {
     public static String defaultBaseUrl(String provider) {
         return switch (normalize(provider)) {
             case OPENAI -> "https://api.openai.com/v1/chat/completions";
-            case OPENAI_COMPATIBLE -> "";
+            case OPENAI_COMPATIBLE -> "https://api.openai.com/v1/chat/completions";
             case ANTHROPIC -> "https://api.anthropic.com/v1/messages";
             case GEMINI -> "https://generativelanguage.googleapis.com/v1beta/models";
             case GROQ -> "https://api.groq.com/openai/v1/chat/completions";
+            case OPENROUTER -> "https://openrouter.ai/api/v1/chat/completions";
+            case OLLAMA -> "http://localhost:11434/v1/chat/completions";
             default -> "";
         };
     }
