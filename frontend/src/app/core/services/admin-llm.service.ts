@@ -104,13 +104,12 @@ export class AdminLlmService {
     return of(this.mockConfig);
   }
 
-  removeApiKey(payload: UpdateLlmConfigPayload): Observable<LlmConfig> {
+  removeApiKey(): Observable<void> {
     if (!environment.useMocks) {
       return this.http
-        .put<BackendLlmConfigResponse>(`${this.apiBaseUrl}/admin/llm/config`, this.mapUpdatePayload(payload, { clearApiKey: true }))
+        .delete<void>(`${this.apiBaseUrl}/admin/llm/config/api-key`)
         .pipe(
           timeout(this.requestTimeoutMs),
-          map((response) => this.mapConfigResponse(response)),
           catchError((error) =>
             throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible eliminar la API key.')))
           )
@@ -124,7 +123,7 @@ export class AdminLlmService {
       updatedAt: new Date().toISOString()
     };
 
-    return of(this.mockConfig);
+    return of(void 0);
   }
 
   testConnection(): Observable<LlmTestConnectionResult> {

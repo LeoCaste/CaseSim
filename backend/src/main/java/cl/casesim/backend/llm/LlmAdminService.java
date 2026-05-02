@@ -151,6 +151,7 @@ public class LlmAdminService {
         Optional<LlmConfig> configOpt = llmConfigRepository.findFirstByOrderByUpdatedAtDesc();
         if (configOpt.isEmpty()) {
             llmProperties.setApiKey("");
+            llmProperties.setEnabled(false);
             return getConfig();
         }
 
@@ -159,7 +160,7 @@ public class LlmAdminService {
                 normalizeProvider(config.getProvider()),
                 config.getModel(),
                 resolveBaseUrl(normalizeProvider(config.getProvider()), config.getBaseUrl()),
-                config.isEnabled(),
+                false,
                 null,
                 LocalDateTime.now(),
                 defaultSystemPrompt(config.getSystemPrompt()),

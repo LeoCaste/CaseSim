@@ -375,7 +375,70 @@ class LlmAdminServiceTest {
         assertNull(response.maskedApiKey());
         assertEquals("openai", response.provider());
         assertEquals("gpt-4o-mini", response.model());
+        assertFalse(response.enabled());
         assertEquals("", llmProperties.getApiKey());
+        assertFalse(llmProperties.isEnabled());
+    }
+
+    @Test
+    void testConnectionShouldFailClearlyWhenApiKeyWasRemoved() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("gpt-4o-mini");
+        llmProperties.setApiKey("");
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertFalse(response.success());
+        assertEquals("LLM deshabilitado o sin API key.", response.message());
+        verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+    }
+
+    @Test
+    void updateConfigShouldRestoreOperationalStateAfterApiKeyDeletion() {
+        LocalDateTime now = LocalDateTime.now();
+        LlmConfig existingWithoutKey = new LlmConfig(
+                UUID.randomUUID(),
+                "openai",
+                "gpt-4o-mini",
+                "https://api.openai.com/v1/chat/completions",
+                false,
+                null,
+                now,
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE,
+                6,
+                0.4,
+                350,
+                true
+        );
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openai",
+                "gpt-4.1-mini",
+                null,
+                true,
+                "sk-restored",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(existingWithoutKey));
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertTrue(response.enabled());
+        assertTrue(response.apiKeyConfigured());
+        assertTrue(llmProperties.isEnabled());
+        assertEquals("sk-restored", llmProperties.getApiKey());
     }
 
     @Test

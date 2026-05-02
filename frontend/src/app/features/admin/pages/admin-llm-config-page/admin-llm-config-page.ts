@@ -199,13 +199,8 @@ export class AdminLlmConfigPage implements OnInit {
     this.isDeletingApiKey = true;
     this.triggerViewUpdate();
 
-    const payload: UpdateLlmConfigPayload = {
-      ...this.buildSanitizedPayload(this.form),
-      apiKey: ''
-    };
-
     this.adminLlmService
-      .removeApiKey(payload)
+      .removeApiKey()
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -214,20 +209,56 @@ export class AdminLlmConfigPage implements OnInit {
         })
       )
       .subscribe({
-        next: (updatedConfig) => {
-          this.config = {
-            ...updatedConfig,
-            apiKeyConfigured: false,
-            maskedApiKey: null
-          };
-          this.form.apiKey = '';
+        next: () => {
           this.saveMessage = 'API key eliminada correctamente.';
           this.saveError = '';
-          this.triggerViewUpdate();
+          this.form.apiKey = '';
+          this.reloadConfigAfterApiKeyRemoval();
         },
         error: (error: unknown) => {
           this.saveError = error instanceof Error ? error.message : 'No fue posible eliminar la API key.';
           this.saveMessage = '';
+          this.triggerViewUpdate();
+        }
+      });
+  }
+
+  private reloadConfigAfterApiKeyRemoval(): void {
+    this.isLoading = true;
+    this.loadError = '';
+    this.triggerViewUpdate();
+
+    this.adminLlmService
+      .getConfig()
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.isLoading = false;
+          this.triggerViewUpdate();
+        })
+      )
+      .subscribe({
+        next: (config) => {
+          this.config = config;
+          const provider = this.normalizeProvider(config.provider);
+          const model = this.normalizeModel(provider, config.model);
+          const resolvedBaseUrl = this.resolveBaseUrl(config.baseUrl, provider);
+          this.form = {
+            provider,
+            model,
+            baseUrl: resolvedBaseUrl,
+            enabled: config.enabled,
+            apiKey: '',
+            patientBehavior: this.clonePatientBehavior(config.patientBehavior)
+          };
+          if (!this.form.model?.trim()) {
+            this.form.model = this.getProviderDefaultModel(provider);
+          }
+          this.triggerViewUpdate();
+        },
+        error: (error: unknown) => {
+          this.loadError = error instanceof Error ? error.message : 'No fue posible recargar la configuración actual.';
+          this.saveError = 'API key eliminada, pero no fue posible recargar la configuración actual.';
           this.triggerViewUpdate();
         }
       });
