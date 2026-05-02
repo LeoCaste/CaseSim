@@ -58,13 +58,38 @@ describe('AdminLlmConfigPage', () => {
     expect(component.form.model).toBe('llama-3.1-8b-instant');
   });
 
-  it('debe exponer solo OpenAI y Groq en selector de proveedor', () => {
-    expect(component.providers).toEqual(['openai', 'groq']);
+  it('debe seleccionar modelo sugerido por defecto de Gemini al cambiar provider', () => {
+    component.form.model = '';
+
+    component.onProviderChange('gemini');
+
+    expect(component.form.model).toBe('gemini-2.5-flash-lite');
+  });
+
+  it('debe reemplazar modelo inválido al cambiar a Gemini', () => {
+    component.form.model = 'gpt-4.1-mini';
+
+    component.onProviderChange('gemini');
+
+    expect(component.form.model).toBe('gemini-2.5-flash-lite');
+  });
+
+  it('debe exponer OpenAI, Groq y Gemini en selector de proveedor', () => {
+    expect(component.providers).toEqual(['openai', 'groq', 'gemini']);
   });
 
   it('no debe permitir guardar cuando modelo no está en catálogo conocido', () => {
     component.form.provider = 'openai';
     component.form.model = 'modelo-invalido';
+    component.onSave();
+
+    expect(component.saveError).toContain('Modelo no permitido');
+    expect(adminLlmServiceMock.updateConfig).not.toHaveBeenCalled();
+  });
+
+  it('debe mantener validación de modelo para Gemini', () => {
+    component.form.provider = 'gemini';
+    component.form.model = 'gpt-4.1';
     component.onSave();
 
     expect(component.saveError).toContain('Modelo no permitido');

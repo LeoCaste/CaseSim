@@ -4,6 +4,8 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 public class LlmProviderUrlResolver {
@@ -12,13 +14,24 @@ public class LlmProviderUrlResolver {
     private static final String GROQ_DEFAULT_BASE = "https://api.groq.com/openai/v1";
     private static final String OPENROUTER_DEFAULT_BASE = "https://openrouter.ai/api/v1";
     private static final String OLLAMA_DEFAULT_BASE = "http://localhost:11434/v1";
+    private static final String GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
     private static final String OPENAI_PATH = "/chat/completions";
     private static final String GROQ_PATH = "/chat/completions";
 
     public String resolve(String provider, String configuredBaseUrl) {
+        if (LlmProviderSupport.GEMINI.equals(LlmProviderSupport.normalize(provider))) {
+            throw new LlmClientException("Use resolveGeminiGenerateContentUrl para provider gemini.");
+        }
         String baseUrl = resolveBaseUrl(provider, configuredBaseUrl);
         String path = resolveChatCompletionsPath(provider);
         return joinBaseAndPath(baseUrl, path);
+    }
+
+    public String resolveGeminiGenerateContentUrl(String configuredBaseUrl, String model) {
+        String normalizedModel = StringUtils.hasText(model) ? model.trim() : "gemini-2.5-flash-lite";
+        String encodedModel = URLEncoder.encode(normalizedModel, StandardCharsets.UTF_8);
+        String baseUrl = resolveBaseUrl(LlmProviderSupport.GEMINI, configuredBaseUrl);
+        return trimTrailingSlash(baseUrl) + "/" + encodedModel + ":generateContent";
     }
 
     public String resolveBaseUrl(String provider, String configuredBaseUrl) {
@@ -29,6 +42,7 @@ public class LlmProviderUrlResolver {
             case LlmProviderSupport.GROQ -> normalizeGroqBase(configured);
             case LlmProviderSupport.OPENROUTER -> normalizeDefaultOpenAiCompatibleBase(configured, OPENROUTER_DEFAULT_BASE);
             case LlmProviderSupport.OLLAMA -> normalizeDefaultOpenAiCompatibleBase(configured, OLLAMA_DEFAULT_BASE);
+            case LlmProviderSupport.GEMINI -> normalizeGeminiBase(configured);
             default -> throw new LlmClientException("Proveedor no soportado para resolver URL: " + normalizedProvider);
         };
     }
@@ -99,6 +113,33 @@ public class LlmProviderUrlResolver {
         } catch (URISyntaxException ex) {
             return GROQ_DEFAULT_BASE;
         }
+    }
+
+    String normalizeGeminiBase(String configured) {
+        if (!StringUtils.hasText(configured)) {
+            return GEMINI_DEFAULT_BASE;
+        }
+        String normalized = trimTrailingSlash(configured);
+
+        int modelSegment = normalized.lastIndexOf("/models/");
+        if (modelSegment > -1) {
+            return normalized.substring(0, modelSegment + "/models".length());
+        }
+
+        if (normalized.endsWith("/models")) {
+            return normalized;
+        }
+
+        if (normalized.endsWith(":generateContent")) {
+            int actionSeparator = normalized.lastIndexOf(":generateContent");
+            String withoutAction = normalized.substring(0, actionSeparator);
+            int modelSeparator = withoutAction.lastIndexOf('/');
+            if (modelSeparator > -1) {
+                String prefix = withoutAction.substring(0, modelSeparator);
+                return prefix.endsWith("/models") ? prefix : prefix + "/models";
+            }
+        }
+        return normalized + "/models";
     }
 
     private String joinBaseAndPath(String baseUrl, String path) {

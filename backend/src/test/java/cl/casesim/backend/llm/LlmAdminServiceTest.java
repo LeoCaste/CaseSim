@@ -184,6 +184,34 @@ class LlmAdminServiceTest {
     }
 
     @Test
+    void updateConfigShouldAcceptGeminiAsRealProvider() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "gemini",
+                "gemini-2.5-flash-lite",
+                null,
+                true,
+                "gsk-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("gemini", response.provider());
+        assertEquals("gemini-2.5-flash-lite", response.model());
+        assertEquals("https://generativelanguage.googleapis.com/v1beta/models", llmProperties.getBaseUrl());
+    }
+
+    @Test
     void updateConfigShouldRequireApiKeyWhenNoExistingConfig() {
         UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
                 "openai",

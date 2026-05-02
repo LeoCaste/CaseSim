@@ -3,6 +3,7 @@ package cl.casesim.backend.llm;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LlmProviderUrlResolverTest {
@@ -76,5 +77,42 @@ class LlmProviderUrlResolverTest {
         LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
         String url = resolver.resolve("openai", "https://api.groq.com/openai/v1/chat/completions");
         assertEquals("https://api.openai.com/v1/chat/completions", url);
+    }
+
+    @Test
+    void geminiBaseDefaultYGenerateContentPath() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        String base = resolver.resolveBaseUrl("gemini", null);
+        String url = resolver.resolveGeminiGenerateContentUrl(null, "gemini-2.5-flash-lite");
+
+        assertEquals("https://generativelanguage.googleapis.com/v1beta/models", base);
+        assertEquals("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", url);
+    }
+
+    @Test
+    void resolveGeminiConMetodoGenericoFallaClaro() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        LlmClientException ex = assertThrows(LlmClientException.class,
+                () -> resolver.resolve("gemini", null));
+        assertEquals("Use resolveGeminiGenerateContentUrl para provider gemini.", ex.getMessage());
+    }
+
+    @Test
+    void geminiConfigBaseSinModelsAgregaSegmentoCorrecto() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        String configuredBase = "https://generativelanguage.googleapis.com/v1beta";
+        String url = resolver.resolveGeminiGenerateContentUrl(configuredBase, "gemini-2.5-flash-lite");
+
+        assertEquals("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", url);
+        assertNotEquals("https://generativelanguage.googleapis.com/v1beta/gemini-2.5-flash-lite:generateContent", url);
+    }
+
+    @Test
+    void geminiConfigConEndpointCompletoNormalizaYEvitaDuplicarModelo() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        String configuredEndpoint = "https://generativelanguage.googleapis.com/v1beta/gemini-2.5-flash-lite:generateContent";
+        String url = resolver.resolveGeminiGenerateContentUrl(configuredEndpoint, "gemini-2.5-flash-lite");
+
+        assertEquals("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent", url);
     }
 }

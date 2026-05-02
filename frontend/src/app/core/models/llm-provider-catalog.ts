@@ -37,9 +37,9 @@ export const LLM_PROVIDER_CATALOG: Record<LlmProvider, LlmProviderDefinition> = 
   gemini: {
     label: 'Google Gemini',
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    suggestedModels: ['gemini-1.5-flash', 'gemini-1.5-pro'],
-    knownModels: ['gemini-1.5-flash', 'gemini-1.5-pro'],
-    defaultModel: 'gemini-1.5-flash',
+    suggestedModels: ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'],
+    knownModels: ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'],
+    defaultModel: 'gemini-2.5-flash-lite',
     requiresApiKey: true
   },
   groq: {
@@ -56,4 +56,4 @@ export const LLM_PROVIDER_LIST: LlmProvider[] = Object.keys(LLM_PROVIDER_CATALOG
 
 // Proveedores habilitados explícitamente para la pantalla Admin LLM.
 // Mantiene el catálogo completo para compatibilidad, pero limita UX activa.
-export const ADMIN_LLM_ACTIVE_PROVIDERS: LlmProvider[] = ['openai', 'groq'];
+export const ADMIN_LLM_ACTIVE_PROVIDERS: LlmProvider[] = ['openai', 'groq', 'gemini'];

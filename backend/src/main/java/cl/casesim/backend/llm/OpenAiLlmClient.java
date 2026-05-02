@@ -8,8 +8,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -144,12 +142,6 @@ public class OpenAiLlmClient implements LlmClient {
                     .body(buildAnthropicPayload(messages, temperature, maxTokens))
                     .retrieve()
                     .body(Map.class);
-            case LlmProviderSupport.GEMINI -> restClient.post()
-                    .uri(resolveGeminiUrl())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(buildGeminiPayload(messages, temperature, maxTokens))
-                    .retrieve()
-                    .body(Map.class);
             default -> throw new cl.casesim.backend.llm.LlmClientException("Proveedor no implementado: " + provider);
         };
     }
@@ -203,25 +195,6 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
-    private Map<String, Object> buildGeminiPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
-        double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
-        int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
-        return Map.of(
-                "contents", messages.stream()
-                        .filter(message -> "user".equalsIgnoreCase(message.role()) || "assistant".equalsIgnoreCase(message.role()))
-                        .map(message -> Map.of(
-                                "role", "assistant".equalsIgnoreCase(message.role()) ? "model" : "user",
-                                "parts", List.of(Map.of("text", message.content()))
-                        ))
-                        .toList(),
-                "systemInstruction", Map.of("parts", List.of(Map.of("text", buildSystemPrompt(messages)))),
-                "generationConfig", Map.of(
-                        "temperature", resolvedTemperature,
-                        "maxOutputTokens", resolvedMaxTokens
-                )
-        );
-    }
-
     private String buildSystemPrompt(List<LlmMessage> messages) {
         return messages.stream()
                 .filter(message -> "system".equalsIgnoreCase(message.role()))
@@ -236,7 +209,6 @@ public class OpenAiLlmClient implements LlmClient {
     private String extractContent(String provider, Map<String, Object> response) {
         return switch (provider) {
             case LlmProviderSupport.ANTHROPIC -> extractAnthropicContent(response);
-            case LlmProviderSupport.GEMINI -> extractGeminiContent(response);
             default -> extractOpenAiCompatibleContent(response);
         };
     }
@@ -368,35 +340,6 @@ public class OpenAiLlmClient implements LlmClient {
                 .orElse("");
     }
 
-    @SuppressWarnings("unchecked")
-    private String extractGeminiContent(Map<String, Object> response) {
-        if (response == null) {
-            return "";
-        }
-        Object candidatesObj = response.get("candidates");
-        if (!(candidatesObj instanceof List<?> candidates) || candidates.isEmpty()) {
-            return "";
-        }
-        Object firstCandidate = candidates.getFirst();
-        if (!(firstCandidate instanceof Map<?, ?> candidateMap)) {
-            return "";
-        }
-        Object contentObj = candidateMap.get("content");
-        if (!(contentObj instanceof Map<?, ?> contentMap)) {
-            return "";
-        }
-        Object partsObj = contentMap.get("parts");
-        if (!(partsObj instanceof List<?> parts) || parts.isEmpty()) {
-            return "";
-        }
-        Object firstPart = parts.getFirst();
-        if (!(firstPart instanceof Map<?, ?> partMap)) {
-            return "";
-        }
-        Object textObj = partMap.get("text");
-        return textObj instanceof String text && StringUtils.hasText(text) ? text.trim() : "";
-    }
-
     private String resolveOpenAiCompatibleUrl(String provider) {
         return urlResolver.resolve(provider, llmProperties.getBaseUrl());
     }
@@ -414,14 +357,6 @@ public class OpenAiLlmClient implements LlmClient {
 
     private String resolveAnthropicUrl() {
         return urlResolver.resolve(LlmProviderSupport.ANTHROPIC, llmProperties.getBaseUrl());
-    }
-
-    private String resolveGeminiUrl() {
-        String configured = urlResolver.resolve(LlmProviderSupport.GEMINI, llmProperties.getBaseUrl());
-        String base = configured.endsWith("/") ? configured.substring(0, configured.length() - 1) : configured;
-        String model = StringUtils.hasText(llmProperties.getModel()) ? llmProperties.getModel().trim() : "gemini-1.5-flash";
-        String encodedKey = URLEncoder.encode(llmProperties.getApiKey().trim(), StandardCharsets.UTF_8);
-        return base + "/" + model + ":generateContent?key=" + encodedKey;
     }
 
     private String buildHttpErrorMessage(RestClientResponseException responseException, String requestPath) {

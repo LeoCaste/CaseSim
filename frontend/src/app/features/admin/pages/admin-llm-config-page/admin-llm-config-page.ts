@@ -237,7 +237,9 @@ export class AdminLlmConfigPage implements OnInit {
     const provider = this.normalizeProvider(providerInput);
     this.form.provider = provider;
 
-    if (!this.form.model?.trim()) {
+    const selectedModel = this.form.model?.trim();
+    const isSelectedModelAllowed = !!selectedModel && this.modelOptionsByProvider(provider).includes(selectedModel as LlmModel);
+    if (!selectedModel || !isSelectedModelAllowed) {
       this.form.model = this.getProviderDefaultModel(provider);
     }
 
@@ -325,6 +327,10 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private normalizeProvider(provider: string): LlmProvider {
+    if (provider === 'gemini') {
+      return 'gemini';
+    }
+
     if (provider === 'groq') {
       return 'groq';
     }

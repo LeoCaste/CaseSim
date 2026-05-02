@@ -1,5 +1,6 @@
 package cl.casesim.backend.llm;
 
+import cl.casesim.backend.llm.provider.gemini.*;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
@@ -55,8 +56,39 @@ public class LlmConfiguration {
     }
 
     @Bean
-    public LlmClient llmClient(LlmProperties llmProperties, OpenAiLlmClient openAiLlmClient, GroqLlmClient groqLlmClient) {
-        return new LlmClientRouter(llmProperties, java.util.List.of(openAiLlmClient, groqLlmClient));
+    public GeminiRequestMapper geminiRequestMapper() {
+        return new GeminiRequestMapper();
+    }
+
+    @Bean
+    public GeminiResponseMapper geminiResponseMapper() {
+        return new GeminiResponseMapper();
+    }
+
+    @Bean
+    public GeminiErrorMapper geminiErrorMapper(LlmProviderErrorMapper errorMapper) {
+        return new GeminiErrorMapper(errorMapper);
+    }
+
+    @Bean
+    public GeminiLlmClient geminiLlmClient(
+            LlmProperties llmProperties,
+            LlmProviderUrlResolver urlResolver,
+            GeminiRequestMapper requestMapper,
+            GeminiResponseMapper responseMapper,
+            GeminiErrorMapper errorMapper
+    ) {
+        return new GeminiLlmClient(llmProperties, urlResolver, requestMapper, responseMapper, errorMapper);
+    }
+
+    @Bean
+    public LlmClient llmClient(
+            LlmProperties llmProperties,
+            OpenAiLlmClient openAiLlmClient,
+            GroqLlmClient groqLlmClient,
+            GeminiLlmClient geminiLlmClient
+    ) {
+        return new LlmClientRouter(llmProperties, java.util.List.of(openAiLlmClient, groqLlmClient, geminiLlmClient));
     }
 
     @Bean

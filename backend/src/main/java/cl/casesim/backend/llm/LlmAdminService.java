@@ -361,7 +361,7 @@ public class LlmAdminService {
 
     private void validateProvider(String provider) {
         if (!LlmProviderSupport.isConfigurableForRealOperation(provider)) {
-            throw new BadRequestException("Provider no soportado para operación real. Use: openai o groq.");
+            throw new BadRequestException("Provider no soportado para operación real. Use: openai, groq o gemini.");
         }
     }
 
