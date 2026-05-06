@@ -20,12 +20,12 @@
     <section class="clinical-summary">
       <article class="clinical-summary__item">
         <span class="clinical-summary__label">Motivo de consulta</span>
-            <strong>Tos seca persistente</strong>
+        <strong>{{ chiefComplaintDisplay }}</strong>
       </article>
 
       <article class="clinical-summary__item">
-        <span class="clinical-summary__label">Tiempo de evolución</span>
-        <strong>5 días</strong>
+        <span class="clinical-summary__label">Contexto clínico</span>
+        <strong>{{ session.context || 'Sin contexto clínico registrado.' }}</strong>
       </article>
     </section>
 

@@ -1,18 +1,22 @@
 <section class="waiting-room">
   <article class="waiting-card">
+    <p *ngIf="isLoading" class="waiting-room__state">Cargando sala de espera...</p>
+    <p *ngIf="loadError" class="waiting-room__state error">{{ loadError }}</p>
+
+    <ng-container *ngIf="!isLoading && !loadError && activity">
     <header class="waiting-card__header">
       <p>Antes de comenzar</p>
       <h1>Tu paciente te espera</h1>
-      <span>Entrevista respiratoria · Catalina Paz Soto</span>
+      <span>{{ waitingTitle }} · {{ patientDisplayName }}</span>
     </header>
 
     <section class="patient-preview">
-      <div class="patient-avatar">CP</div>
+      <div class="patient-avatar">{{ patientInitials }}</div>
 
       <div>
         <p class="patient-preview__label">Paciente simulado</p>
-        <h2>Catalina Paz Soto</h2>
-        <p>22 años · Consulta ambulatoria</p>
+        <h2>{{ patientDisplayName }}</h2>
+        <p>{{ activity.duration }}</p>
       </div>
     </section>
 
@@ -37,5 +41,10 @@
         Iniciar entrevista clínica
       </a>
     </footer>
+    </ng-container>
+
+    <p *ngIf="!isLoading && !loadError && !activity" class="waiting-room__state empty">
+      No hay una actividad activa para iniciar la entrevista.
+    </p>
   </article>
 </section>

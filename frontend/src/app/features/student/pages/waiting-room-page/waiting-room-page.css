@@ -13,6 +13,22 @@
   overflow: hidden;
 }
 
+.waiting-room__state {
+  margin: 0;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--cs-border);
+}
+
+.waiting-room__state.error {
+  color: #9a1c1c;
+  background: #fff4f4;
+}
+
+.waiting-room__state.empty {
+  color: var(--cs-text-muted);
+  background: #fbfcfd;
+}
+
 .waiting-card__header {
   padding: 24px 28px;
   border-bottom: 1px solid var(--cs-border);
