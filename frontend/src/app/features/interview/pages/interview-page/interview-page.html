@@ -4,7 +4,7 @@
       <div>
         <p class="patient-header__eyebrow">Paciente simulado</p>
         <h1>{{ patientNameDisplay }}</h1>
-        <p>{{ patientAgeDisplay }} · Sexo {{ patientSexDisplay }} · {{ session.context }}</p>
+        <p>{{ patientAgeDisplay }} · Sexo {{ patientSexDisplay }}</p>
         <p class="patient-header__reason">
           Motivo principal: {{ chiefComplaintDisplay }}
         </p>
@@ -23,10 +23,6 @@
         <strong>{{ chiefComplaintDisplay }}</strong>
       </article>
 
-      <article class="clinical-summary__item">
-        <span class="clinical-summary__label">Contexto clínico</span>
-        <strong>{{ session.context || 'Sin contexto clínico registrado.' }}</strong>
-      </article>
     </section>
 
     <div class="interview-layout">
