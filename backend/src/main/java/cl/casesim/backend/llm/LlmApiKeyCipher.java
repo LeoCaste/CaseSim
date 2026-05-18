@@ -23,7 +23,7 @@ public class LlmApiKeyCipher {
     private final byte[] keyBytes;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public LlmApiKeyCipher(@Value("${casesim.security.llm-key:casesim-default-llm-key}") String secret) {
+    public LlmApiKeyCipher(@Value("${casesim.security.llm-key}") String secret) {
         this.keyBytes = deriveKey(secret);
     }
 
