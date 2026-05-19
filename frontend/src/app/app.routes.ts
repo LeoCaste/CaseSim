@@ -1,6 +1,9 @@
 import { Routes } from '@angular/router';
 import { AppShell } from './layout/app-shell/app-shell';
 import { LoginPage } from './features/auth/pages/login-page/login-page';
+import { SetupPage } from './features/auth/pages/setup-page/setup-page';
+import { ForgotPasswordPage } from './features/auth/pages/forgot-password-page/forgot-password-page';
+import { ResetPasswordPage } from './features/auth/pages/reset-password-page/reset-password-page';
 import { InterviewPage } from './features/interview/pages/interview-page/interview-page';
 import { SessionCompletedPage } from './features/interview/pages/session-completed-page/session-completed-page';
 import { StudentDashboardPage } from './features/student/pages/student-dashboard-page/student-dashboard-page';
@@ -18,6 +21,8 @@ import { AdminLlmUsagePage } from './features/admin/pages/admin-llm-usage-page/a
 import { AdminUsersPage } from './features/admin/pages/admin-users-page/admin-users-page';
 import { rootSessionRedirectGuard } from './core/guards/root-session-redirect.guard';
 import { roleAuthorizationCanActivate, roleAuthorizationCanMatch } from './core/guards/role-authorization.guard';
+import { bootstrapFlowGuard } from './core/guards/bootstrap-flow.guard';
+import { setupAccessGuard } from './core/guards/setup-access.guard';
 
 const PROFESSOR_ONLY = { roles: ['professor'] };
 const STUDENT_ONLY = { roles: ['student'] };
@@ -26,16 +31,33 @@ const ADMIN_ONLY = { roles: ['admin'] };
 export const routes: Routes = [
   {
     path: 'login',
+    canActivate: [bootstrapFlowGuard],
     component: LoginPage
+  },
+  {
+    path: 'setup',
+    canActivate: [setupAccessGuard],
+    component: SetupPage
+  },
+  {
+    path: 'forgot-password',
+    canActivate: [bootstrapFlowGuard],
+    component: ForgotPasswordPage
+  },
+  {
+    path: 'reset-password',
+    canActivate: [bootstrapFlowGuard],
+    component: ResetPasswordPage
   },
   {
     path: '',
     pathMatch: 'full',
-    canActivate: [rootSessionRedirectGuard],
+    canActivate: [bootstrapFlowGuard, rootSessionRedirectGuard],
     component: LoginPage
   },
   {
     path: '',
+    canActivate: [bootstrapFlowGuard],
     component: AppShell,
     children: [
       {

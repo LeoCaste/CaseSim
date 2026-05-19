@@ -41,4 +41,13 @@ public interface UserRepository extends JpaRepository<AppUser, UUID> {
     boolean existsByEmailIgnoreCase(String email);
 
     boolean existsByEmailIgnoreCaseAndIdNot(String email, UUID id);
+
+    @Query("""
+            select (count(u) > 0)
+            from AppUser u
+            join u.roles r
+            where u.activo = true
+              and upper(r.nombre) = 'ADMIN'
+            """)
+    boolean existsActiveAdmin();
 }

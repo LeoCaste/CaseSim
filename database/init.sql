@@ -206,6 +206,23 @@ CREATE TABLE evento_seguridad (
     creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS platform_setup_state (
+    id BIGINT PRIMARY KEY,
+    initialized BOOLEAN NOT NULL DEFAULT FALSE,
+    initialized_at TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_token (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+    token_hash VARCHAR(128) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX idx_usuario_email ON usuario(email);
 CREATE INDEX idx_curso_usuario_usuario ON curso_usuario(usuario_id);
 CREATE INDEX idx_actividad_curso ON actividad_simulacion(curso_id);
@@ -215,6 +232,8 @@ CREATE INDEX idx_mensaje_sesion ON mensaje_chat(sesion_id);
 CREATE INDEX idx_hecho_caso ON caso_hecho_clinico(caso_id);
 CREATE INDEX idx_revelado_sesion ON sesion_hecho_revelado(sesion_id);
 CREATE INDEX idx_uso_llm_sesion ON uso_llm(sesion_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_token_hash ON password_reset_token(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_reset_token_user ON password_reset_token(user_id);
 
 INSERT INTO rol (nombre)
 VALUES 
@@ -225,3 +244,7 @@ ON CONFLICT (nombre) DO NOTHING;
 
 INSERT INTO institucion (nombre, tipo)
 VALUES ('CaseSim Demo', 'universidad');
+
+INSERT INTO platform_setup_state (id, initialized)
+VALUES (1, FALSE)
+ON CONFLICT (id) DO NOTHING;

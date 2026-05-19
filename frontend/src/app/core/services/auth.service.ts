@@ -5,7 +5,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 
 import { AuthUser } from '../models/auth-user.model';
-import { AuthLoginRequest, AuthPreCheckRequest } from '../models/auth-flow.model';
+import {
+  AuthLoginRequest,
+  AuthPreCheckRequest,
+  BootstrapAdminRequest,
+  BootstrapStatusResponse,
+  ForgotPasswordRequest,
+  ResetPasswordRequest
+} from '../models/auth-flow.model';
 import { environment } from '../../../environments/environment';
 
 const AUTH_STORAGE_KEY = 'casesim.auth.user';
@@ -21,6 +28,7 @@ export class AuthService {
   private initialized = false;
   private initializing$: Observable<void> | null = null;
   private sessionValidated = false;
+  private bootstrapStatusCache: BootstrapStatusResponse | null = null;
   private readonly authReadySubject = new BehaviorSubject<boolean>(false);
   private readonly backendAvailableSubject = new BehaviorSubject<boolean>(true);
 
@@ -83,6 +91,56 @@ export class AuthService {
 
     const role = this.inferMockRole(normalizedEmail);
     return of({ requiresPassword: role === 'admin' });
+  }
+
+  bootstrapStatus(forceRefresh = false): Observable<BootstrapStatusResponse> {
+    if (!forceRefresh && this.bootstrapStatusCache) {
+      return of(this.bootstrapStatusCache);
+    }
+
+    if (!environment.useMocks) {
+      return this.http.get<BootstrapStatusResponse>(`${this.apiBaseUrl}/auth/bootstrap-status`).pipe(
+        map((response) => ({ needsInitialSetup: response.needsInitialSetup === true })),
+        tap((status) => {
+          this.bootstrapStatusCache = status;
+        })
+      );
+    }
+
+    const status = { needsInitialSetup: false };
+    this.bootstrapStatusCache = status;
+    return of(status);
+  }
+
+  bootstrapAdmin(request: BootstrapAdminRequest): Observable<void> {
+    if (!environment.useMocks) {
+      return this.http.post<void>(`${this.apiBaseUrl}/auth/bootstrap-admin`, request).pipe(
+        tap(() => {
+          this.bootstrapStatusCache = { needsInitialSetup: false };
+        })
+      );
+    }
+
+    this.bootstrapStatusCache = { needsInitialSetup: false };
+    return of(void 0);
+  }
+
+  forgotPassword(request: ForgotPasswordRequest): Observable<void> {
+    const payload = { email: request.email.trim().toLowerCase() };
+
+    if (!environment.useMocks) {
+      return this.http.post<void>(`${this.apiBaseUrl}/auth/forgot-password`, payload);
+    }
+
+    return of(void 0);
+  }
+
+  resetPassword(request: ResetPasswordRequest): Observable<void> {
+    if (!environment.useMocks) {
+      return this.http.post<void>(`${this.apiBaseUrl}/auth/reset-password`, request);
+    }
+
+    return of(void 0);
   }
 
   login(request: AuthLoginRequest): Observable<AuthUser> {
