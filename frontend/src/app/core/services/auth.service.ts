@@ -11,6 +11,7 @@ import {
   BootstrapAdminRequest,
   BootstrapStatusResponse,
   ForgotPasswordRequest,
+  ForgotPasswordResponse,
   ResetPasswordRequest
 } from '../models/auth-flow.model';
 import { environment } from '../../../environments/environment';
@@ -125,14 +126,14 @@ export class AuthService {
     return of(void 0);
   }
 
-  forgotPassword(request: ForgotPasswordRequest): Observable<void> {
+  forgotPassword(request: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
     const payload = { email: request.email.trim().toLowerCase() };
 
     if (!environment.useMocks) {
-      return this.http.post<void>(`${this.apiBaseUrl}/auth/forgot-password`, payload);
+      return this.http.post<ForgotPasswordResponse>(`${this.apiBaseUrl}/auth/forgot-password`, payload);
     }
 
-    return of(void 0);
+    return of({});
   }
 
   resetPassword(request: ResetPasswordRequest): Observable<void> {

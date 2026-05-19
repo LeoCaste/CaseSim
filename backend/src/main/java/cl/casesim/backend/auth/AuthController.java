@@ -1,6 +1,8 @@
 package cl.casesim.backend.auth;
 
 import cl.casesim.backend.auth.dto.AuthUserResponse;
+import cl.casesim.backend.auth.dto.AdminResetTokenRequest;
+import cl.casesim.backend.auth.dto.AdminResetTokenResponse;
 import cl.casesim.backend.auth.dto.BootstrapAdminRequest;
 import cl.casesim.backend.auth.dto.BootstrapStatusResponse;
 import cl.casesim.backend.auth.dto.ForgotPasswordRequest;
@@ -65,8 +67,17 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ForgotPasswordResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        passwordResetService.requestReset(request);
-        return new ForgotPasswordResponse("Si el email existe, recibirás instrucciones para restablecer tu contraseña.");
+        String message = passwordResetService.requestReset(request);
+        return new ForgotPasswordResponse(message);
+    }
+
+    @PostMapping("/admin-reset-token")
+    public AdminResetTokenResponse adminResetToken(
+            @RequestHeader(name = "X-Setup-Token", required = false) String operationsToken,
+            @Valid @RequestBody AdminResetTokenRequest request
+    ) {
+        String resetUrl = passwordResetService.generateAdminResetUrl(request.email(), operationsToken);
+        return new AdminResetTokenResponse(resetUrl);
     }
 
     @PostMapping("/reset-password")

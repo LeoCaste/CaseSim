@@ -27,10 +27,12 @@ class PasswordResetServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final PasswordResetTokenRepository tokenRepository = mock(PasswordResetTokenRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
-    private final PasswordResetService service = new PasswordResetService(userRepository, tokenRepository, passwordEncoder);
+    private final PasswordResetSettings settings = mock(PasswordResetSettings.class);
+    private final PasswordResetService service = new PasswordResetService(userRepository, tokenRepository, passwordEncoder, settings);
 
     @Test
     void forgotPasswordShouldPersistTokenForActiveAdmin() {
+        when(settings.mode()).thenReturn(PasswordResetMode.EMAIL);
         AppUser admin = buildUser(true, Set.of(buildRole("ADMIN")));
         when(userRepository.findByEmailIgnoreCaseAndActivoTrue("admin@ufrontera.cl")).thenReturn(Optional.of(admin));
 
@@ -42,6 +44,7 @@ class PasswordResetServiceTest {
 
     @Test
     void forgotPasswordShouldBeNeutralWhenUserDoesNotExist() {
+        when(settings.mode()).thenReturn(PasswordResetMode.EMAIL);
         when(userRepository.findByEmailIgnoreCaseAndActivoTrue("missing@ufrontera.cl")).thenReturn(Optional.empty());
 
         service.requestReset(new ForgotPasswordRequest("missing@ufrontera.cl"));
@@ -63,11 +66,97 @@ class PasswordResetServiceTest {
     }
 
     @Test
+    void forgotPasswordShouldNotGenerateTokenInManualMode() {
+        when(settings.mode()).thenReturn(PasswordResetMode.MANUAL);
+
+        String message = service.requestReset(new ForgotPasswordRequest("admin@ufrontera.cl"));
+
+        assertEquals("Recuperación por correo no habilitada en este entorno. Contacta al administrador técnico.", message);
+        verify(tokenRepository, never()).save(any());
+    }
+
+    @Test
+    void adminResetShouldReturnUnauthorizedWhenOperationsTokenIsMissing() {
+        when(settings.mode()).thenReturn(PasswordResetMode.MANUAL);
+        when(settings.resolvedOperationsToken()).thenReturn("ops-token");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.generateAdminResetUrl("admin@ufrontera.cl", null));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
+    }
+
+    @Test
+    void adminResetShouldReturnForbiddenWhenOperationsTokenIsInvalid() {
+        when(settings.mode()).thenReturn(PasswordResetMode.MANUAL);
+        when(settings.resolvedOperationsToken()).thenReturn("ops-token");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.generateAdminResetUrl("admin@ufrontera.cl", "bad-token"));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+    }
+
+    @Test
+    void adminResetShouldFailWhenUserIsNotAdmin() {
+        when(settings.mode()).thenReturn(PasswordResetMode.MANUAL);
+        when(settings.resolvedOperationsToken()).thenReturn("ops-token");
+        AppUser student = buildUser(true, Set.of(buildRole("ESTUDIANTE")));
+        when(userRepository.findByEmailIgnoreCase("admin@ufrontera.cl")).thenReturn(Optional.of(student));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.generateAdminResetUrl("admin@ufrontera.cl", "ops-token"));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+    }
+
+    @Test
+    void adminResetShouldGenerateResetUrlForActiveAdminInManualMode() {
+        when(settings.mode()).thenReturn(PasswordResetMode.MANUAL);
+        when(settings.resolvedOperationsToken()).thenReturn("ops-token");
+        when(settings.frontendBaseUrl()).thenReturn("https://staging.casesim.cl");
+        AppUser admin = buildUser(true, Set.of(buildRole("ADMIN")));
+        when(userRepository.findByEmailIgnoreCase("admin@ufrontera.cl")).thenReturn(Optional.of(admin));
+
+        String resetUrl = service.generateAdminResetUrl("admin@ufrontera.cl", "ops-token");
+
+        verify(tokenRepository).save(any(PasswordResetToken.class));
+        assertEquals(true, resetUrl.startsWith("https://staging.casesim.cl/reset-password?token="));
+    }
+
+    @Test
     void resetPasswordShouldFailWhenTokenIsInvalid() {
         when(tokenRepository.findValidByTokenHash(any(), any(LocalDateTime.class))).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> service.resetPassword(new ResetPasswordRequest("bad", "NewPassword1", "NewPassword1")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+    }
+
+    @Test
+    void resetPasswordShouldFailWhenTokenIsUsedTwice() {
+        AppUser admin = buildUser(true, Set.of(buildRole("ADMIN")));
+        PasswordResetToken token = new PasswordResetToken(UUID.randomUUID(), admin, "hash", LocalDateTime.now().plusMinutes(10), null, LocalDateTime.now());
+        when(tokenRepository.findValidByTokenHash(any(), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(token))
+                .thenReturn(Optional.empty());
+        when(passwordEncoder.encode("NewPassword1")).thenReturn("encoded");
+
+        service.resetPassword(new ResetPasswordRequest("raw-token", "NewPassword1", "NewPassword1"));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.resetPassword(new ResetPasswordRequest("raw-token", "NewPassword1", "NewPassword1")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+    }
+
+    @Test
+    void resetPasswordShouldFailWhenTokenIsExpired() {
+        when(tokenRepository.findValidByTokenHash(any(), any(LocalDateTime.class))).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> service.resetPassword(new ResetPasswordRequest("expired", "NewPassword1", "NewPassword1")));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }

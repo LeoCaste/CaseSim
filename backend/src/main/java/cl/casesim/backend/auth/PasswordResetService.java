@@ -29,45 +29,66 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetSettings passwordResetSettings;
 
     public PasswordResetService(
             UserRepository userRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            PasswordResetSettings passwordResetSettings
     ) {
         this.userRepository = userRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordResetSettings = passwordResetSettings;
     }
 
     @Transactional
-    public void requestReset(ForgotPasswordRequest request) {
+    public String requestReset(ForgotPasswordRequest request) {
+        PasswordResetMode mode = passwordResetSettings.mode();
+        if (mode == PasswordResetMode.DISABLED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "La recuperación de contraseña está deshabilitada.");
+        }
+
+        if (mode == PasswordResetMode.MANUAL) {
+            return "Recuperación por correo no habilitada en este entorno. Contacta al administrador técnico.";
+        }
+
         String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
         Optional<AppUser> maybeUser = userRepository.findByEmailIgnoreCaseAndActivoTrue(normalizedEmail)
                 .filter(this::isAdmin);
 
         if (maybeUser.isEmpty()) {
             log.info("Password reset solicitado para email no elegible.");
-            return;
+            return "Si el email existe, recibirás instrucciones para restablecer tu contraseña.";
         }
 
         AppUser user = maybeUser.get();
-        LocalDateTime now = LocalDateTime.now();
-        passwordResetTokenRepository.invalidateActiveTokens(user.getId(), now);
+        issueToken(user);
+        return "Si el email existe, recibirás instrucciones para restablecer tu contraseña.";
+    }
 
-        String rawToken = UUID.randomUUID() + "." + UUID.randomUUID();
-        String tokenHash = hashToken(rawToken);
+    @Transactional
+    public String generateAdminResetUrl(String email, String operationsToken) {
+        if (passwordResetSettings.mode() != PasswordResetMode.MANUAL) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El endpoint manual solo está disponible en modo MANUAL.");
+        }
 
-        PasswordResetToken token = new PasswordResetToken(
-                UUID.randomUUID(),
-                user,
-                tokenHash,
-                now.plusMinutes(TOKEN_EXPIRATION_MINUTES),
-                null,
-                now
-        );
-        passwordResetTokenRepository.save(token);
-        log.warn("[STAGING_RESET_TOKEN] userId={} token={} expiresInMinutes={}", user.getId(), rawToken, TOKEN_EXPIRATION_MINUTES);
+        validateOperationsToken(operationsToken);
+
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        AppUser user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado."));
+
+        if (!user.isActivo() || !isAdmin(user)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El usuario no es un administrador activo.");
+        }
+
+        String rawToken = issueToken(user);
+        String resetUrl = passwordResetSettings.frontendBaseUrl() + "/reset-password?token=" + rawToken;
+        log.info("event=ADMIN_RESET_TOKEN_GENERATED userId={} mode={} expiresInMinutes={}",
+                user.getId(), passwordResetSettings.mode().name(), TOKEN_EXPIRATION_MINUTES);
+        return resetUrl;
     }
 
     @Transactional
@@ -86,7 +107,37 @@ public class PasswordResetService {
         token.markUsed(now);
         passwordResetTokenRepository.invalidateActiveTokens(user.getId(), now);
 
-        log.info("Password reset completado para userId={}", user.getId());
+        log.info("event=ADMIN_PASSWORD_RESET_COMPLETED userId={}", user.getId());
+    }
+
+    private String issueToken(AppUser user) {
+        LocalDateTime now = LocalDateTime.now();
+        passwordResetTokenRepository.invalidateActiveTokens(user.getId(), now);
+
+        String rawToken = UUID.randomUUID() + "." + UUID.randomUUID();
+        PasswordResetToken token = new PasswordResetToken(
+                UUID.randomUUID(),
+                user,
+                hashToken(rawToken),
+                now.plusMinutes(TOKEN_EXPIRATION_MINUTES),
+                null,
+                now
+        );
+        passwordResetTokenRepository.save(token);
+        return rawToken;
+    }
+
+    private void validateOperationsToken(String providedToken) {
+        String expectedToken = passwordResetSettings.resolvedOperationsToken();
+        if (expectedToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Token operativo no configurado.");
+        }
+        if (providedToken == null || providedToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token operativo requerido.");
+        }
+        if (!expectedToken.equals(providedToken)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Token operativo inválido.");
+        }
     }
 
     private String hashToken(String rawToken) {

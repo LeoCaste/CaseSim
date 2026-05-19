@@ -24,6 +24,9 @@ public class StagingSecurityGuard {
     private final String datasourceUrl;
     private final String datasourceUsername;
     private final String datasourcePassword;
+    private final String passwordResetMode;
+    private final String operationsToken;
+    private final String frontendBaseUrl;
 
     public StagingSecurityGuard(
             @Value("${app.env:dev}") String appEnv,
@@ -32,7 +35,10 @@ public class StagingSecurityGuard {
             @Value("${app.security.cors.allowed-origins:}") String corsAllowedOrigins,
             @Value("${spring.datasource.url:}") String datasourceUrl,
             @Value("${spring.datasource.username:}") String datasourceUsername,
-            @Value("${spring.datasource.password:}") String datasourcePassword
+            @Value("${spring.datasource.password:}") String datasourcePassword,
+            @Value("${casesim.auth.password-reset-mode:DISABLED}") String passwordResetMode,
+            @Value("${casesim.auth.operations-token:}") String operationsToken,
+            @Value("${app.frontend.base-url:}") String frontendBaseUrl
     ) {
         this.appEnv = appEnv;
         this.jwtSecret = jwtSecret;
@@ -41,6 +47,9 @@ public class StagingSecurityGuard {
         this.datasourceUrl = datasourceUrl;
         this.datasourceUsername = datasourceUsername;
         this.datasourcePassword = datasourcePassword;
+        this.passwordResetMode = passwordResetMode;
+        this.operationsToken = operationsToken;
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     @PostConstruct
@@ -66,6 +75,13 @@ public class StagingSecurityGuard {
                 || DEV_DB_USER.equalsIgnoreCase(datasourceUsername.trim())
                 || DEV_DB_PASSWORD.equals(datasourcePassword.trim())) {
             throw new IllegalStateException("No se permiten credenciales/URL de base de datos de desarrollo cuando APP_ENV=staging.");
+        }
+
+        if ("MANUAL".equalsIgnoreCase(normalize(passwordResetMode))) {
+            requireStrongValue(operationsToken, "CASESIM_OPERATIONS_TOKEN", "", 16);
+            if (!StringUtils.hasText(frontendBaseUrl)) {
+                throw new IllegalStateException("APP_FRONTEND_BASE_URL es obligatorio cuando APP_ENV=staging y CASESIM_PASSWORD_RESET_MODE=MANUAL.");
+            }
         }
     }
 

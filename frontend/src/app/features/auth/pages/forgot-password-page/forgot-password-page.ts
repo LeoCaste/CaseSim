@@ -13,6 +13,9 @@ import { AuthService } from '../../../../core/services/auth.service';
   styleUrl: './forgot-password-page.css'
 })
 export class ForgotPasswordPage {
+  private readonly defaultInfoMessage =
+    'Si el correo existe en la plataforma, recibirás instrucciones para restablecer tu contraseña.';
+
   email = '';
   isSubmitting = false;
   errorMessage = '';
@@ -51,9 +54,8 @@ export class ForgotPasswordPage {
         })
       )
       .subscribe({
-        next: () => {
-          this.infoMessage =
-            'Si el correo existe en la plataforma, recibirás instrucciones para restablecer tu contraseña.';
+        next: (response) => {
+          this.infoMessage = response?.message?.trim() || this.defaultInfoMessage;
         },
         error: () => {
           this.errorMessage = 'No fue posible procesar la solicitud. Intenta nuevamente.';

@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/pre-check").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/bootstrap-status").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/bootstrap-admin").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin-reset-token").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
