@@ -18,6 +18,7 @@ export class LoginPage {
   email = '';
   password = '';
   requiresPassword = false;
+  showForgotPasswordLink = false;
   private passwordRequiredForEmail: string | null = null;
 
   errorMessage = '';
@@ -43,6 +44,7 @@ export class LoginPage {
     this.password = '';
     this.passwordRequiredForEmail = null;
     this.errorMessage = '';
+    this.showForgotPasswordLink = false;
   }
 
   login(): void {
@@ -88,6 +90,7 @@ export class LoginPage {
         next: (response) => {
           this.requiresPassword = response.requiresPassword === true;
           this.passwordRequiredForEmail = this.requiresPassword ? email : null;
+          this.showForgotPasswordLink = false;
           this.isCheckingEmail = false;
           this.isLoggingIn = false;
 
@@ -110,6 +113,7 @@ export class LoginPage {
 
   private submitLogin(email: string): void {
     this.errorMessage = '';
+    this.showForgotPasswordLink = false;
     this.isCheckingEmail = false;
     this.isLoggingIn = true;
 
@@ -130,6 +134,7 @@ export class LoginPage {
           this.router.navigate([this.resolveDashboardRoute(user.role)]);
         },
         error: (error) => {
+          this.showForgotPasswordLink = this.isInvalidAdminPasswordError(error, email);
           this.errorMessage = this.mapLoginError(error);
         }
       });
@@ -193,5 +198,17 @@ export class LoginPage {
     }
 
     return 'No fue posible iniciar sesión. Intenta nuevamente.';
+  }
+
+  private isInvalidAdminPasswordError(error: unknown, attemptedEmail: string): boolean {
+    if (!this.requiresPassword || this.passwordRequiredForEmail !== attemptedEmail) {
+      return false;
+    }
+
+    if (error instanceof HttpErrorResponse && error.status === 401) {
+      return true;
+    }
+
+    return error instanceof Error && error.message === 'UNAUTHORIZED';
   }
 }

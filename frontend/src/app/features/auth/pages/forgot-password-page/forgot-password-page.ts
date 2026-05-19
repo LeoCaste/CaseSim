@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { AuthService } from '../../../../core/services/auth.service';
@@ -18,7 +18,15 @@ export class ForgotPasswordPage {
   errorMessage = '';
   infoMessage = '';
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private route: ActivatedRoute
+  ) {
+    const emailFromQueryParam = this.route.snapshot.queryParamMap.get('email');
+    if (emailFromQueryParam) {
+      this.email = emailFromQueryParam.trim().toLowerCase();
+    }
+  }
 
   submit(): void {
     if (this.isSubmitting) {

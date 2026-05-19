@@ -12,7 +12,11 @@ export const bootstrapFlowGuard: CanActivateFn = (_route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  return authService.bootstrapStatus().pipe(
+  if (isSetupSafeRoute(state.url)) {
+    return of(true);
+  }
+
+  return authService.bootstrapStatus(true).pipe(
     map((status) => {
       if (status.needsInitialSetup && !isSetupSafeRoute(state.url)) {
         return router.createUrlTree(['/setup']);

@@ -8,7 +8,7 @@ export const setupAccessGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  return authService.bootstrapStatus().pipe(
+  return authService.bootstrapStatus(true).pipe(
     map((status) => {
       if (!status.needsInitialSetup) {
         return router.createUrlTree(['/login']);

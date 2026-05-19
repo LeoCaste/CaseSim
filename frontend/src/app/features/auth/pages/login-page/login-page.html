@@ -48,8 +48,8 @@
         {{ submitButtonLabel }}
       </button>
 
-      <p class="login-help">
-        <a routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
+      <p class="login-help" *ngIf="showForgotPasswordLink">
+        <a routerLink="/forgot-password" [queryParams]="{ email: email.trim() }">¿Olvidaste tu contraseña?</a>
       </p>
     </form>
   </article>
