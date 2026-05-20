@@ -1,4 +1,4 @@
-export type LlmProvider = 'openai' | 'openai-compatible' | 'anthropic' | 'gemini' | 'groq';
+export type LlmProvider = 'openai' | 'openai-compatible' | 'anthropic' | 'gemini' | 'groq' | 'openrouter';
 
 export type LlmModel =
   | 'gpt-4o-mini'
@@ -12,7 +12,11 @@ export type LlmModel =
   | 'gemini-2.5-flash'
   | 'gemini-2.5-pro'
   | 'llama-3.1-8b-instant'
-  | 'llama-3.3-70b-versatile';
+  | 'llama-3.3-70b-versatile'
+  | 'openai/gpt-4.1-mini'
+  | 'google/gemini-2.0-flash-001'
+  | 'anthropic/claude-3.5-sonnet'
+  | 'meta-llama/llama-3.1-8b-instruct';
 
 export type PatientRevealStrategy = 'PROGRESSIVE' | 'DIRECT' | 'RESTRICTIVE';
 

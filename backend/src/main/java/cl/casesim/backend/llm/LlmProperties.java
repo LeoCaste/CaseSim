@@ -22,6 +22,8 @@ public class LlmProperties {
     private RevealStrategy revealStrategy = RevealStrategy.PROGRESSIVE;
     private int maxHistoryMessages = 6;
     private boolean enabledSafetyFilter = true;
+    private String openrouterHttpReferer = "";
+    private String openrouterXTitle = "";
 
     public boolean isEnabled() {
         return enabled;
@@ -153,5 +155,21 @@ public class LlmProperties {
 
     public void setEnabledSafetyFilter(boolean enabledSafetyFilter) {
         this.enabledSafetyFilter = enabledSafetyFilter;
+    }
+
+    public String getOpenrouterHttpReferer() {
+        return openrouterHttpReferer;
+    }
+
+    public void setOpenrouterHttpReferer(String openrouterHttpReferer) {
+        this.openrouterHttpReferer = openrouterHttpReferer;
+    }
+
+    public String getOpenrouterXTitle() {
+        return openrouterXTitle;
+    }
+
+    public void setOpenrouterXTitle(String openrouterXTitle) {
+        this.openrouterXTitle = openrouterXTitle;
     }
 }

@@ -73,6 +73,23 @@ class LlmClientRouterTest {
         assertEquals(1, geminiClient.calls);
     }
 
+    @Test
+    void seleccionaClienteOpenAiCuandoProviderEsOpenRouter() {
+        LlmProperties properties = new LlmProperties();
+        properties.setProvider("openrouter");
+
+        RecordingClient defaultClient = new RecordingClient("openai", "default");
+        RecordingClient groqClient = new RecordingClient("groq");
+
+        LlmClientRouter router = new LlmClientRouter(properties, List.of(defaultClient, groqClient));
+
+        String result = router.generateChatCompletion(List.of(new LlmMessage("user", "hola")), 0.4, 100);
+
+        assertEquals("default", result);
+        assertEquals(1, defaultClient.calls);
+        assertEquals(0, groqClient.calls);
+    }
+
     private static class RecordingClient implements LlmClient {
         private final String provider;
         private final String response;

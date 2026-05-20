@@ -134,6 +134,17 @@ public class OpenAiLlmClient implements LlmClient {
                     .body(buildOpenAiPayload(messages, temperature, maxTokens, requestMode))
                     .retrieve()
                     .body(Map.class);
+            case LlmProviderSupport.OPENROUTER -> {
+                RestClient.RequestBodySpec requestSpec = restClient.post()
+                        .uri(resolvedUrl)
+                        .header("Authorization", "Bearer " + llmProperties.getApiKey().trim())
+                        .contentType(MediaType.APPLICATION_JSON);
+                applyOpenRouterOptionalHeaders(requestSpec);
+                yield requestSpec
+                        .body(buildOpenAiCompatiblePayload(messages, temperature, maxTokens))
+                        .retrieve()
+                        .body(Map.class);
+            }
             case LlmProviderSupport.ANTHROPIC -> restClient.post()
                     .uri(resolveAnthropicUrl())
                     .header("x-api-key", llmProperties.getApiKey().trim())
@@ -357,6 +368,17 @@ public class OpenAiLlmClient implements LlmClient {
 
     private String resolveAnthropicUrl() {
         return urlResolver.resolve(LlmProviderSupport.ANTHROPIC, llmProperties.getBaseUrl());
+    }
+
+    private void applyOpenRouterOptionalHeaders(RestClient.RequestBodySpec requestSpec) {
+        String referer = llmProperties.getOpenrouterHttpReferer();
+        if (StringUtils.hasText(referer)) {
+            requestSpec.header("HTTP-Referer", referer.trim());
+        }
+        String title = llmProperties.getOpenrouterXTitle();
+        if (StringUtils.hasText(title)) {
+            requestSpec.header("X-Title", title.trim());
+        }
     }
 
     private String buildHttpErrorMessage(RestClientResponseException responseException, String requestPath) {

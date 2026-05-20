@@ -58,6 +58,13 @@ class LlmProviderUrlResolverTest {
     }
 
     @Test
+    void openRouterIgnoraBaseUrlConfiguradaYUsaBaseInternaFija() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        String base = resolver.resolveBaseUrl("openrouter", "https://custom.invalid/v9");
+        assertEquals("https://openrouter.ai/api/v1", base);
+    }
+
+    @Test
     void providerDesconocidoFallaClaro() {
         LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
         LlmClientException ex = assertThrows(LlmClientException.class,

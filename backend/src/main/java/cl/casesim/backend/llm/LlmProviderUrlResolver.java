@@ -40,7 +40,7 @@ public class LlmProviderUrlResolver {
         return switch (normalizedProvider) {
             case LlmProviderSupport.OPENAI, LlmProviderSupport.OPENAI_COMPATIBLE -> normalizeOpenAiBase(configured);
             case LlmProviderSupport.GROQ -> normalizeGroqBase(configured);
-            case LlmProviderSupport.OPENROUTER -> normalizeDefaultOpenAiCompatibleBase(configured, OPENROUTER_DEFAULT_BASE);
+            case LlmProviderSupport.OPENROUTER -> OPENROUTER_DEFAULT_BASE;
             case LlmProviderSupport.OLLAMA -> normalizeDefaultOpenAiCompatibleBase(configured, OLLAMA_DEFAULT_BASE);
             case LlmProviderSupport.GEMINI -> normalizeGeminiBase(configured);
             default -> throw new LlmClientException("Proveedor no soportado para resolver URL: " + normalizedProvider);

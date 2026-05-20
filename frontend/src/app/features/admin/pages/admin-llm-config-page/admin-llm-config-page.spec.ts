@@ -74,8 +74,16 @@ describe('AdminLlmConfigPage', () => {
     expect(component.form.model).toBe('gemini-2.5-flash-lite');
   });
 
-  it('debe exponer OpenAI, Groq y Gemini en selector de proveedor', () => {
-    expect(component.providers).toEqual(['openai', 'groq', 'gemini']);
+  it('debe exponer OpenAI, Groq, Gemini y OpenRouter en selector de proveedor', () => {
+    expect(component.providers).toEqual(['openai', 'groq', 'gemini', 'openrouter']);
+  });
+
+  it('debe seleccionar modelo sugerido por defecto de OpenRouter al cambiar provider', () => {
+    component.form.model = '';
+
+    component.onProviderChange('openrouter');
+
+    expect(component.form.model).toBe('openai/gpt-4.1-mini');
   });
 
   it('no debe permitir guardar cuando modelo no está en catálogo conocido', () => {

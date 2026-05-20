@@ -358,6 +358,10 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private normalizeProvider(provider: string): LlmProvider {
+    if (provider === 'openrouter') {
+      return 'openrouter';
+    }
+
     if (provider === 'gemini') {
       return 'gemini';
     }

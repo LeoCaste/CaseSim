@@ -49,6 +49,24 @@ export const LLM_PROVIDER_CATALOG: Record<LlmProvider, LlmProviderDefinition> = 
     knownModels: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'],
     defaultModel: 'llama-3.1-8b-instant',
     requiresApiKey: true
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+    suggestedModels: [
+      'openai/gpt-4.1-mini',
+      'google/gemini-2.0-flash-001',
+      'anthropic/claude-3.5-sonnet',
+      'meta-llama/llama-3.1-8b-instruct'
+    ],
+    knownModels: [
+      'openai/gpt-4.1-mini',
+      'google/gemini-2.0-flash-001',
+      'anthropic/claude-3.5-sonnet',
+      'meta-llama/llama-3.1-8b-instruct'
+    ],
+    defaultModel: 'openai/gpt-4.1-mini',
+    requiresApiKey: true
   }
 };
 
@@ -56,4 +74,4 @@ export const LLM_PROVIDER_LIST: LlmProvider[] = Object.keys(LLM_PROVIDER_CATALOG
 
 // Proveedores habilitados explícitamente para la pantalla Admin LLM.
 // Mantiene el catálogo completo para compatibilidad, pero limita UX activa.
-export const ADMIN_LLM_ACTIVE_PROVIDERS: LlmProvider[] = ['openai', 'groq', 'gemini'];
+export const ADMIN_LLM_ACTIVE_PROVIDERS: LlmProvider[] = ['openai', 'groq', 'gemini', 'openrouter'];

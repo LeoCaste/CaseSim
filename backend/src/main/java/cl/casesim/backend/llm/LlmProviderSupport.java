@@ -28,7 +28,8 @@ public final class LlmProviderSupport {
     private static final Set<String> CONFIGURABLE_FOR_REAL_OPERATION = Set.of(
             OPENAI,
             GROQ,
-            GEMINI
+            GEMINI,
+            OPENROUTER
     );
 
     private LlmProviderSupport() {
