@@ -137,7 +137,7 @@ export class AdminLlmService {
         catchError((error) =>
           of({
             success: false,
-            message: this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor')
+            message: this.resolveTestConnectionErrorMessage(error)
           })
         )
       );
@@ -404,6 +404,28 @@ export class AdminLlmService {
   private isNotFoundError(error: unknown): boolean {
     const maybeError = error as { status?: number };
     return maybeError?.status === 404;
+  }
+
+  private resolveTestConnectionErrorMessage(error: unknown): string {
+    const maybeError = error as { status?: number; error?: { message?: string } };
+    const backendMessage = maybeError?.error?.message?.trim();
+    if (backendMessage) {
+      return backendMessage;
+    }
+
+    if (maybeError?.status === 401 || maybeError?.status === 403) {
+      return 'No se pudo autenticar con el proveedor. Verifica API key y permisos.';
+    }
+
+    if (maybeError?.status === 429) {
+      return 'El proveedor rechazó la conexión por límite de tasa o cuota. Intenta nuevamente.';
+    }
+
+    if (typeof maybeError?.status === 'number' && maybeError.status >= 500) {
+      return 'El proveedor no respondió correctamente (error servidor). Intenta nuevamente.';
+    }
+
+    return this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor');
   }
 
   private buildDefaultConfig(): LlmConfig {

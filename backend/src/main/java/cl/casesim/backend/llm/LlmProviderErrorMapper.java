@@ -11,7 +11,7 @@ public class LlmProviderErrorMapper {
         LlmErrorCategory category;
         if (status == 401 || status == 403) {
             category = LlmErrorCategory.AUTH_ERROR;
-        } else if (status == 429 && bodyLower.contains("insufficient_quota")) {
+        } else if (status == 429 && isQuotaExceeded(bodyLower)) {
             category = LlmErrorCategory.QUOTA_EXCEEDED;
         } else if (status == 429) {
             category = LlmErrorCategory.RATE_LIMIT;
@@ -29,5 +29,13 @@ public class LlmProviderErrorMapper {
             sanitizedBody = sanitizedBody.substring(0, 240) + "...";
         }
         return new LlmProviderError(category, status, sanitizedBody);
+    }
+
+    private boolean isQuotaExceeded(String bodyLower) {
+        return bodyLower.contains("insufficient_quota")
+                || bodyLower.contains("quota")
+                || bodyLower.contains("credit")
+                || bodyLower.contains("billing")
+                || bodyLower.contains("payment required");
     }
 }
