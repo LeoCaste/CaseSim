@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { finalize } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { UserContext } from '../../core/services/user-context';
 
@@ -9,14 +10,28 @@ import { UserContext } from '../../core/services/user-context';
   styleUrl: './topbar.css'
 })
 export class Topbar {
+  isLoggingOut = false;
+
   constructor(
     public userContext: UserContext,
     private authService: AuthService
   ) {}
 
   logout(): void {
-    this.authService.logout().subscribe(() => {
-      this.userContext.setUser(null);
-    });
+    if (this.isLoggingOut) {
+      return;
+    }
+
+    this.isLoggingOut = true;
+    this.authService
+      .logout()
+      .pipe(
+        finalize(() => {
+          this.isLoggingOut = false;
+        })
+      )
+      .subscribe(() => {
+        this.userContext.setUser(null);
+      });
   }
 }

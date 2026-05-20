@@ -1,1 +1,6 @@
+<section class="app-notice" *ngIf="noticeMessage">
+  <p>{{ noticeMessage }}</p>
+  <button type="button" (click)="dismissNotice()">Cerrar</button>
+</section>
+
 <router-outlet></router-outlet>

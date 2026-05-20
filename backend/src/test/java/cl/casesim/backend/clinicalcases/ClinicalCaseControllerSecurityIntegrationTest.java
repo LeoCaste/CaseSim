@@ -4,16 +4,24 @@ import cl.casesim.backend.auth.UserPrincipal;
 import cl.casesim.backend.auth.UserRole;
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseRequest;
 import cl.casesim.backend.clinicalcases.dto.ClinicalCaseResponse;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +49,9 @@ class ClinicalCaseControllerSecurityIntegrationTest {
 
     @MockitoBean
     private ClinicalCaseService clinicalCaseService;
+
+    @Value("${security.jwt.secret}")
+    private String jwtSecret;
 
     private UUID caseId;
     private ClinicalCaseRequest validRequest;
@@ -138,7 +149,10 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequestJson))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Acceso denegado."));
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.error").value("Forbidden"))
+                .andExpect(jsonPath("$.message").value("Acceso denegado."))
+                .andExpect(jsonPath("$.details[0].field").value("auth"));
     }
 
     @Test
@@ -147,7 +161,38 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequestJson))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("No autenticado."));
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.message").value("No autenticado."))
+                .andExpect(jsonPath("$.details").isArray());
+    }
+
+    @Test
+    void putClinicalCase_withAlteredToken_unauthorized() throws Exception {
+        mockMvc.perform(put("/api/v1/clinical-cases/{id}", caseId)
+                        .header("Authorization", "Bearer token-alterado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.message").value("No autenticado."))
+                .andExpect(jsonPath("$.details[0].field").value("auth"));
+    }
+
+    @Test
+    void putClinicalCase_withExpiredToken_unauthorized() throws Exception {
+        String expiredToken = createExpiredToken("profesor.demo@ufrontera.cl", List.of("PROFESOR"));
+
+        mockMvc.perform(put("/api/v1/clinical-cases/{id}", caseId)
+                        .header("Authorization", "Bearer " + expiredToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.message").value("No autenticado."))
+                .andExpect(jsonPath("$.details[0].field").value("auth"));
     }
 
     @Test
@@ -435,5 +480,26 @@ class ClinicalCaseControllerSecurityIntegrationTest {
         mockMvc.perform(delete("/api/v1/clinical-cases/{id}", caseId))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("No autenticado."));
+    }
+
+    private String createExpiredToken(String subject, List<String> roles) {
+        SecretKey secretKey = Keys.hmacShaKeyFor(hashSecret(jwtSecret));
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(subject)
+                .issuedAt(java.util.Date.from(now.minusSeconds(3600)))
+                .expiration(java.util.Date.from(now.minusSeconds(60)))
+                .claim("roles", roles)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    private byte[] hashSecret(String secret) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return digest.digest(secret.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 }

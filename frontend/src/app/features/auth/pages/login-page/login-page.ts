@@ -2,10 +2,11 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, TimeoutError, timeout } from 'rxjs';
 
 import { AuthService } from '../../../../core/services/auth.service';
+import { SessionNoticeService } from '../../../../core/services/session-notice.service';
 import { UserContext } from '../../../../core/services/user-context';
 
 @Component({
@@ -22,15 +23,31 @@ export class LoginPage {
   private passwordRequiredForEmail: string | null = null;
 
   errorMessage = '';
+  sessionMessage = '';
   isCheckingEmail = false;
   isLoggingIn = false;
 
   constructor(
     private router: Router,
+    private route: ActivatedRoute,
     private userContext: UserContext,
     private authService: AuthService,
+    private sessionNoticeService: SessionNoticeService,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) {
+    this.route.queryParamMap.subscribe((params) => {
+      if (params.get('reason') === 'expired') {
+        this.sessionMessage = 'Tu sesión expiró. Inicia sesión nuevamente.';
+        return;
+      }
+
+      this.sessionMessage = '';
+    });
+
+    this.sessionNoticeService.message$.subscribe((message) => {
+      this.sessionMessage = message;
+    });
+  }
 
   onEmailChange(nextEmail: string): void {
     const normalizedEmail = this.normalizeEmail(nextEmail);
@@ -44,6 +61,7 @@ export class LoginPage {
     this.password = '';
     this.passwordRequiredForEmail = null;
     this.errorMessage = '';
+    this.sessionNoticeService.clearMessage();
     this.showForgotPasswordLink = false;
   }
 

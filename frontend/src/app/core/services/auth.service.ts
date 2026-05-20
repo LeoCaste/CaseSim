@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, catchError, finalize, map, Observable, of, shareReplay, tap, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Router } from '@angular/router';
 
 import { AuthUser } from '../models/auth-user.model';
 import {
@@ -15,9 +14,9 @@ import {
   ResetPasswordRequest
 } from '../models/auth-flow.model';
 import { environment } from '../../../environments/environment';
-
-const AUTH_STORAGE_KEY = 'casesim.auth.user';
-const AUTH_TOKEN_STORAGE_KEY = 'casesim.auth.token';
+import { JwtStorageService } from './jwt-storage.service';
+import { AuthNavigationService } from './auth-navigation.service';
+import { SessionNoticeService } from './session-notice.service';
 
 @Injectable({
   providedIn: 'root'
@@ -32,13 +31,22 @@ export class AuthService {
   private bootstrapStatusCache: BootstrapStatusResponse | null = null;
   private readonly authReadySubject = new BehaviorSubject<boolean>(false);
   private readonly backendAvailableSubject = new BehaviorSubject<boolean>(true);
+  private logoutInProgress = false;
+  private readonly tokenStateSubject = new BehaviorSubject<string | null>(null);
 
   constructor(
     private http: HttpClient,
-    private router: Router
+    private jwtStorageService: JwtStorageService,
+    private authNavigationService: AuthNavigationService,
+    private sessionNoticeService: SessionNoticeService
   ) {
     this.currentUser = this.loadStoredUser();
     this.token = this.loadStoredToken();
+    this.tokenStateSubject.next(this.token);
+  }
+
+  get tokenChanges$(): Observable<string | null> {
+    return this.tokenStateSubject.asObservable();
   }
 
   ensureInitialized(): Observable<void> {
@@ -161,6 +169,7 @@ export class AuthService {
             this.sessionValidated = true;
             this.persistUser(user);
             this.persistToken(response.token);
+            this.tokenStateSubject.next(this.token);
             return user;
           })
         );
@@ -193,6 +202,7 @@ export class AuthService {
 
     this.persistUser(this.currentUser);
     this.persistToken(this.token);
+    this.tokenStateSubject.next(this.token);
 
     return of(this.currentUser);
   }
@@ -216,7 +226,7 @@ export class AuthService {
         }),
         catchError((error) => {
           if (this.isUnauthorizedError(error)) {
-            this.clearSessionAndRedirectToLogin();
+            this.handleUnauthorizedSession();
             this.backendAvailableSubject.next(true);
             return of(null);
           }
@@ -245,19 +255,29 @@ export class AuthService {
   }
 
   logout(): Observable<void> {
-    if (!environment.useMocks) {
-      return this.http.post<void>(`${this.apiBaseUrl}/auth/logout`, {}).pipe(
-        catchError(() => of(void 0)),
-        finalize(() => {
-          this.clearSessionAndRedirectToLogin();
-        }),
-        map(() => {
-          return void 0;
-        })
-      );
+    if (this.logoutInProgress) {
+      return of(void 0);
     }
 
-    this.clearSessionAndRedirectToLogin();
+    this.logoutInProgress = true;
+    this.clearSession();
+    this.authNavigationService.redirectToLogin();
+
+    if (!environment.useMocks) {
+      this.http
+        .post<void>(`${this.apiBaseUrl}/auth/logout`, {})
+        .pipe(
+          catchError(() => of(void 0)),
+          finalize(() => {
+            this.logoutInProgress = false;
+          })
+        )
+        .subscribe();
+
+      return of(void 0);
+    }
+
+    this.logoutInProgress = false;
     return of(void 0);
   }
 
@@ -278,8 +298,12 @@ export class AuthService {
   }
 
   clearSessionByUnauthorized(): void {
-    this.clearSessionAndRedirectToLogin();
+    this.handleUnauthorizedSession();
     this.backendAvailableSubject.next(true);
+  }
+
+  handleForbidden(): void {
+    this.sessionNoticeService.setMessage('No tienes permisos para acceder.');
   }
 
   clearSessionByConnectionFailure(): void {
@@ -294,7 +318,7 @@ export class AuthService {
       return null;
     }
 
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const raw = this.jwtStorageService.getStoredUser();
     if (!raw) {
       return null;
     }
@@ -321,43 +345,23 @@ export class AuthService {
   }
 
   private persistUser(user: AuthUser): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    this.jwtStorageService.setStoredUser(JSON.stringify(user));
   }
 
   private clearStoredUser(): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    this.jwtStorageService.clearStoredUser();
   }
 
   private loadStoredToken(): string | null {
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
-
-    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    return this.jwtStorageService.getStoredToken();
   }
 
   private persistToken(token: string): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+    this.jwtStorageService.setStoredToken(token);
   }
 
   private clearStoredToken(): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    this.jwtStorageService.clearStoredToken();
   }
 
   private clearAuthState(): void {
@@ -366,11 +370,52 @@ export class AuthService {
     this.sessionValidated = false;
     this.clearStoredUser();
     this.clearStoredToken();
+    this.tokenStateSubject.next(this.token);
   }
 
-  private clearSessionAndRedirectToLogin(): void {
+  clearSession(): void {
     this.clearAuthState();
-    void this.router.navigate(['/login']);
+  }
+
+  private handleUnauthorizedSession(): void {
+    this.clearSession();
+    this.logoutInProgress = false;
+    this.sessionNoticeService.setMessage('Tu sesión expiró. Inicia sesión nuevamente.');
+    this.authNavigationService.redirectToLogin('expired');
+  }
+
+  expireSessionByInactivity(): void {
+    this.clearSession();
+    this.logoutInProgress = false;
+    this.sessionNoticeService.setMessage('Tu sesión expiró por inactividad. Inicia sesión nuevamente.');
+    this.authNavigationService.redirectToLogin('expired');
+  }
+
+  expireSessionByInvalidToken(): void {
+    this.clearSession();
+    this.logoutInProgress = false;
+    this.sessionNoticeService.setMessage('Tu sesión expiró. Inicia sesión nuevamente.');
+    this.authNavigationService.redirectToLogin('expired');
+  }
+
+  syncSessionFromStorage(): void {
+    const storedToken = this.loadStoredToken();
+
+    if (storedToken === this.token) {
+      return;
+    }
+
+    if (!storedToken) {
+      this.clearSession();
+      this.logoutInProgress = false;
+      this.authNavigationService.redirectToLogin();
+      return;
+    }
+
+    this.token = storedToken;
+    this.currentUser = this.loadStoredUser();
+    this.sessionValidated = this.currentUser !== null;
+    this.tokenStateSubject.next(this.token);
   }
 
   private isUnauthorizedError(error: unknown): boolean {

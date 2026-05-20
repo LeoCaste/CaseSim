@@ -40,6 +40,10 @@
         {{ requiresPassword ? 'Usuario con verificación por contraseña.' : 'Ingresa tu correo institucional' }}
       </p>
 
+      <p class="login-help" *ngIf="sessionMessage">
+        {{ sessionMessage }}
+      </p>
+
       <p class="login-error" *ngIf="errorMessage">
         {{ errorMessage }}
       </p>

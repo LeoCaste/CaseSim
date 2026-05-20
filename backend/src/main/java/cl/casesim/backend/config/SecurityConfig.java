@@ -2,6 +2,7 @@ package cl.casesim.backend.config;
 
 import cl.casesim.backend.auth.JwtAuthenticationFilter;
 import cl.casesim.backend.auth.JwtProperties;
+import cl.casesim.backend.common.exception.ErrorResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import jakarta.servlet.http.HttpServletResponse;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
@@ -36,13 +38,16 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final String corsAllowedOrigins;
+    private final ObjectMapper objectMapper;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            @Value("${app.security.cors.allowed-origins:http://localhost:4200}") String corsAllowedOrigins
+            @Value("${app.security.cors.allowed-origins:http://localhost:4200}") String corsAllowedOrigins,
+            ObjectMapper objectMapper
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.corsAllowedOrigins = corsAllowedOrigins;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
@@ -80,19 +85,31 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             Object reason = request.getAttribute(JwtAuthenticationFilter.AUTH_FAILURE_REASON_ATTR);
-                            log.warn("401 no autenticado. method={} endpoint={} motivo={}",
+                            Object jwtEvent = request.getAttribute(JwtAuthenticationFilter.AUTH_FAILURE_EVENT_ATTR);
+                            log.warn("AUTH_UNAUTHORIZED method={} endpoint={} reason={} jwtEvent={}",
                                     request.getMethod(),
                                     request.getRequestURI(),
-                                    reason);
-                            writeSecurityError(response, HttpStatus.UNAUTHORIZED, "No autenticado.");
+                                    reason == null ? "No autenticado." : reason,
+                                    jwtEvent == null ? "N/A" : jwtEvent);
+                            writeSecurityError(
+                                    response,
+                                    HttpStatus.UNAUTHORIZED,
+                                    "No autenticado.",
+                                    reason == null ? List.of() : List.of(new ErrorResponse.ErrorDetail("auth", reason.toString()))
+                            );
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            log.warn("403 acceso denegado. method={} endpoint={} principal={} motivo={}",
+                            log.warn("AUTH_FORBIDDEN method={} endpoint={} principal={} reason={}",
                                     request.getMethod(),
                                     request.getRequestURI(),
                                     request.getUserPrincipal() == null ? "anonymous" : request.getUserPrincipal().getName(),
                                     accessDeniedException.getMessage());
-                            writeSecurityError(response, HttpStatus.FORBIDDEN, "Acceso denegado.");
+                            writeSecurityError(
+                                    response,
+                                    HttpStatus.FORBIDDEN,
+                                    "Acceso denegado.",
+                                    List.of(new ErrorResponse.ErrorDetail("auth", "Rol insuficiente para acceder al recurso."))
+                            );
                         })
                 )
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -127,12 +144,16 @@ public class SecurityConfig {
                 .toList();
     }
 
-    private void writeSecurityError(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+    private void writeSecurityError(
+            HttpServletResponse response,
+            HttpStatus status,
+            String message,
+            List<ErrorResponse.ErrorDetail> details
+    ) throws IOException {
         response.setStatus(status.value());
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        response.getWriter().write("{\"status\":" + status.value()
-                + ",\"error\":\"" + status.getReasonPhrase()
-                + "\",\"message\":\"" + message + "\"}");
+        ErrorResponse errorResponse = new ErrorResponse(status.value(), status.getReasonPhrase(), message, details);
+        response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

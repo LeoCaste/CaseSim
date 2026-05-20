@@ -1,6 +1,7 @@
 package cl.casesim.backend.auth;
 
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,6 +30,7 @@ import java.util.Locale;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String AUTH_FAILURE_REASON_ATTR = "casesim.auth.failureReason";
+    public static final String AUTH_FAILURE_EVENT_ATTR = "casesim.auth.failureEvent";
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "bearer ";
@@ -53,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String endpoint = request.getRequestURI();
 
         if (authHeader == null) {
-            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "token ausente");
+            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Token ausente.");
             log.debug("JWT sin header Authorization. method={} endpoint={}", method, endpoint);
             filterChain.doFilter(request, response);
             return;
@@ -62,7 +64,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String normalizedHeader = authHeader.trim();
         if (normalizedHeader.length() <= BEARER_PREFIX.length()
                 || !normalizedHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
-            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "esquema Authorization inválido");
+            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Esquema Authorization inválido.");
+            request.setAttribute(AUTH_FAILURE_EVENT_ATTR, "JWT_INVALID");
             log.debug("JWT omitido por esquema inválido. method={} endpoint={}", method, endpoint);
             filterChain.doFilter(request, response);
             return;
@@ -117,21 +120,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             jwtRoles,
                             authToken.getAuthorities());
                 } else {
-                    request.setAttribute(AUTH_FAILURE_REASON_ATTR, "token inválido para usuario");
-                    log.warn("JWT inválido para usuario. method={} endpoint={} username={}", method, endpoint, username);
+                    request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Token inválido para usuario.");
+                    request.setAttribute(AUTH_FAILURE_EVENT_ATTR, "JWT_INVALID");
+                    log.warn("JWT_INVALID method={} endpoint={} username={}", method, endpoint, username);
                 }
             }
+        } catch (ExpiredJwtException ex) {
+            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Token expirado.");
+            request.setAttribute(AUTH_FAILURE_EVENT_ATTR, "JWT_EXPIRED");
+            log.warn("JWT_EXPIRED method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
+            SecurityContextHolder.clearContext();
         } catch (JwtException ex) {
-            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "token inválido o expirado");
-            log.warn("JWT rechazado. method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
+            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Token inválido.");
+            request.setAttribute(AUTH_FAILURE_EVENT_ATTR, "JWT_INVALID");
+            log.warn("JWT_INVALID method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
             SecurityContextHolder.clearContext();
         } catch (IllegalArgumentException ex) {
-            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "token inválido");
-            log.warn("JWT inválido. method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
+            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Token inválido.");
+            request.setAttribute(AUTH_FAILURE_EVENT_ATTR, "JWT_INVALID");
+            log.warn("JWT_INVALID method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
             SecurityContextHolder.clearContext();
         } catch (AuthenticationException ex) {
-            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "usuario inexistente o inactivo");
-            log.warn("Usuario JWT no autenticable. method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
+            request.setAttribute(AUTH_FAILURE_REASON_ATTR, "Usuario inexistente o inactivo.");
+            request.setAttribute(AUTH_FAILURE_EVENT_ATTR, "JWT_INVALID");
+            log.warn("JWT_INVALID method={} endpoint={} motivo={}", method, endpoint, ex.getMessage());
             SecurityContextHolder.clearContext();
         }
 

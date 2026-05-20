@@ -10,8 +10,8 @@
   <div class="topbar__meta">
     <span class="topbar__role">{{ userContext.getRoleLabel() }}</span>
 
-    <button class="topbar__button" type="button" (click)="logout()">
-      Cerrar sesión
+    <button class="topbar__button" type="button" (click)="logout()" [disabled]="isLoggingOut">
+      {{ isLoggingOut ? 'Cerrando...' : 'Cerrar sesión' }}
     </button>
   </div>
 </header>

@@ -8,7 +8,7 @@ import { AuthService } from '../services/auth.service';
 export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const token = normalizeToken(authService.getToken());
-  const isAuthFlowRequest = /\/auth\/(login|pre-check)$/i.test(req.url);
+  const isAuthFlowRequest = /\/auth\/(login|pre-check|forgot-password|reset-password|bootstrap-status|bootstrap-admin)$/i.test(req.url);
   const isSessionValidationRequest = /\/auth\/me$/i.test(req.url);
   const isProtectedRequest = !isAuthFlowRequest;
 
@@ -26,15 +26,15 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((error) => {
-      if (
-        error instanceof HttpErrorResponse &&
-        (error.status === 401 || error.status === 403) &&
-        isSessionValidationRequest
-      ) {
+      if (error instanceof HttpErrorResponse && error.status === 401 && isProtectedRequest) {
         authService.clearSessionByUnauthorized();
       }
 
-      if (error instanceof HttpErrorResponse && error.status === 0 && isProtectedRequest) {
+      if (error instanceof HttpErrorResponse && error.status === 403 && isProtectedRequest) {
+        authService.handleForbidden();
+      }
+
+      if (error instanceof HttpErrorResponse && error.status === 0 && isProtectedRequest && !isSessionValidationRequest) {
         authService.clearSessionByConnectionFailure();
       }
 

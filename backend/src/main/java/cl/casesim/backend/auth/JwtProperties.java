@@ -5,15 +5,20 @@ import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
+
 @Validated
 @ConfigurationProperties(prefix = "security.jwt")
 public class JwtProperties {
 
+    private static final Duration ACCESS_TOKEN_EXPIRATION = Duration.ofMinutes(15);
+    private static final long ACCESS_TOKEN_EXPIRATION_MS = ACCESS_TOKEN_EXPIRATION.toMillis();
+
     @NotBlank
     private String secret;
 
-    @Positive
-    private long expirationMs;
+    @Positive(message = "security.jwt.expiration-ms debe ser mayor que 0.")
+    private long expirationMs = ACCESS_TOKEN_EXPIRATION_MS;
 
     public String getSecret() {
         return secret;
