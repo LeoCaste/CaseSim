@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.client.ResourceAccessException;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.exc.InvalidFormatException;
@@ -88,6 +89,11 @@ public class GlobalExceptionHandler {
         return buildResponse(status, message);
     }
 
+    @ExceptionHandler(ResourceAccessException.class)
+    public ResponseEntity<ErrorResponse> handleResourceAccess(ResourceAccessException ex) {
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "Servicio temporalmente no disponible.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor.");
@@ -98,8 +104,21 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String message, List<ErrorResponse.ErrorDetail> details) {
-        ErrorResponse body = new ErrorResponse(status.value(), status.getReasonPhrase(), message, details);
+        ErrorResponse body = new ErrorResponse(status.value(), resolveCode(status).name(), message, details);
         return ResponseEntity.status(status).body(body);
+    }
+
+    private ErrorCode resolveCode(HttpStatus status) {
+        if (status == HttpStatus.UNAUTHORIZED) {
+            return ErrorCode.AUTH_UNAUTHORIZED;
+        }
+        if (status == HttpStatus.FORBIDDEN) {
+            return ErrorCode.AUTH_FORBIDDEN;
+        }
+        if (status == HttpStatus.SERVICE_UNAVAILABLE) {
+            return ErrorCode.SERVICE_UNAVAILABLE;
+        }
+        return ErrorCode.UNKNOWN_ERROR;
     }
 
     private List<ErrorResponse.ErrorDetail> mapFieldErrors(List<FieldError> fieldErrors) {

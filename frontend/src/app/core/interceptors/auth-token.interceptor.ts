@@ -26,11 +26,18 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((error) => {
+      const authCode = extractAuthErrorCode(error);
+
       if (error instanceof HttpErrorResponse && error.status === 401 && isProtectedRequest) {
         authService.clearSessionByUnauthorized();
       }
 
-      if (error instanceof HttpErrorResponse && error.status === 403 && isProtectedRequest) {
+      if (
+        error instanceof HttpErrorResponse
+        && error.status === 403
+        && isProtectedRequest
+        && authCode === 'AUTH_FORBIDDEN'
+      ) {
         authService.handleForbidden();
       }
 
@@ -42,6 +49,28 @@ export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
     })
   );
 };
+
+function extractAuthErrorCode(error: unknown): string | null {
+  if (!(error instanceof HttpErrorResponse)) {
+    return null;
+  }
+
+  const payload = error.error as { code?: unknown; error?: { code?: unknown } } | null | undefined;
+
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  if (typeof payload.code === 'string' && payload.code.trim()) {
+    return payload.code.trim().toUpperCase();
+  }
+
+  if (typeof payload.error?.code === 'string' && payload.error.code.trim()) {
+    return payload.error.code.trim().toUpperCase();
+  }
+
+  return null;
+}
 
 function normalizeToken(rawToken: string | null): string | null {
   if (!rawToken) {

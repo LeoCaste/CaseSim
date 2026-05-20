@@ -1,6 +1,7 @@
 package cl.casesim.backend.config;
 
 import cl.casesim.backend.auth.JwtAuthenticationFilter;
+import cl.casesim.backend.common.exception.ErrorCode;
 import cl.casesim.backend.auth.JwtProperties;
 import cl.casesim.backend.common.exception.ErrorResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -86,27 +87,37 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             Object reason = request.getAttribute(JwtAuthenticationFilter.AUTH_FAILURE_REASON_ATTR);
                             Object jwtEvent = request.getAttribute(JwtAuthenticationFilter.AUTH_FAILURE_EVENT_ATTR);
-                            log.warn("AUTH_UNAUTHORIZED method={} endpoint={} reason={} jwtEvent={}",
+                            String requestId = resolveRequestId(request);
+                            ErrorCode code = resolveUnauthorizedCode(jwtEvent);
+                            String message = resolveUnauthorizedMessage(code);
+                            log.warn("{} method={} endpoint={} reason={} jwtEvent={} requestId={}",
+                                    code.name(),
                                     request.getMethod(),
                                     request.getRequestURI(),
                                     reason == null ? "No autenticado." : reason,
-                                    jwtEvent == null ? "N/A" : jwtEvent);
+                                    jwtEvent == null ? "N/A" : jwtEvent,
+                                    requestId);
                             writeSecurityError(
                                     response,
                                     HttpStatus.UNAUTHORIZED,
-                                    "No autenticado.",
+                                    code,
+                                    message,
                                     reason == null ? List.of() : List.of(new ErrorResponse.ErrorDetail("auth", reason.toString()))
                             );
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            log.warn("AUTH_FORBIDDEN method={} endpoint={} principal={} reason={}",
+                            String requestId = resolveRequestId(request);
+                            log.warn("{} method={} endpoint={} principal={} reason={} requestId={}",
+                                    ErrorCode.AUTH_FORBIDDEN.name(),
                                     request.getMethod(),
                                     request.getRequestURI(),
                                     request.getUserPrincipal() == null ? "anonymous" : request.getUserPrincipal().getName(),
-                                    accessDeniedException.getMessage());
+                                    accessDeniedException.getMessage(),
+                                    requestId);
                             writeSecurityError(
                                     response,
                                     HttpStatus.FORBIDDEN,
+                                    ErrorCode.AUTH_FORBIDDEN,
                                     "Acceso denegado.",
                                     List.of(new ErrorResponse.ErrorDetail("auth", "Rol insuficiente para acceder al recurso."))
                             );
@@ -147,13 +158,46 @@ public class SecurityConfig {
     private void writeSecurityError(
             HttpServletResponse response,
             HttpStatus status,
+            ErrorCode code,
             String message,
             List<ErrorResponse.ErrorDetail> details
     ) throws IOException {
         response.setStatus(status.value());
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        ErrorResponse errorResponse = new ErrorResponse(status.value(), status.getReasonPhrase(), message, details);
+        ErrorResponse errorResponse = new ErrorResponse(status.value(), code.name(), message, details);
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
+    }
+
+    private ErrorCode resolveUnauthorizedCode(Object jwtEvent) {
+        if (jwtEvent == null) {
+            return ErrorCode.AUTH_UNAUTHORIZED;
+        }
+        return switch (jwtEvent.toString()) {
+            case "JWT_EXPIRED" -> ErrorCode.AUTH_TOKEN_EXPIRED;
+            case "JWT_INVALID" -> ErrorCode.AUTH_TOKEN_INVALID;
+            default -> ErrorCode.AUTH_UNAUTHORIZED;
+        };
+    }
+
+    private String resolveUnauthorizedMessage(ErrorCode code) {
+        return switch (code) {
+            case AUTH_TOKEN_EXPIRED -> "Token expirado.";
+            case AUTH_TOKEN_INVALID -> "Token inválido.";
+            default -> "No autenticado.";
+        };
+    }
+
+    private String resolveRequestId(jakarta.servlet.http.HttpServletRequest request) {
+        Object attrRequestId = request.getAttribute("requestId");
+        if (attrRequestId != null) {
+            return attrRequestId.toString();
+        }
+        String headerRequestId = request.getHeader("X-Request-Id");
+        if (headerRequestId != null && !headerRequestId.isBlank()) {
+            return headerRequestId;
+        }
+        String correlationId = request.getHeader("X-Correlation-Id");
+        return correlationId == null || correlationId.isBlank() ? "N/A" : correlationId;
     }
 }

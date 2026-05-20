@@ -1,5 +1,13 @@
 <section class="app-notice" *ngIf="noticeMessage">
   <p>{{ noticeMessage }}</p>
+  <button
+    *ngIf="sessionState === 'degraded'"
+    type="button"
+    (click)="retrySessionValidation()"
+    [disabled]="isRetryingSession"
+  >
+    Reintentar
+  </button>
   <button type="button" (click)="dismissNotice()">Cerrar</button>
 </section>
 

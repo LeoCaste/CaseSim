@@ -18,6 +18,8 @@ import { JwtStorageService } from './jwt-storage.service';
 import { AuthNavigationService } from './auth-navigation.service';
 import { SessionNoticeService } from './session-notice.service';
 
+export type AuthSessionState = 'checking' | 'authenticated' | 'unauthenticated' | 'degraded';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -31,6 +33,7 @@ export class AuthService {
   private bootstrapStatusCache: BootstrapStatusResponse | null = null;
   private readonly authReadySubject = new BehaviorSubject<boolean>(false);
   private readonly backendAvailableSubject = new BehaviorSubject<boolean>(true);
+  private readonly sessionStateSubject = new BehaviorSubject<AuthSessionState>('checking');
   private logoutInProgress = false;
   private readonly tokenStateSubject = new BehaviorSubject<string | null>(null);
 
@@ -47,6 +50,10 @@ export class AuthService {
 
   get tokenChanges$(): Observable<string | null> {
     return this.tokenStateSubject.asObservable();
+  }
+
+  get sessionState$(): Observable<AuthSessionState> {
+    return this.sessionStateSubject.asObservable();
   }
 
   ensureInitialized(): Observable<void> {
@@ -69,8 +76,11 @@ export class AuthService {
   }
 
   validateSessionOnAppStart(): Observable<void> {
+    this.sessionStateSubject.next('checking');
+
     if (environment.useMocks) {
       this.sessionValidated = !!this.token && !!this.currentUser;
+      this.sessionStateSubject.next(this.sessionValidated ? 'authenticated' : 'unauthenticated');
       this.backendAvailableSubject.next(true);
       this.initialized = true;
       this.authReadySubject.next(true);
@@ -80,6 +90,7 @@ export class AuthService {
     if (!this.token) {
       this.initialized = true;
       this.sessionValidated = false;
+      this.sessionStateSubject.next('unauthenticated');
       this.backendAvailableSubject.next(true);
       this.authReadySubject.next(true);
       return of(void 0);
@@ -91,15 +102,40 @@ export class AuthService {
         const user = this.mapBackendUser(backendUser);
         this.currentUser = user;
         this.sessionValidated = true;
+        this.sessionStateSubject.next('authenticated');
         this.persistUser(user);
         this.backendAvailableSubject.next(true);
       }),
       map(() => void 0),
-      catchError(() => {
-        this.clearSession();
-        this.sessionNoticeService.setMessage('Tu sesión expiró. Inicia sesión nuevamente.');
-        this.backendAvailableSubject.next(false);
-        this.authNavigationService.redirectToLogin('expired');
+      catchError((error) => {
+        const decision = this.resolveAuthErrorDecision(error);
+
+        if (decision === 'unauthorized') {
+          this.handleUnauthorizedSession();
+          this.backendAvailableSubject.next(true);
+          this.sessionStateSubject.next('unauthenticated');
+          return of(void 0);
+        }
+
+        if (decision === 'forbidden') {
+          this.sessionValidated = !!this.currentUser;
+          this.sessionStateSubject.next(this.currentUser ? 'authenticated' : 'degraded');
+          this.backendAvailableSubject.next(true);
+          this.sessionNoticeService.setMessage('No tienes permisos para acceder.');
+          return of(void 0);
+        }
+
+        if (decision === 'degraded') {
+          this.sessionValidated = !!this.currentUser;
+          this.sessionStateSubject.next('degraded');
+          this.backendAvailableSubject.next(false);
+          this.sessionNoticeService.setMessage('No se pudo conectar con el servidor. Reintenta en unos segundos.');
+          return of(void 0);
+        }
+
+        this.sessionValidated = !!this.currentUser;
+        this.sessionStateSubject.next(this.currentUser ? 'authenticated' : 'unauthenticated');
+        this.backendAvailableSubject.next(true);
         return of(void 0);
       }),
       finalize(() => {
@@ -243,6 +279,7 @@ export class AuthService {
           const user = this.mapBackendUser(backendUser);
           this.currentUser = user;
           this.sessionValidated = true;
+          this.sessionStateSubject.next('authenticated');
           this.persistUser(user);
           this.backendAvailableSubject.next(true);
           return user;
@@ -251,16 +288,19 @@ export class AuthService {
           if (this.isUnauthorizedError(error)) {
             this.handleUnauthorizedSession();
             this.backendAvailableSubject.next(true);
+            this.sessionStateSubject.next('unauthenticated');
             return of(null);
           }
 
           if (this.token && this.currentUser) {
             this.sessionValidated = true;
             this.backendAvailableSubject.next(!this.isNetworkError(error));
+            this.sessionStateSubject.next(this.isNetworkError(error) ? 'degraded' : 'authenticated');
             return of(this.currentUser);
           }
 
           this.backendAvailableSubject.next(false);
+          this.sessionStateSubject.next('degraded');
           return of(null);
         })
       );
@@ -323,6 +363,7 @@ export class AuthService {
   clearSessionByUnauthorized(): void {
     this.handleUnauthorizedSession();
     this.backendAvailableSubject.next(true);
+    this.sessionStateSubject.next('unauthenticated');
   }
 
   handleForbidden(): void {
@@ -333,6 +374,7 @@ export class AuthService {
     if (this.token && this.currentUser) {
       this.sessionValidated = true;
     }
+    this.sessionStateSubject.next('degraded');
     this.backendAvailableSubject.next(false);
   }
 
@@ -394,6 +436,7 @@ export class AuthService {
     this.clearStoredUser();
     this.clearStoredToken();
     this.tokenStateSubject.next(this.token);
+    this.sessionStateSubject.next('unauthenticated');
   }
 
   clearSession(): void {
@@ -443,6 +486,57 @@ export class AuthService {
 
   private isUnauthorizedError(error: unknown): boolean {
     return error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403);
+  }
+
+  retrySessionValidation(): Observable<void> {
+    this.initialized = false;
+    return this.ensureInitialized();
+  }
+
+  private resolveAuthErrorDecision(error: unknown): 'unauthorized' | 'forbidden' | 'degraded' | 'unknown' {
+    if (!(error instanceof HttpErrorResponse)) {
+      return 'unknown';
+    }
+
+    const errorCode = this.extractAuthErrorCode(error);
+
+    if (error.status === 401) {
+      if (!errorCode || errorCode.startsWith('AUTH_')) {
+        return 'unauthorized';
+      }
+
+      return 'unauthorized';
+    }
+
+    if (error.status === 403 && errorCode === 'AUTH_FORBIDDEN') {
+      return 'forbidden';
+    }
+
+    if (error.status === 0 || error.status >= 500) {
+      return 'degraded';
+    }
+
+    return 'unknown';
+  }
+
+  private extractAuthErrorCode(error: HttpErrorResponse): string | null {
+    const payload = error.error as
+      | { code?: unknown; error?: { code?: unknown } }
+      | string
+      | null
+      | undefined;
+
+    if (payload && typeof payload === 'object') {
+      if (typeof payload.code === 'string' && payload.code.trim()) {
+        return payload.code.trim().toUpperCase();
+      }
+
+      if (typeof payload.error?.code === 'string' && payload.error.code.trim()) {
+        return payload.error.code.trim().toUpperCase();
+      }
+    }
+
+    return null;
   }
 
   private isNetworkError(error: unknown): boolean {

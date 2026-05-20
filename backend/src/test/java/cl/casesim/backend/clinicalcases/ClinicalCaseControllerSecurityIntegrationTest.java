@@ -150,7 +150,7 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .content(validRequestJson))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.error").value("Forbidden"))
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
                 .andExpect(jsonPath("$.message").value("Acceso denegado."))
                 .andExpect(jsonPath("$.details[0].field").value("auth"));
     }
@@ -162,7 +162,7 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .content(validRequestJson))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"))
                 .andExpect(jsonPath("$.message").value("No autenticado."))
                 .andExpect(jsonPath("$.details").isArray());
     }
@@ -175,8 +175,8 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .content(validRequestJson))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.error").value("Unauthorized"))
-                .andExpect(jsonPath("$.message").value("No autenticado."))
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_INVALID"))
+                .andExpect(jsonPath("$.message").value("Token inválido."))
                 .andExpect(jsonPath("$.details[0].field").value("auth"));
     }
 
@@ -190,8 +190,8 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .content(validRequestJson))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.error").value("Unauthorized"))
-                .andExpect(jsonPath("$.message").value("No autenticado."))
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_EXPIRED"))
+                .andExpect(jsonPath("$.message").value("Token expirado."))
                 .andExpect(jsonPath("$.details[0].field").value("auth"));
     }
 
