@@ -3,6 +3,8 @@ package cl.casesim.backend.auth;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -20,12 +22,20 @@ import java.util.Map;
 @Service
 public class JwtService {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
+    private static final long LOW_EXPIRATION_WARNING_MS = 120_000L;
+
     private final JwtProperties jwtProperties;
     private final SecretKey secretKey;
 
     public JwtService(JwtProperties jwtProperties) {
         this.jwtProperties = jwtProperties;
         this.secretKey = Keys.hmacShaKeyFor(hashSecret(jwtProperties.getSecret()));
+        long expirationMs = jwtProperties.getExpirationMs();
+        log.info("event=JWT_CONFIG_RESOLVED expirationMs={} expirationMinutes={}", expirationMs, expirationMs / 60_000d);
+        if (expirationMs <= LOW_EXPIRATION_WARNING_MS) {
+            log.warn("event=JWT_EXPIRATION_LOW expirationMs={} message=JWT expiration is very short; review security.jwt.expiration-ms/JWT_EXPIRATION_MS", expirationMs);
+        }
     }
 
     public String generateToken(UserPrincipal principal) {

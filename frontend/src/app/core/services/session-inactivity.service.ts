@@ -6,12 +6,13 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
 const DEFAULT_IDLE_TIMEOUT_MS = 900000;
+const DEV_IDLE_TIMEOUT_OVERRIDE_KEY = 'casesim.auth.idleTimeoutMs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SessionInactivityService {
-  private readonly idleTimeoutMs = environment.authIdleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+  private readonly idleTimeoutMs = this.resolveIdleTimeoutMs();
   private readonly debugEnabled =
     !environment.production && typeof localStorage !== 'undefined' && localStorage.getItem('casesim.debug.afk') === '1';
   private initialized = false;
@@ -198,5 +199,27 @@ export class SessionInactivityService {
     }
 
     console.debug(`[AFK] ${message}`);
+  }
+
+  private resolveIdleTimeoutMs(): number {
+    const configuredTimeout = environment.authIdleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+
+    if (environment.production || typeof localStorage === 'undefined') {
+      return configuredTimeout;
+    }
+
+    const overrideRaw = localStorage.getItem(DEV_IDLE_TIMEOUT_OVERRIDE_KEY);
+    if (!overrideRaw) {
+      return configuredTimeout;
+    }
+
+    const overrideValue = Number(overrideRaw);
+    if (!Number.isFinite(overrideValue) || overrideValue <= 0) {
+      this.debug(`Ignoring invalid ${DEV_IDLE_TIMEOUT_OVERRIDE_KEY} value: ${overrideRaw}`);
+      return configuredTimeout;
+    }
+
+    this.debug(`Using dev override ${DEV_IDLE_TIMEOUT_OVERRIDE_KEY}=${overrideValue}ms`);
+    return overrideValue;
   }
 }
