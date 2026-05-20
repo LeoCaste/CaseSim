@@ -58,6 +58,25 @@ export class AuthService {
       return this.initializing$;
     }
 
+    this.initializing$ = this.validateSessionOnAppStart().pipe(
+      finalize(() => {
+        this.initializing$ = null;
+      }),
+      shareReplay(1)
+    );
+
+    return this.initializing$;
+  }
+
+  validateSessionOnAppStart(): Observable<void> {
+    if (environment.useMocks) {
+      this.sessionValidated = !!this.token && !!this.currentUser;
+      this.backendAvailableSubject.next(true);
+      this.initialized = true;
+      this.authReadySubject.next(true);
+      return of(void 0);
+    }
+
     if (!this.token) {
       this.initialized = true;
       this.sessionValidated = false;
@@ -66,24 +85,28 @@ export class AuthService {
       return of(void 0);
     }
 
-    this.initializing$ = this.me().pipe(
-      map(() => void 0),
-      tap(() => {
-        this.initialized = true;
-        this.authReadySubject.next(true);
+    return this.http.get<BackendMeResponse | BackendUser>(`${this.apiBaseUrl}/auth/me`).pipe(
+      tap((response) => {
+        const backendUser = 'user' in response ? response.user : response;
+        const user = this.mapBackendUser(backendUser);
+        this.currentUser = user;
+        this.sessionValidated = true;
+        this.persistUser(user);
+        this.backendAvailableSubject.next(true);
       }),
+      map(() => void 0),
       catchError(() => {
-        this.initialized = true;
-        this.authReadySubject.next(true);
+        this.clearSession();
+        this.sessionNoticeService.setMessage('Tu sesión expiró. Inicia sesión nuevamente.');
+        this.backendAvailableSubject.next(false);
+        this.authNavigationService.redirectToLogin('expired');
         return of(void 0);
       }),
       finalize(() => {
-        this.initializing$ = null;
-      }),
-      shareReplay(1)
+        this.initialized = true;
+        this.authReadySubject.next(true);
+      })
     );
-
-    return this.initializing$;
   }
 
   preCheck(email: string): Observable<{ requiresPassword: boolean }> {

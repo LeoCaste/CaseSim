@@ -20,6 +20,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 })
 export class InterviewPage implements OnInit {
   @ViewChild('conversationPanel') private conversationPanel?: ElementRef<HTMLElement>;
+  @ViewChild('interventionInput') private interventionInput?: ElementRef<HTMLTextAreaElement>;
 
   showFinalDiagnosisModal = false;
   clinicalIntervention = '';
@@ -73,6 +74,7 @@ export class InterviewPage implements OnInit {
           this.session = session;
           this.messages = session.messages.map((message) => this.mapMessage(message));
           this.scrollConversationToBottom();
+          this.focusInterventionInput();
           this.cdr.detectChanges();
         },
         error: () => {
@@ -100,6 +102,7 @@ export class InterviewPage implements OnInit {
         finalize(() => {
           this.isSendingMessage = false;
           this.cdr.detectChanges();
+          this.focusInterventionInput();
         })
       )
       .subscribe({
@@ -206,6 +209,20 @@ export class InterviewPage implements OnInit {
       }
 
       panel.scrollTop = panel.scrollHeight;
+    });
+  }
+
+  private focusInterventionInput(): void {
+    requestAnimationFrame(() => {
+      if (!this.interventionInput?.nativeElement) {
+        return;
+      }
+
+      if (this.isLoading || this.isSendingMessage || this.isSubmittingFinalDiagnosis) {
+        return;
+      }
+
+      this.interventionInput.nativeElement.focus();
     });
   }
 

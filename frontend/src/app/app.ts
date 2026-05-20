@@ -25,7 +25,7 @@ export class App {
     sessionInactivityService: SessionInactivityService
   ) {
     this.sessionNoticeService = sessionNoticeService;
-    userContext.setUser(authService.getCurrentUser());
+    userContext.setUser(null);
     authService.ensureInitialized().subscribe(() => {
       userContext.setUser(authService.getCurrentUser());
     });
