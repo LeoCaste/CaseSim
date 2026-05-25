@@ -73,5 +73,6 @@ export const LLM_PROVIDER_CATALOG: Record<LlmProvider, LlmProviderDefinition> = 
 export const LLM_PROVIDER_LIST: LlmProvider[] = Object.keys(LLM_PROVIDER_CATALOG) as LlmProvider[];
 
 // Proveedores habilitados explícitamente para la pantalla Admin LLM.
-// Mantiene el catálogo completo para compatibilidad, pero limita UX activa.
+// Mantiene el catálogo completo para compatibilidad, pero limita UX activa
+// a los providers actualmente soportados por backend en operación real.
 export const ADMIN_LLM_ACTIVE_PROVIDERS: LlmProvider[] = ['openai', 'groq', 'gemini', 'openrouter'];
