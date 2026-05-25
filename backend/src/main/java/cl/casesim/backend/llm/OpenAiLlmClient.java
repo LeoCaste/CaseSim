@@ -89,7 +89,7 @@ public class OpenAiLlmClient implements LlmClient {
                         content.length());
                 return new LlmResponse(
                         content,
-                        null,
+                        extractUsage(response),
                         new LlmProviderResult(provider, llmProperties.getModel(), resolvedUrl, null)
                 );
             } catch (RestClientException ex) {
@@ -320,6 +320,34 @@ public class OpenAiLlmClient implements LlmClient {
             }
         }
         return builder.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private LlmTokenUsage extractUsage(Map<String, Object> response) {
+        if (response == null) {
+            return null;
+        }
+        Object usageObj = response.get("usage");
+        if (!(usageObj instanceof Map<?, ?> usage)) {
+            return null;
+        }
+        Integer prompt = toInteger(usage.get("prompt_tokens"));
+        Integer completion = toInteger(usage.get("completion_tokens"));
+        Integer total = toInteger(usage.get("total_tokens"));
+        if (prompt == null && completion == null && total == null) {
+            return null;
+        }
+        return new LlmTokenUsage(prompt, completion, total, false);
+    }
+
+    private Integer toInteger(Object value) {
+        if (value instanceof Integer i) {
+            return i;
+        }
+        if (value instanceof Number n) {
+            return n.intValue();
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")

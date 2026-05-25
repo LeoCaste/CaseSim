@@ -8,6 +8,7 @@ import {
   LlmConfig,
   LlmModel,
   LlmProvider,
+  LlmTestConnectionResult,
   PatientBehaviorConfig,
   PatientRevealStrategy,
   RECOMMENDED_PATIENT_BEHAVIOR_CONFIG,
@@ -46,6 +47,10 @@ export class AdminLlmConfigPage implements OnInit {
   saveError = '';
   testFeedback = '';
   testFeedbackStatus: 'success' | 'error' | null = null;
+  testFeedbackStatusCode: number | null = null;
+  testFeedbackErrorCode = '';
+  testFeedbackTraceId = '';
+  testFeedbackRetryable = false;
   readonly providers: LlmProvider[] = ADMIN_LLM_ACTIVE_PROVIDERS;
   readonly revealStrategies: PatientRevealStrategy[] = ['PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'];
   readonly basePromptMaxLength = 4000;
@@ -53,6 +58,7 @@ export class AdminLlmConfigPage implements OnInit {
   readonly noInformationReplyMaxLength = 500;
   readonly maxTokensMin = 64;
   readonly maxTokensMax = 1024;
+  readonly genericModelPattern = /^[^\s]+$/;
   readonly suggestedModelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
     Object.entries(LLM_PROVIDER_CATALOG).map(([provider, defaults]) => [provider, defaults.suggestedModels])
   ) as Record<LlmProvider, LlmModel[]>;
@@ -153,6 +159,10 @@ export class AdminLlmConfigPage implements OnInit {
 
     this.testFeedback = '';
     this.testFeedbackStatus = null;
+    this.testFeedbackStatusCode = null;
+    this.testFeedbackErrorCode = '';
+    this.testFeedbackTraceId = '';
+    this.testFeedbackRetryable = false;
     this.isTestingConnection = true;
     this.triggerViewUpdate();
 
@@ -167,13 +177,16 @@ export class AdminLlmConfigPage implements OnInit {
       )
       .subscribe({
         next: (response) => {
-          this.testFeedback = response.message || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor');
-          this.testFeedbackStatus = response.success ? 'success' : 'error';
+          this.applyTestConnectionFeedback(response);
           this.triggerViewUpdate();
         },
         error: () => {
           this.testFeedback = 'No se pudo conectar con el proveedor';
           this.testFeedbackStatus = 'error';
+          this.testFeedbackStatusCode = null;
+          this.testFeedbackErrorCode = '';
+          this.testFeedbackTraceId = '';
+          this.testFeedbackRetryable = false;
           this.triggerViewUpdate();
         }
       });
@@ -185,7 +198,7 @@ export class AdminLlmConfigPage implements OnInit {
     }
 
     const confirmed = window.confirm(
-      '¿Eliminar API key actual? Esta acción desactiva el acceso al proveedor hasta configurar una nueva key.'
+      '¿Eliminar API key actual? Esta acción quitará la credencial guardada para el proveedor activo.'
     );
 
     if (!confirmed) {
@@ -210,7 +223,7 @@ export class AdminLlmConfigPage implements OnInit {
       )
       .subscribe({
         next: () => {
-          this.saveMessage = 'API key eliminada correctamente.';
+          this.saveMessage = '';
           this.saveError = '';
           this.form.apiKey = '';
           this.reloadConfigAfterApiKeyRemoval();
@@ -254,6 +267,15 @@ export class AdminLlmConfigPage implements OnInit {
           if (!this.form.model?.trim()) {
             this.form.model = this.getProviderDefaultModel(provider);
           }
+
+          if (config.apiKeyConfigured) {
+            this.saveMessage = 'Solicitud aplicada, pero el backend mantiene API key configurada.';
+            this.saveError = 'La credencial no se eliminó completamente. Verifica estado en backend y vuelve a intentar.';
+          } else {
+            this.saveMessage = 'API key eliminada correctamente.';
+            this.saveError = '';
+          }
+
           this.triggerViewUpdate();
         },
         error: (error: unknown) => {
@@ -304,6 +326,10 @@ export class AdminLlmConfigPage implements OnInit {
     return Boolean(this.config?.maskedApiKey?.trim());
   }
 
+  get hasTestFeedbackTraceability(): boolean {
+    return !!this.testFeedbackStatusCode || !!this.testFeedbackErrorCode || !!this.testFeedbackTraceId;
+  }
+
   private loadConfig(): void {
     this.isLoading = true;
     this.loadError = '';
@@ -311,6 +337,10 @@ export class AdminLlmConfigPage implements OnInit {
     this.saveError = '';
     this.testFeedback = '';
     this.testFeedbackStatus = null;
+    this.testFeedbackStatusCode = null;
+    this.testFeedbackErrorCode = '';
+    this.testFeedbackTraceId = '';
+    this.testFeedbackRetryable = false;
     this.triggerViewUpdate();
 
     this.adminLlmService
@@ -445,12 +475,20 @@ export class AdminLlmConfigPage implements OnInit {
   private validateModel(providerInput: string, modelInput: string): string | null {
     const provider = this.normalizeProvider(providerInput);
     const model = modelInput?.trim();
+    const validModels = this.modelOptionsByProvider(provider);
+
+    if (!validModels.length) {
+      return `No hay catálogo de modelos disponible para ${this.getProviderLabel(provider)}. Intenta más tarde o contacta soporte.`;
+    }
 
     if (!model) {
       return 'Debes seleccionar un modelo válido.';
     }
 
-    const validModels = this.modelOptionsByProvider(provider);
+    if (!this.genericModelPattern.test(model)) {
+      return 'Modelo inválido. Usa un identificador sin espacios (ej: gpt-4.1-mini).';
+    }
+
     if (validModels.length > 0 && !validModels.includes(model as LlmModel)) {
       return `Modelo no permitido para ${this.getProviderLabel(provider)}. Selecciona un modelo sugerido.`;
     }
@@ -463,7 +501,7 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onModelOptionChange(value: string): void {
-    this.form.model = value;
+    this.form.model = value?.trim() ?? '';
     this.saveError = '';
   }
 
@@ -482,5 +520,14 @@ export class AdminLlmConfigPage implements OnInit {
       maxTokens: source?.maxTokens ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.maxTokens,
       safetyFilterEnabled: source?.safetyFilterEnabled ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.safetyFilterEnabled
     };
+  }
+
+  private applyTestConnectionFeedback(response: LlmTestConnectionResult): void {
+    this.testFeedback = response.message || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor');
+    this.testFeedbackStatus = response.success ? 'success' : 'error';
+    this.testFeedbackStatusCode = response.statusCode ?? null;
+    this.testFeedbackErrorCode = response.errorCode?.trim() ?? '';
+    this.testFeedbackTraceId = response.traceId?.trim() ?? '';
+    this.testFeedbackRetryable = !!response.retryable;
   }
 }

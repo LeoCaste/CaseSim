@@ -2,6 +2,7 @@ package cl.casesim.backend.llm;
 
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
+import cl.casesim.backend.llm.dto.LlmProviderModelsResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -97,6 +100,60 @@ class LlmAdminServiceTest {
         assertTrue(response.success());
         assertEquals("Conexión exitosa.", response.message());
         verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+    }
+
+    @Test
+    void testConnectionShouldUseProviderModelAndRealTokensFromProviderResponse() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("configured-model");
+        llmProperties.setApiKey("sk-test");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse(
+                "pong",
+                new LlmTokenUsage(12, 7, 19, false),
+                new LlmProviderResult("gemini", "gemini-2.5-flash-lite", "https://generativelanguage.googleapis.com", null)
+        ));
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertTrue(response.success());
+        verify(llmUsageService).registerCall(
+                any(),
+                eq("gemini"),
+                eq("gemini-2.5-flash-lite"),
+                eq(12),
+                eq(7),
+                any(),
+                eq(false),
+                eq(null)
+        );
+    }
+
+    @Test
+    void getAvailableModelsShouldIncludeOpenRouterCatalog() {
+        List<LlmProviderModelsResponse> catalog = service.getAvailableModels(null);
+
+        LlmProviderModelsResponse openRouterEntry = catalog.stream()
+                .filter(entry -> "openrouter".equals(entry.provider()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(openRouterEntry.models().contains("openai/gpt-4.1-mini"));
+        assertTrue(openRouterEntry.models().contains("google/gemini-2.5-flash-lite"));
+    }
+
+    @Test
+    void getAvailableModelsShouldFilterByProvider() {
+        List<LlmProviderModelsResponse> catalog = service.getAvailableModels("groq");
+
+        assertEquals(1, catalog.size());
+        assertEquals("groq", catalog.getFirst().provider());
+        assertTrue(catalog.getFirst().models().contains("llama-3.3-70b-versatile"));
+    }
+
+    @Test
+    void getAvailableModelsShouldRejectUnsupportedProviderForRealOperation() {
+        assertThrows(BadRequestException.class, () -> service.getAvailableModels("anthropic"));
     }
 
     @Test
@@ -227,6 +284,59 @@ class LlmAdminServiceTest {
         assertEquals("gemini", response.provider());
         assertEquals("gemini-2.5-flash-lite", response.model());
         assertEquals("https://generativelanguage.googleapis.com/v1beta/models", llmProperties.getBaseUrl());
+    }
+
+    @Test
+    void updateConfigShouldAcceptOpenRouterModelWithProviderPrefix() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openrouter",
+                "openai/gpt-4.1-mini",
+                null,
+                true,
+                "sk-or-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("openrouter", response.provider());
+        assertEquals("openai/gpt-4.1-mini", response.model());
+        assertEquals("https://openrouter.ai/api/v1/chat/completions", llmProperties.getBaseUrl());
+    }
+
+    @Test
+    void updateConfigShouldRejectOpenRouterModelWithInvalidCharacters() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openrouter",
+                "openai/gpt#4.1-mini",
+                null,
+                true,
+                "sk-or-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+
+        assertTrue(exception.getMessage().contains("OpenRouter"));
     }
 
     @Test
@@ -410,6 +520,50 @@ class LlmAdminServiceTest {
         assertFalse(response.success());
         assertEquals("LLM deshabilitado o sin API key.", response.message());
         verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+    }
+
+    @Test
+    void testConnectionShouldDifferentiateAuthQuotaAndProviderErrors() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("gpt-4o-mini");
+        llmProperties.setApiKey("sk-test");
+
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("401", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 401, "invalid")))
+                .thenThrow(new LlmClientException("403", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 403, "forbidden")))
+                .thenThrow(new LlmClientException("429q", null, new LlmProviderError(LlmErrorCategory.QUOTA_EXCEEDED, 429, "quota")))
+                .thenThrow(new LlmClientException("429r", null, new LlmProviderError(LlmErrorCategory.RATE_LIMIT, 429, "rate")))
+                .thenThrow(new LlmClientException("500", null, new LlmProviderError(LlmErrorCategory.PROVIDER_UNAVAILABLE, 503, "down")));
+
+        assertEquals("API key inválida o no autorizada (401).", service.testConnection().message());
+        assertEquals("Conexión rechazada por permisos del provider (403).", service.testConnection().message());
+        assertEquals("Conexión fallida: cuota del provider agotada (429).", service.testConnection().message());
+        assertEquals("Conexión limitada por rate-limit del provider (429).", service.testConnection().message());
+        assertEquals("Proveedor LLM temporalmente no disponible (5xx).", service.testConnection().message());
+    }
+
+    @Test
+    void testConnectionShouldStoreSanitizedMetricErrorCode() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("gpt-4o-mini");
+        llmProperties.setApiKey("sk-secret");
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("bad auth", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 401, "Bearer sk-secret")));
+
+        service.testConnection();
+
+        verify(llmUsageService).registerCall(
+                any(),
+                any(),
+                any(),
+                any(Integer.class),
+                any(Integer.class),
+                any(),
+                any(Boolean.class),
+                contains("TEST_CONNECTION|HTTP_401|AUTH_ERROR")
+        );
     }
 
     @Test

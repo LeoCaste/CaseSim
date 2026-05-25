@@ -5,6 +5,12 @@ import java.time.LocalDate;
 public interface LlmUsageDailyProjection {
     LocalDate getUsageDate();
 
+    String getProvider();
+
+    String getModel();
+
+    String getStatus();
+
     long getTokensInput();
 
     long getTokensOutput();
@@ -12,4 +18,8 @@ public interface LlmUsageDailyProjection {
     long getCalls();
 
     Double getAvgLatencyMs();
+
+    Boolean getTokenEstimated();
+
+    String getTokenSource();
 }

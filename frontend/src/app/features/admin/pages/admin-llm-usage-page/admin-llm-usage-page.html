@@ -19,9 +19,17 @@
       </div>
 
       <div class="admin-llm-usage__filter-field">
+        <label for="provider">Proveedor</label>
+        <select id="provider" name="provider" [(ngModel)]="filterForm.provider" [disabled]="isLoading">
+          <option value="">{{ getProviderFilterPlaceholder() }}</option>
+          <option *ngFor="let provider of providerOptions" [value]="provider">{{ provider }}</option>
+        </select>
+      </div>
+
+      <div class="admin-llm-usage__filter-field">
         <label for="model">Modelo</label>
         <select id="model" name="model" [(ngModel)]="filterForm.model" [disabled]="isLoading">
-          <option value="">Todos los modelos</option>
+          <option value="">{{ getModelFilterPlaceholder() }}</option>
           <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
         </select>
       </div>
@@ -92,8 +100,17 @@
     </div>
 
     <p class="admin-llm-usage__cost-note">
-      Tokens y costos estimados. Los valores se calculan de forma aproximada a partir del contenido registrado.
-      La medición exacta por proveedor quedará disponible cuando se registren tokens reales del API.
+      <ng-container *ngIf="areTokensEstimated(); else exactTokenNote">
+        Tokens y costos estimados. Los valores se calculan de forma aproximada a partir del contenido registrado.
+        La medición exacta por proveedor quedará disponible cuando se registren tokens reales del servicio.
+      </ng-container>
+      <ng-template #exactTokenNote>
+        Tokens reportados y costos calculados según los datos registrados en el período consultado.
+      </ng-template>
+      <br />
+      <small *ngIf="filterForm.provider || filterForm.model">
+        Con filtros de proveedor/modelo, el costo se prorratea por proporción de tokens del subconjunto visible.
+      </small>
     </p>
   </section>
 
@@ -111,10 +128,11 @@
         <thead>
           <tr>
             <th>Fecha</th>
+            <th *ngIf="hasProviderColumn()">Proveedor</th>
             <th *ngIf="hasModelColumn()">Modelo</th>
             <th *ngIf="hasStatusColumn()">Estado</th>
-            <th class="is-numeric">Tokens entrada estim.</th>
-            <th class="is-numeric">Tokens salida estim.</th>
+            <th class="is-numeric">Tokens entrada</th>
+            <th class="is-numeric">Tokens salida</th>
             <th class="is-numeric">Llamadas</th>
             <th class="is-numeric">Latencia prom.</th>
           </tr>
@@ -122,6 +140,7 @@
         <tbody>
           <tr *ngFor="let item of usage">
             <td>{{ item.date | date: 'dd/MM/yyyy' }}</td>
+            <td *ngIf="hasProviderColumn()">{{ getProviderValue(item) }}</td>
             <td *ngIf="hasModelColumn()">{{ getModelValue(item) }}</td>
             <td *ngIf="hasStatusColumn()">{{ getStatusValue(item) }}</td>
             <td class="is-numeric">{{ formatCount(item.tokensInput) }}</td>

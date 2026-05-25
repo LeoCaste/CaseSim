@@ -10,8 +10,8 @@
     <article
       *ngFor="let message of messages"
       class="transcript-message"
-      [class.patient]="isPatientMessage(message.role)"
-      [class.student]="isStudentMessage(message.role)"
+      [class.patient]="isPatientMessage(message)"
+      [class.student]="isStudentMessage(message)"
     >
       <div class="message-meta">
         <span>{{ message.role }}</span>

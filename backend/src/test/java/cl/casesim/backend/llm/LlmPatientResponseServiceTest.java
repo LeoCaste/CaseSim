@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -244,6 +245,28 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
+    void metricasUsanProviderModeloYTokensRealesCuandoProviderLosEntrega() {
+        properties.setProvider("openai");
+        properties.setModel("configured-model");
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generate(any())).thenReturn(new LlmResponse(
+                "respuesta segura",
+                new LlmTokenUsage(101, 33, 134, false),
+                new LlmProviderResult("gemini", "gemini-2.5-flash-lite", "https://generativelanguage.googleapis.com", null)
+        ));
+
+        service.generateResponse(session, "Hola");
+
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertEquals("gemini", readStringField(usage, "provider"));
+        assertEquals("gemini-2.5-flash-lite", readStringField(usage, "model"));
+        assertEquals(101, readIntField(usage, "tokensInput"));
+        assertEquals(33, readIntField(usage, "tokensOutput"));
+    }
+
+    @Test
     void triggerDelFactPermiteMatchAunqueNoAparezcaEnContenido() {
         ClinicalCaseFact triggerFact = new ClinicalCaseFact(
                 UUID.randomUUID(),
@@ -296,12 +319,12 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
-    void siLlmDeshabilitadoRetornaFallbackTecnico() {
+    void siLlmDeshabilitadoLanzaErrorDisponibleParaFrontend() {
         properties.setEnabled(false);
 
-        String response = service.generateResponse(session, "hola");
+        LlmUnavailableException ex = assertThrows(LlmUnavailableException.class, () -> service.generateResponse(session, "hola"));
 
-        assertEquals("Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?", response);
+        assertTrue(ex.getMessage().contains("configuración LLM incompleta"));
     }
 
     @Test
@@ -597,6 +620,16 @@ class LlmPatientResponseServiceTest {
             var field = LlmUsage.class.getDeclaredField(fieldName);
             field.setAccessible(true);
             return (String) field.get(usage);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
+        }
+    }
+
+    private int readIntField(LlmUsage usage, String fieldName) {
+        try {
+            var field = LlmUsage.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.getInt(usage);
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError(ex);
         }

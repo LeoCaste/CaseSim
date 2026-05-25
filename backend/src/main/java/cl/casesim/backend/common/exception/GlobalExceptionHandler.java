@@ -1,5 +1,6 @@
 package cl.casesim.backend.common.exception;
 
+import cl.casesim.backend.llm.LlmUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -92,6 +93,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceAccessException.class)
     public ResponseEntity<ErrorResponse> handleResourceAccess(ResourceAccessException ex) {
         return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "Servicio temporalmente no disponible.");
+    }
+
+    @ExceptionHandler(LlmUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleLlmUnavailable(LlmUnavailableException ex) {
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

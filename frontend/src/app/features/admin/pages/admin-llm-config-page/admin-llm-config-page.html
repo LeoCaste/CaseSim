@@ -44,12 +44,15 @@
           id="model"
           [ngModel]="form.model"
           (ngModelChange)="onModelOptionChange($event)"
-          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
+          [disabled]="isSaving || isDeletingApiKey || isTestingConnection || !modelOptions.length"
         >
-          <option value="" disabled>Selecciona un modelo recomendado</option>
+          <option value="" disabled>{{ modelOptions.length ? 'Selecciona un modelo recomendado' : 'Sin modelos disponibles' }}</option>
           <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
         </select>
-        <small>Selecciona un modelo sugerido para el proveedor activo.</small>
+        <small *ngIf="modelOptions.length">Selecciona un modelo sugerido para el proveedor activo.</small>
+        <small *ngIf="!modelOptions.length" class="admin-llm-config__error">
+          No hay catálogo de modelos para este proveedor en este momento. Reintenta más tarde.
+        </small>
       </div>
 
       <div class="admin-llm-config__row">
@@ -194,6 +197,13 @@
     >
       {{ testFeedback }}
     </p>
+
+    <section *ngIf="hasTestFeedbackTraceability" class="admin-llm-config__field-note" aria-live="polite">
+      <p *ngIf="testFeedbackStatusCode"><strong>HTTP:</strong> {{ testFeedbackStatusCode }}</p>
+      <p *ngIf="testFeedbackErrorCode"><strong>Código:</strong> {{ testFeedbackErrorCode }}</p>
+      <p *ngIf="testFeedbackTraceId"><strong>Trace ID:</strong> {{ testFeedbackTraceId }}</p>
+      <p *ngIf="testFeedbackRetryable">Puedes reintentar cuando se normalice la cuota o disponibilidad del proveedor.</p>
+    </section>
   </section>
 
   <p *ngIf="isLoading" class="admin-llm-config__loading">Cargando configuración...</p>

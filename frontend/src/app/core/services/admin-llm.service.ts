@@ -40,14 +40,20 @@ export class AdminLlmService {
       tokensInput: 25100,
       tokensOutput: 18320,
       calls: 182,
-      avgLatencyMs: 812
+      avgLatencyMs: 812,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokenEstimated: true
     },
     {
       date: '2026-04-26',
       tokensInput: 22840,
       tokensOutput: 16970,
       calls: 170,
-      avgLatencyMs: 776
+      avgLatencyMs: 776,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokenEstimated: true
     }
   ];
 
@@ -81,7 +87,7 @@ export class AdminLlmService {
           timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
           catchError((error) =>
-            throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible actualizar configuración LLM.')))
+            throwError(() => new Error(this.resolveUpdateConfigErrorMessage(error, payload)))
           )
         );
     }
@@ -135,10 +141,7 @@ export class AdminLlmService {
           message: response.message?.trim() || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor')
         })),
         catchError((error) =>
-          of({
-            success: false,
-            message: this.resolveTestConnectionErrorMessage(error)
-          })
+          of(this.buildTestConnectionErrorResult(error))
         )
       );
     }
@@ -293,13 +296,19 @@ export class AdminLlmService {
   }
 
   private mapUsageItem(item: BackendLlmUsageDailyResponse): LlmUsageDailyMetric {
-    const mappedItem: LlmUsageDailyMetric & { model?: string; status?: string } = {
+    const mappedItem: LlmUsageDailyMetric = {
       date: item.date,
       tokensInput: item.tokensInput,
       tokensOutput: item.tokensOutput,
       calls: item.calls,
-      avgLatencyMs: item.avgLatencyMs
+      avgLatencyMs: item.avgLatencyMs,
+      tokenEstimated: typeof item.tokenEstimated === 'boolean' ? item.tokenEstimated : undefined,
+      tokenSource: typeof item.tokenSource === 'string' ? item.tokenSource : undefined
     };
+
+    if (item.provider) {
+      mappedItem.provider = item.provider;
+    }
 
     if (item.model) {
       mappedItem.model = item.model;
@@ -379,7 +388,7 @@ export class AdminLlmService {
     return usage.filter((item) => {
       const afterFrom = filters.from ? item.date >= filters.from : true;
       const beforeTo = filters.to ? item.date <= filters.to : true;
-      const modelMatches = filters.model ? filters.model === this.mockConfig.model : true;
+      const modelMatches = filters.model ? item.model?.trim() === filters.model.trim() : true;
       const statusMatches = !filters.status || filters.status === 'all';
 
       return afterFrom && beforeTo && modelMatches && statusMatches;
@@ -401,6 +410,17 @@ export class AdminLlmService {
     return fallback;
   }
 
+  private resolveUpdateConfigErrorMessage(error: unknown, payload: UpdateLlmConfigPayload): string {
+    const resolvedMessage = this.resolveErrorMessage(error, 'No fue posible actualizar configuración LLM.');
+    const sanitizedMessage = this.sanitizeSensitiveText(resolvedMessage);
+
+    if (/modelo inválido/i.test(sanitizedMessage) && payload.provider === 'openrouter') {
+      return `${sanitizedMessage} Para OpenRouter usa el formato proveedor/modelo (ej: openai/gpt-4.1-mini), sin espacios.`;
+    }
+
+    return sanitizedMessage;
+  }
+
   private isNotFoundError(error: unknown): boolean {
     const maybeError = error as { status?: number };
     return maybeError?.status === 404;
@@ -410,22 +430,73 @@ export class AdminLlmService {
     const maybeError = error as { status?: number; error?: { message?: string } };
     const backendMessage = maybeError?.error?.message?.trim();
     if (backendMessage) {
-      return backendMessage;
+      return this.sanitizeSensitiveText(backendMessage);
     }
 
-    if (maybeError?.status === 401 || maybeError?.status === 403) {
-      return 'No se pudo autenticar con el proveedor. Verifica API key y permisos.';
+    if (maybeError?.status === 401) {
+      return 'Credenciales inválidas para el proveedor. Verifica API key activa y vuelve a intentar.';
+    }
+
+    if (maybeError?.status === 403) {
+      return 'Acceso denegado por el proveedor. Revisa permisos de la API key o restricciones de proyecto.';
     }
 
     if (maybeError?.status === 429) {
-      return 'El proveedor rechazó la conexión por límite de tasa o cuota. Intenta nuevamente.';
+      return 'Límite de tasa o cuota alcanzado en el proveedor. Espera unos minutos o ajusta tu plan/cuota.';
     }
 
     if (typeof maybeError?.status === 'number' && maybeError.status >= 500) {
-      return 'El proveedor no respondió correctamente (error servidor). Intenta nuevamente.';
+      return 'El proveedor presenta un error temporal del servidor. Intenta nuevamente en breve.';
     }
 
-    return this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor');
+    return this.sanitizeSensitiveText(this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor'));
+  }
+
+  private buildTestConnectionErrorResult(error: unknown): LlmTestConnectionResult {
+    const maybeError = error as {
+      status?: number;
+      error?: { code?: string; errorCode?: string; traceId?: string; requestId?: string; correlationId?: string };
+      headers?: { get(name: string): string | null };
+    };
+
+    const statusCode = typeof maybeError?.status === 'number' ? maybeError.status : undefined;
+    const errorCode = maybeError?.error?.errorCode?.trim() || maybeError?.error?.code?.trim() || undefined;
+    const traceId =
+      maybeError?.error?.traceId?.trim()
+      || maybeError?.error?.requestId?.trim()
+      || maybeError?.error?.correlationId?.trim()
+      || maybeError?.headers?.get?.('x-trace-id')?.trim()
+      || maybeError?.headers?.get?.('x-request-id')?.trim()
+      || maybeError?.headers?.get?.('x-correlation-id')?.trim()
+      || undefined;
+
+    return {
+      success: false,
+      message: this.resolveTestConnectionErrorMessage(error),
+      statusCode,
+      errorCode,
+      traceId,
+      retryable: this.isRetryableTestConnectionStatus(statusCode)
+    };
+  }
+
+  private isRetryableTestConnectionStatus(statusCode: number | undefined): boolean {
+    if (typeof statusCode !== 'number') {
+      return false;
+    }
+
+    return statusCode === 429 || statusCode >= 500;
+  }
+
+  private sanitizeSensitiveText(message: string): string {
+    if (!message.trim()) {
+      return message;
+    }
+
+    return message
+      .replace(/sk-[A-Za-z0-9_-]{10,}/g, '***')
+      .replace(/AIza[0-9A-Za-z\-_]{20,}/g, '***')
+      .replace(/(api[_-]?key|token|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=***');
   }
 
   private buildDefaultConfig(): LlmConfig {
@@ -488,8 +559,11 @@ interface BackendLlmUsageDailyResponse {
   tokensOutput: number;
   calls: number;
   avgLatencyMs: number | null;
+  provider?: string;
   model?: string;
   status?: string;
+  tokenEstimated?: boolean;
+  tokenSource?: string;
 }
 
 interface BackendLlmSummaryResponse {

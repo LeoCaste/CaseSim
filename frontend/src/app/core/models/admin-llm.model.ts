@@ -67,6 +67,10 @@ export interface UpdateLlmConfigPayload {
 export interface LlmTestConnectionResult {
   success: boolean;
   message: string;
+  statusCode?: number;
+  errorCode?: string;
+  traceId?: string;
+  retryable?: boolean;
 }
 
 export interface LlmUsageDailyMetric {
@@ -75,6 +79,11 @@ export interface LlmUsageDailyMetric {
   tokensOutput: number;
   calls: number;
   avgLatencyMs: number | null;
+  provider?: string;
+  model?: string;
+  status?: string;
+  tokenEstimated?: boolean;
+  tokenSource?: string;
 }
 
 export interface LlmUsageSummary {

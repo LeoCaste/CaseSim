@@ -2,7 +2,8 @@ import { AfterViewInit, Component, ElementRef, Input, OnChanges, SimpleChanges, 
 import { CommonModule } from '@angular/common';
 
 export interface TranscriptMessage {
-  role: 'Paciente' | 'Estudiante' | 'Sistema' | 'PATIENT' | 'STUDENT' | 'SYSTEM';
+  role: string;
+  speakerType?: 'PATIENT' | 'STUDENT' | 'SYSTEM';
   time: string;
   content: string;
 }
@@ -18,12 +19,22 @@ export class SessionTranscript implements AfterViewInit, OnChanges {
 
   @Input({ required: true }) messages: TranscriptMessage[] = [];
 
-  isPatientMessage(role: TranscriptMessage['role']): boolean {
+  isPatientMessage(message: TranscriptMessage): boolean {
+    if (message.speakerType) {
+      return message.speakerType === 'PATIENT';
+    }
+
+    const role = message.role;
     const normalizedRole = role.trim().toLowerCase();
     return normalizedRole === 'paciente' || normalizedRole === 'patient';
   }
 
-  isStudentMessage(role: TranscriptMessage['role']): boolean {
+  isStudentMessage(message: TranscriptMessage): boolean {
+    if (message.speakerType) {
+      return message.speakerType === 'STUDENT';
+    }
+
+    const role = message.role;
     const normalizedRole = role.trim().toLowerCase();
     return normalizedRole === 'estudiante' || normalizedRole === 'student';
   }

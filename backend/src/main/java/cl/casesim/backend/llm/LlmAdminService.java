@@ -2,6 +2,7 @@ package cl.casesim.backend.llm;
 
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
+import cl.casesim.backend.llm.dto.LlmProviderModelsResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
 import jakarta.annotation.PostConstruct;
@@ -14,6 +15,7 @@ import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -28,6 +30,7 @@ public class LlmAdminService {
     private static final int DEFAULT_MAX_TOKENS = 350;
     private static final double DEFAULT_TEMPERATURE = 0.4;
     private static final Pattern GENERIC_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$");
+    private static final Pattern OPENROUTER_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:/-]{1,119}$");
 
     private final LlmConfigRepository llmConfigRepository;
     private final LlmProperties llmProperties;
@@ -81,6 +84,24 @@ public class LlmAdminService {
                 llmProperties.isEnabledSafetyFilter(),
                 null
         );
+    }
+
+    public List<LlmProviderModelsResponse> getAvailableModels(String provider) {
+        Map<String, List<String>> modelsByProvider = LlmModelCatalog.modelsByProvider();
+        if (!StringUtils.hasText(provider)) {
+            return modelsByProvider.entrySet().stream()
+                    .map(entry -> new LlmProviderModelsResponse(entry.getKey(), entry.getValue()))
+                    .toList();
+        }
+
+        String normalizedProvider = normalizeProvider(provider);
+        validateProvider(normalizedProvider);
+        List<String> models = modelsByProvider.get(normalizedProvider);
+        if (models == null) {
+            throw new BadRequestException("No hay catálogo de modelos para el provider solicitado.");
+        }
+
+        return List.of(new LlmProviderModelsResponse(normalizedProvider, models));
     }
 
     @Transactional
@@ -186,6 +207,8 @@ public class LlmAdminService {
         String content = "";
         String provider = normalizeProvider(llmProperties.getProvider());
         String model = llmProperties.getModel();
+        Integer promptTokens = null;
+        Integer completionTokens = null;
 
         try {
             if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
@@ -196,21 +219,34 @@ public class LlmAdminService {
 
             LlmResponse response = llmClient.generate(new LlmRequest(List.of(new LlmMessage("user", "ping")), model, null, null));
             content = response == null ? "" : response.content();
+            if (response != null && response.providerResult() != null) {
+                if (StringUtils.hasText(response.providerResult().provider())) {
+                    provider = normalizeProvider(response.providerResult().provider());
+                }
+                if (StringUtils.hasText(response.providerResult().model())) {
+                    model = response.providerResult().model().trim();
+                }
+            }
+            if (response != null && response.usage() != null) {
+                promptTokens = response.usage().promptTokens();
+                completionTokens = response.usage().completionTokens();
+            }
             if (!StringUtils.hasText(content)) {
                 fallbackUsed = true;
                 error = "Proveedor respondió sin contenido.";
                 return new TestConnectionResponse(false, error);
             }
             return new TestConnectionResponse(true, "Conexión exitosa.");
+        } catch (LlmClientException ex) {
+            fallbackUsed = true;
+            error = sanitizeError(buildMetricErrorForTestConnection(ex));
+            if (ex.getMessage() != null && ex.getMessage().toLowerCase(Locale.ROOT).contains("no implementado")) {
+                return new TestConnectionResponse(false, "Proveedor aún no implementado para test de conexión.");
+            }
+            return new TestConnectionResponse(false, mapTestConnectionErrorMessage(ex));
         } catch (RuntimeException ex) {
             fallbackUsed = true;
             error = sanitizeError(ex.getMessage());
-            if (error != null && error.toLowerCase(Locale.ROOT).contains("no implementado")) {
-                return new TestConnectionResponse(false, "Proveedor aún no implementado para test de conexión.");
-            }
-            if (error != null && error.toLowerCase(Locale.ROOT).contains("timeout")) {
-                return new TestConnectionResponse(false, "Timeout al conectar con el proveedor LLM.");
-            }
             return new TestConnectionResponse(false, "No fue posible conectar con el proveedor LLM.");
         } finally {
             int latency = (int) (System.currentTimeMillis() - startedAt);
@@ -219,8 +255,8 @@ public class LlmAdminService {
                         null,
                         provider,
                         model,
-                        llmUsageService.estimateTokens("ping"),
-                        llmUsageService.estimateTokens(content),
+                        promptTokens == null ? llmUsageService.estimateTokens("ping") : promptTokens,
+                        completionTokens == null ? llmUsageService.estimateTokens(content) : completionTokens,
                         latency,
                         fallbackUsed,
                         error
@@ -335,7 +371,44 @@ public class LlmAdminService {
         if (StringUtils.hasText(apiKey)) {
             sanitized = sanitized.replace(apiKey.trim(), "***");
         }
+        sanitized = sanitized.replaceAll("(?i)bearer\\s+[a-z0-9_\\-\\.]+", "Bearer ***");
+        sanitized = sanitized.replaceAll("(?i)(api[_-]?key|x-goog-api-key)\\s*[:=]\\s*[^\\s,;]+", "$1=***");
+        if (sanitized.length() > 240) {
+            sanitized = sanitized.substring(0, 240) + "...";
+        }
         return sanitized;
+    }
+
+    private String mapTestConnectionErrorMessage(LlmClientException ex) {
+        LlmProviderError providerError = ex.providerError();
+        if (providerError == null || providerError.category() == null) {
+            if (ex.getMessage() != null && ex.getMessage().toLowerCase(Locale.ROOT).contains("timeout")) {
+                return "Timeout al conectar con el proveedor LLM.";
+            }
+            return "No fue posible conectar con el proveedor LLM.";
+        }
+
+        Integer status = providerError.httpStatus();
+        return switch (providerError.category()) {
+            case AUTH_ERROR -> status != null && status == 403
+                    ? "Conexión rechazada por permisos del provider (403)."
+                    : "API key inválida o no autorizada (401).";
+            case QUOTA_EXCEEDED -> "Conexión fallida: cuota del provider agotada (429).";
+            case RATE_LIMIT -> "Conexión limitada por rate-limit del provider (429).";
+            case PROVIDER_UNAVAILABLE -> "Proveedor LLM temporalmente no disponible (5xx).";
+            case TIMEOUT -> "Timeout al conectar con el proveedor LLM.";
+            default -> "No fue posible conectar con el proveedor LLM.";
+        };
+    }
+
+    private String buildMetricErrorForTestConnection(LlmClientException ex) {
+        LlmProviderError providerError = ex.providerError();
+        if (providerError == null) {
+            return ex.getMessage();
+        }
+        String category = providerError.category() == null ? "UNKNOWN" : providerError.category().name();
+        Integer status = providerError.httpStatus();
+        return status == null ? "TEST_CONNECTION|" + category : "TEST_CONNECTION|HTTP_" + status + "|" + category;
     }
 
     private String normalizeProvider(String provider) {
@@ -379,7 +452,14 @@ public class LlmAdminService {
                 .replaceAll("\\s+", "-")
                 .replaceAll("-+", "-");
 
-        if (!GENERIC_MODEL_PATTERN.matcher(normalized).matches()) {
+        Pattern validationPattern = LlmProviderSupport.OPENROUTER.equals(provider)
+                ? OPENROUTER_MODEL_PATTERN
+                : GENERIC_MODEL_PATTERN;
+
+        if (!validationPattern.matcher(normalized).matches()) {
+            if (LlmProviderSupport.OPENROUTER.equals(provider)) {
+                throw new BadRequestException("Modelo inválido para OpenRouter. Use formato provider/model sin espacios (ej: openai/gpt-4.1-mini).");
+            }
             throw new BadRequestException("Modelo inválido. Use un identificador sin espacios (ej: gpt-4.1-mini).");
         }
 

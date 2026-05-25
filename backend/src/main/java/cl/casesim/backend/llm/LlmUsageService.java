@@ -170,10 +170,15 @@ public class LlmUsageService {
         return rows.stream()
                 .map(row -> new LlmUsageDailyResponse(
                         row.getUsageDate(),
+                        row.getProvider(),
+                        row.getModel(),
+                        row.getStatus(),
                         row.getTokensInput(),
                         row.getTokensOutput(),
                         row.getCalls(),
-                        row.getAvgLatencyMs()
+                        row.getAvgLatencyMs(),
+                        row.getTokenEstimated(),
+                        row.getTokenSource()
                 ))
                 .toList();
     }
@@ -221,7 +226,13 @@ public class LlmUsageService {
             return null;
         }
 
-        String normalized = error.trim();
+        String normalized = error.trim()
+                .replaceAll("(?i)bearer\\s+[a-z0-9_\\-\\.]+", "Bearer ***")
+                .replaceAll("(?i)(api[_-]?key|x-goog-api-key)\\s*[:=]\\s*[^\\s,;]+", "$1=***")
+                .replaceAll("\\s+", " ");
+        if (normalized.length() > 300) {
+            normalized = normalized.substring(0, 300) + "...";
+        }
         return normalized.isEmpty() ? null : normalized;
     }
 
