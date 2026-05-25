@@ -10,6 +10,10 @@ import cl.casesim.backend.simulations.SimulationActivity;
 import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,6 +37,7 @@ class SessionServiceTest {
     private final ResponseSafetyFilter responseSafetyFilter = mock(ResponseSafetyFilter.class);
     private final SimulationActivityRepository simulationActivityRepository = mock(SimulationActivityRepository.class);
     private final ClinicalCaseRepository clinicalCaseRepository = mock(ClinicalCaseRepository.class);
+    private final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
 
     private final SessionService sessionService = new SessionService(
             simulationSessionRepository,
@@ -40,8 +45,14 @@ class SessionServiceTest {
             patientResponseService,
             responseSafetyFilter,
             simulationActivityRepository,
-            clinicalCaseRepository
+            clinicalCaseRepository,
+            transactionManager
     );
+
+    SessionServiceTest() {
+        TransactionStatus status = new SimpleTransactionStatus();
+        when(transactionManager.getTransaction(any(TransactionDefinition.class))).thenReturn(status);
+    }
 
     @Test
     void getSessionByIdRetornaDatosRealesDePacienteAsignado() {

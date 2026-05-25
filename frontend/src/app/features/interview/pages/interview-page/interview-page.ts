@@ -44,7 +44,7 @@ export class InterviewPage implements OnInit {
   finalDiagnosisError = '';
   private readonly destroyRef = inject(DestroyRef);
 
-  messages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }> = [];
+  messages: InterviewMessageView[] = [];
 
   constructor(
     private userContext: UserContext,
@@ -192,8 +192,9 @@ export class InterviewPage implements OnInit {
       });
   }
 
-  private mapMessage(message: SessionMessage): { role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string } {
+  private mapMessage(message: SessionMessage): InterviewMessageView {
     return {
+      id: message.id,
       role: message.role === 'PATIENT' ? 'Paciente' : message.role === 'STUDENT' ? 'Estudiante' : 'Sistema',
       time: message.timestamp,
       content: message.content
@@ -227,9 +228,9 @@ export class InterviewPage implements OnInit {
   }
 
   private mergeMessagesWithoutDuplicates(
-    currentMessages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }>,
-    incomingMessages: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }>
-  ): Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }> {
+    currentMessages: InterviewMessageView[],
+    incomingMessages: InterviewMessageView[]
+  ): InterviewMessageView[] {
     const existingKeys = new Set(currentMessages.map((message) => this.buildMessageKey(message)));
     const nextMessages = [...currentMessages];
 
@@ -246,7 +247,11 @@ export class InterviewPage implements OnInit {
     return nextMessages;
   }
 
-  private buildMessageKey(message: { role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }): string {
+  private buildMessageKey(message: InterviewMessageView): string {
+    if (message.id?.trim()) {
+      return message.id;
+    }
+
     return `${message.role}|${message.time}|${message.content}`;
   }
 
@@ -265,4 +270,11 @@ export class InterviewPage implements OnInit {
   get chiefComplaintDisplay(): string {
     return this.session.reason?.trim() || 'Sin motivo principal registrado.';
   }
+}
+
+interface InterviewMessageView {
+  id?: string;
+  role: 'Paciente' | 'Estudiante' | 'Sistema';
+  time: string;
+  content: string;
 }

@@ -15,7 +15,10 @@ import cl.casesim.backend.sessions.dto.SendMessageRequest;
 import cl.casesim.backend.sessions.dto.SessionResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,6 +42,8 @@ public class SessionService {
     private final ResponseSafetyFilter responseSafetyFilter;
     private final SimulationActivityRepository simulationActivityRepository;
     private final ClinicalCaseRepository clinicalCaseRepository;
+    private final TransactionTemplate requiresNewTransactionTemplate;
+    private final TransactionTemplate readOnlyTransactionTemplate;
 
     public SessionService(
             SimulationSessionRepository simulationSessionRepository,
@@ -46,7 +51,8 @@ public class SessionService {
             PatientResponseService patientResponseService,
             ResponseSafetyFilter responseSafetyFilter,
             SimulationActivityRepository simulationActivityRepository,
-            ClinicalCaseRepository clinicalCaseRepository
+            ClinicalCaseRepository clinicalCaseRepository,
+            PlatformTransactionManager transactionManager
     ) {
         this.simulationSessionRepository = simulationSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
@@ -54,6 +60,12 @@ public class SessionService {
         this.responseSafetyFilter = responseSafetyFilter;
         this.simulationActivityRepository = simulationActivityRepository;
         this.clinicalCaseRepository = clinicalCaseRepository;
+
+        this.requiresNewTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.requiresNewTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        this.readOnlyTransactionTemplate = new TransactionTemplate(transactionManager);
+        this.readOnlyTransactionTemplate.setReadOnly(true);
     }
 
     @Transactional
@@ -104,26 +116,19 @@ public class SessionService {
                 .toList();
     }
 
-    @Transactional
     public List<ChatMessageResponse> createMessages(UUID sessionId, SendMessageRequest request, UUID authenticatedStudentId) {
-        SimulationSession session = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
-        assertSessionInProgressForMessages(session);
+        SimulationSession session = readOnlyTransactionTemplate.execute(status -> {
+            SimulationSession ownedSession = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
+            assertSessionInProgressForMessages(ownedSession);
+            return ownedSession;
+        });
 
         String userContent = request.content() == null ? "" : request.content().trim();
         if (userContent.isEmpty()) {
             throw new BadRequestException("El contenido del mensaje no puede estar vacío.");
         }
 
-        int nextTurnNumber = chatMessageRepository.findMaxNumeroTurnoBySesionId(sessionId) + 1;
-
-        ChatMessage savedUserMessage = chatMessageRepository.save(new ChatMessage(
-                UUID.randomUUID(),
-                sessionId,
-                USER_ROLE,
-                userContent,
-                nextTurnNumber,
-                LocalDateTime.now()
-        ));
+        ChatMessage savedUserMessage = saveUserMessageInNewTransaction(sessionId, userContent, authenticatedStudentId);
 
         String assistantRawContent;
         try {
@@ -139,14 +144,12 @@ public class SessionService {
             assistantContent = ASSISTANT_TECHNICAL_FALLBACK;
         }
 
-        ChatMessage savedAssistantMessage = chatMessageRepository.save(new ChatMessage(
-                UUID.randomUUID(),
+        ChatMessage savedAssistantMessage = saveAssistantMessageInNewTransaction(
                 sessionId,
-                ASSISTANT_ROLE,
                 assistantContent,
-                nextTurnNumber + 1,
-                LocalDateTime.now()
-        ));
+                authenticatedStudentId,
+                savedUserMessage.getNumeroTurno() + 1
+        );
 
         return List.of(toChatMessageResponse(savedUserMessage), toChatMessageResponse(savedAssistantMessage));
     }
@@ -179,6 +182,44 @@ public class SessionService {
     private SimulationSession getOwnedSessionOrThrow(UUID sessionId, UUID authenticatedStudentId) {
         return simulationSessionRepository.findByIdAndEstudianteId(sessionId, authenticatedStudentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sesión no encontrada con id: " + sessionId));
+    }
+
+    private ChatMessage saveUserMessageInNewTransaction(UUID sessionId, String userContent, UUID authenticatedStudentId) {
+        return requiresNewTransactionTemplate.execute(status -> {
+            SimulationSession session = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
+            assertSessionInProgressForMessages(session);
+
+            int nextTurnNumber = chatMessageRepository.findMaxNumeroTurnoBySesionId(sessionId) + 1;
+            return chatMessageRepository.save(new ChatMessage(
+                    UUID.randomUUID(),
+                    sessionId,
+                    USER_ROLE,
+                    userContent,
+                    nextTurnNumber,
+                    LocalDateTime.now()
+            ));
+        });
+    }
+
+    private ChatMessage saveAssistantMessageInNewTransaction(
+            UUID sessionId,
+            String assistantContent,
+            UUID authenticatedStudentId,
+            int assistantTurnNumber
+    ) {
+        return requiresNewTransactionTemplate.execute(status -> {
+            SimulationSession session = getOwnedSessionOrThrow(sessionId, authenticatedStudentId);
+            assertSessionInProgressForMessages(session);
+
+            return chatMessageRepository.save(new ChatMessage(
+                    UUID.randomUUID(),
+                    sessionId,
+                    ASSISTANT_ROLE,
+                    assistantContent,
+                    assistantTurnNumber,
+                    LocalDateTime.now()
+            ));
+        });
     }
 
     private SessionResponse toSessionResponse(SimulationSession session) {
