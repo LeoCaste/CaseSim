@@ -144,6 +144,7 @@ export class LoginPage {
         finalize(() => {
           this.isCheckingEmail = false;
           this.isLoggingIn = false;
+          this.cdr.markForCheck();
         })
       )
       .subscribe({
@@ -154,6 +155,7 @@ export class LoginPage {
         error: (error) => {
           this.showForgotPasswordLink = this.isInvalidAdminPasswordError(error, email);
           this.errorMessage = this.mapLoginError(error);
+          this.cdr.detectChanges();
         }
       });
   }

@@ -72,6 +72,21 @@ describe('LoginPage', () => {
     expect(link).not.toBeNull();
   });
 
+  it('should trigger change detection immediately on invalid admin password', () => {
+    component.email = 'admin@casesim.cl';
+    component.requiresPassword = true;
+    component.password = 'incorrecta';
+    (component as any).passwordRequiredForEmail = 'admin@casesim.cl';
+    authServiceSpy.login.and.returnValue(throwError(() => buildUnauthorizedError()));
+    const detectChangesSpy = spyOn((component as any).cdr, 'detectChanges').and.callThrough();
+
+    component.login();
+
+    expect(component.showForgotPasswordLink).toBeTrue();
+    expect(component.errorMessage).toBe('Contraseña inválida.');
+    expect(detectChangesSpy).toHaveBeenCalled();
+  });
+
   it('should keep forgot-password link hidden for non-admin unauthorized login', () => {
     component.email = 'estudiante@casesim.cl';
     component.requiresPassword = false;
