@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -410,6 +411,50 @@ class LlmAdminServiceTest {
         assertFalse(response.success());
         assertEquals("LLM deshabilitado o sin API key.", response.message());
         verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+    }
+
+    @Test
+    void testConnectionShouldDifferentiateAuthQuotaAndProviderErrors() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("gpt-4o-mini");
+        llmProperties.setApiKey("sk-test");
+
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("401", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 401, "invalid")))
+                .thenThrow(new LlmClientException("403", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 403, "forbidden")))
+                .thenThrow(new LlmClientException("429q", null, new LlmProviderError(LlmErrorCategory.QUOTA_EXCEEDED, 429, "quota")))
+                .thenThrow(new LlmClientException("429r", null, new LlmProviderError(LlmErrorCategory.RATE_LIMIT, 429, "rate")))
+                .thenThrow(new LlmClientException("500", null, new LlmProviderError(LlmErrorCategory.PROVIDER_UNAVAILABLE, 503, "down")));
+
+        assertEquals("API key inválida o no autorizada (401).", service.testConnection().message());
+        assertEquals("Conexión rechazada por permisos del provider (403).", service.testConnection().message());
+        assertEquals("Conexión fallida: cuota del provider agotada (429).", service.testConnection().message());
+        assertEquals("Conexión limitada por rate-limit del provider (429).", service.testConnection().message());
+        assertEquals("Proveedor LLM temporalmente no disponible (5xx).", service.testConnection().message());
+    }
+
+    @Test
+    void testConnectionShouldStoreSanitizedMetricErrorCode() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("gpt-4o-mini");
+        llmProperties.setApiKey("sk-secret");
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("bad auth", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 401, "Bearer sk-secret")));
+
+        service.testConnection();
+
+        verify(llmUsageService).registerCall(
+                any(),
+                any(),
+                any(),
+                any(Integer.class),
+                any(Integer.class),
+                any(),
+                any(Boolean.class),
+                contains("TEST_CONNECTION|HTTP_401|AUTH_ERROR")
+        );
     }
 
     @Test

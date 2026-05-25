@@ -202,15 +202,16 @@ public class LlmAdminService {
                 return new TestConnectionResponse(false, error);
             }
             return new TestConnectionResponse(true, "Conexión exitosa.");
+        } catch (LlmClientException ex) {
+            fallbackUsed = true;
+            error = sanitizeError(buildMetricErrorForTestConnection(ex));
+            if (ex.getMessage() != null && ex.getMessage().toLowerCase(Locale.ROOT).contains("no implementado")) {
+                return new TestConnectionResponse(false, "Proveedor aún no implementado para test de conexión.");
+            }
+            return new TestConnectionResponse(false, mapTestConnectionErrorMessage(ex));
         } catch (RuntimeException ex) {
             fallbackUsed = true;
             error = sanitizeError(ex.getMessage());
-            if (error != null && error.toLowerCase(Locale.ROOT).contains("no implementado")) {
-                return new TestConnectionResponse(false, "Proveedor aún no implementado para test de conexión.");
-            }
-            if (error != null && error.toLowerCase(Locale.ROOT).contains("timeout")) {
-                return new TestConnectionResponse(false, "Timeout al conectar con el proveedor LLM.");
-            }
             return new TestConnectionResponse(false, "No fue posible conectar con el proveedor LLM.");
         } finally {
             int latency = (int) (System.currentTimeMillis() - startedAt);
@@ -335,7 +336,44 @@ public class LlmAdminService {
         if (StringUtils.hasText(apiKey)) {
             sanitized = sanitized.replace(apiKey.trim(), "***");
         }
+        sanitized = sanitized.replaceAll("(?i)bearer\\s+[a-z0-9_\\-\\.]+", "Bearer ***");
+        sanitized = sanitized.replaceAll("(?i)(api[_-]?key|x-goog-api-key)\\s*[:=]\\s*[^\\s,;]+", "$1=***");
+        if (sanitized.length() > 240) {
+            sanitized = sanitized.substring(0, 240) + "...";
+        }
         return sanitized;
+    }
+
+    private String mapTestConnectionErrorMessage(LlmClientException ex) {
+        LlmProviderError providerError = ex.providerError();
+        if (providerError == null || providerError.category() == null) {
+            if (ex.getMessage() != null && ex.getMessage().toLowerCase(Locale.ROOT).contains("timeout")) {
+                return "Timeout al conectar con el proveedor LLM.";
+            }
+            return "No fue posible conectar con el proveedor LLM.";
+        }
+
+        Integer status = providerError.httpStatus();
+        return switch (providerError.category()) {
+            case AUTH_ERROR -> status != null && status == 403
+                    ? "Conexión rechazada por permisos del provider (403)."
+                    : "API key inválida o no autorizada (401).";
+            case QUOTA_EXCEEDED -> "Conexión fallida: cuota del provider agotada (429).";
+            case RATE_LIMIT -> "Conexión limitada por rate-limit del provider (429).";
+            case PROVIDER_UNAVAILABLE -> "Proveedor LLM temporalmente no disponible (5xx).";
+            case TIMEOUT -> "Timeout al conectar con el proveedor LLM.";
+            default -> "No fue posible conectar con el proveedor LLM.";
+        };
+    }
+
+    private String buildMetricErrorForTestConnection(LlmClientException ex) {
+        LlmProviderError providerError = ex.providerError();
+        if (providerError == null) {
+            return ex.getMessage();
+        }
+        String category = providerError.category() == null ? "UNKNOWN" : providerError.category().name();
+        Integer status = providerError.httpStatus();
+        return status == null ? "TEST_CONNECTION|" + category : "TEST_CONNECTION|HTTP_" + status + "|" + category;
     }
 
     private String normalizeProvider(String provider) {

@@ -221,7 +221,13 @@ public class LlmUsageService {
             return null;
         }
 
-        String normalized = error.trim();
+        String normalized = error.trim()
+                .replaceAll("(?i)bearer\\s+[a-z0-9_\\-\\.]+", "Bearer ***")
+                .replaceAll("(?i)(api[_-]?key|x-goog-api-key)\\s*[:=]\\s*[^\\s,;]+", "$1=***")
+                .replaceAll("\\s+", " ");
+        if (normalized.length() > 300) {
+            normalized = normalized.substring(0, 300) + "...";
+        }
         return normalized.isEmpty() ? null : normalized;
     }
 
