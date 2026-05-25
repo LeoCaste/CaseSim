@@ -135,10 +135,7 @@ export class AdminLlmService {
           message: response.message?.trim() || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor')
         })),
         catchError((error) =>
-          of({
-            success: false,
-            message: this.resolveTestConnectionErrorMessage(error)
-          })
+          of(this.buildTestConnectionErrorResult(error))
         )
       );
     }
@@ -410,22 +407,73 @@ export class AdminLlmService {
     const maybeError = error as { status?: number; error?: { message?: string } };
     const backendMessage = maybeError?.error?.message?.trim();
     if (backendMessage) {
-      return backendMessage;
+      return this.sanitizeSensitiveText(backendMessage);
     }
 
-    if (maybeError?.status === 401 || maybeError?.status === 403) {
-      return 'No se pudo autenticar con el proveedor. Verifica API key y permisos.';
+    if (maybeError?.status === 401) {
+      return 'Credenciales inválidas para el proveedor. Verifica API key activa y vuelve a intentar.';
+    }
+
+    if (maybeError?.status === 403) {
+      return 'Acceso denegado por el proveedor. Revisa permisos de la API key o restricciones de proyecto.';
     }
 
     if (maybeError?.status === 429) {
-      return 'El proveedor rechazó la conexión por límite de tasa o cuota. Intenta nuevamente.';
+      return 'Límite de tasa o cuota alcanzado en el proveedor. Espera unos minutos o ajusta tu plan/cuota.';
     }
 
     if (typeof maybeError?.status === 'number' && maybeError.status >= 500) {
-      return 'El proveedor no respondió correctamente (error servidor). Intenta nuevamente.';
+      return 'El proveedor presenta un error temporal del servidor. Intenta nuevamente en breve.';
     }
 
-    return this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor');
+    return this.sanitizeSensitiveText(this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor'));
+  }
+
+  private buildTestConnectionErrorResult(error: unknown): LlmTestConnectionResult {
+    const maybeError = error as {
+      status?: number;
+      error?: { code?: string; errorCode?: string; traceId?: string; requestId?: string; correlationId?: string };
+      headers?: { get(name: string): string | null };
+    };
+
+    const statusCode = typeof maybeError?.status === 'number' ? maybeError.status : undefined;
+    const errorCode = maybeError?.error?.errorCode?.trim() || maybeError?.error?.code?.trim() || undefined;
+    const traceId =
+      maybeError?.error?.traceId?.trim()
+      || maybeError?.error?.requestId?.trim()
+      || maybeError?.error?.correlationId?.trim()
+      || maybeError?.headers?.get?.('x-trace-id')?.trim()
+      || maybeError?.headers?.get?.('x-request-id')?.trim()
+      || maybeError?.headers?.get?.('x-correlation-id')?.trim()
+      || undefined;
+
+    return {
+      success: false,
+      message: this.resolveTestConnectionErrorMessage(error),
+      statusCode,
+      errorCode,
+      traceId,
+      retryable: this.isRetryableTestConnectionStatus(statusCode)
+    };
+  }
+
+  private isRetryableTestConnectionStatus(statusCode: number | undefined): boolean {
+    if (typeof statusCode !== 'number') {
+      return false;
+    }
+
+    return statusCode === 429 || statusCode >= 500;
+  }
+
+  private sanitizeSensitiveText(message: string): string {
+    if (!message.trim()) {
+      return message;
+    }
+
+    return message
+      .replace(/sk-[A-Za-z0-9_-]{10,}/g, '***')
+      .replace(/AIza[0-9A-Za-z\-_]{20,}/g, '***')
+      .replace(/(api[_-]?key|token|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=***');
   }
 
   private buildDefaultConfig(): LlmConfig {

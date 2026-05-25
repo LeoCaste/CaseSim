@@ -67,6 +67,10 @@ export interface UpdateLlmConfigPayload {
 export interface LlmTestConnectionResult {
   success: boolean;
   message: string;
+  statusCode?: number;
+  errorCode?: string;
+  traceId?: string;
+  retryable?: boolean;
 }
 
 export interface LlmUsageDailyMetric {
