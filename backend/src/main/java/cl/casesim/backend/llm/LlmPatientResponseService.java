@@ -95,20 +95,17 @@ public class LlmPatientResponseService implements PatientResponseService {
         NoInfoResolution noInfoResolution = resolveNoInfoResponse(resolveCaseNoInfoResponse(session));
 
         if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
-            return registerAndReturnTechnicalFallback(
-                    session,
-                    startedAt,
-                    estimatedPromptTokens,
+            safeRegisterUsage(
+                    session.getId(),
                     resolvedProvider,
                     resolvedModel,
-                    noInfoResolution,
-                    "LLM_DISABLED_OR_MISSING_API_KEY",
-                    new RuntimeException("LLM deshabilitado o API key no configurada"),
-                    requestId,
-                    null,
+                    estimatedPromptTokens,
                     0,
-                    estimatedPromptTokens
+                    (int) (System.currentTimeMillis() - startedAt),
+                    true,
+                    "LLM_DISABLED_OR_MISSING_API_KEY"
             );
+            throw new LlmUnavailableException("Servicio de simulación IA no disponible: configuración LLM incompleta.");
         }
 
         try {
@@ -1161,6 +1158,8 @@ public class LlmPatientResponseService implements PatientResponseService {
         if (llmProperties.getApiKey() != null && !llmProperties.getApiKey().isBlank()) {
             sanitized = sanitized.replace(llmProperties.getApiKey().trim(), "***");
         }
+        sanitized = sanitized.replaceAll("(?i)bearer\\s+[a-z0-9_\\-\\.]+", "Bearer ***");
+        sanitized = sanitized.replaceAll("(?i)(api[_-]?key|x-goog-api-key)\\s*[:=]\\s*[^\\s,;]+", "$1=***");
         if (sanitized.length() > 400) {
             sanitized = sanitized.substring(0, 400);
         }

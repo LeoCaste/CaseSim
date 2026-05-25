@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -296,12 +297,12 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
-    void siLlmDeshabilitadoRetornaFallbackTecnico() {
+    void siLlmDeshabilitadoLanzaErrorDisponibleParaFrontend() {
         properties.setEnabled(false);
 
-        String response = service.generateResponse(session, "hola");
+        LlmUnavailableException ex = assertThrows(LlmUnavailableException.class, () -> service.generateResponse(session, "hola"));
 
-        assertEquals("Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?", response);
+        assertTrue(ex.getMessage().contains("configuración LLM incompleta"));
     }
 
     @Test

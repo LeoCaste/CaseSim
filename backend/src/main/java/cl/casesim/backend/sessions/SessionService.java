@@ -130,12 +130,7 @@ public class SessionService {
 
         ChatMessage savedUserMessage = saveUserMessageInNewTransaction(sessionId, userContent, authenticatedStudentId);
 
-        String assistantRawContent;
-        try {
-            assistantRawContent = patientResponseService.generateResponse(session, userContent);
-        } catch (RuntimeException ex) {
-            assistantRawContent = ASSISTANT_TECHNICAL_FALLBACK;
-        }
+        String assistantRawContent = patientResponseService.generateResponse(session, userContent);
 
         String assistantContent;
         try {

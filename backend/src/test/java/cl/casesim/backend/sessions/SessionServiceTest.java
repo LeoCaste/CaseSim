@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -140,7 +141,7 @@ class SessionServiceTest {
     }
 
     @Test
-    void createMessagesGeneraAssistantFallbackSiPatientResponseExplota() {
+    void createMessagesPropagaErrorSiPatientResponseExplota() {
         UUID sessionId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
 
@@ -156,19 +157,13 @@ class SessionServiceTest {
         when(simulationSessionRepository.findByIdAndEstudianteId(sessionId, studentId)).thenReturn(Optional.of(session));
         when(chatMessageRepository.findMaxNumeroTurnoBySesionId(sessionId)).thenReturn(0);
         when(patientResponseService.generateResponse(eq(session), eq("hola"))).thenThrow(new RuntimeException("llm down"));
-        when(responseSafetyFilter.applyOrFallback("Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?"))
-                .thenReturn("Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?");
         when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        List<ChatMessageResponse> response = sessionService.createMessages(sessionId, new SendMessageRequest("hola"), studentId);
-
-        assertEquals(2, response.size());
-        assertEquals("ASSISTANT", response.get(1).role());
-        assertTrue(response.get(1).content().contains("Perdón, me cuesta responder"));
+        assertThrows(RuntimeException.class, () -> sessionService.createMessages(sessionId, new SendMessageRequest("hola"), studentId));
 
         ArgumentCaptor<ChatMessage> savedCaptor = ArgumentCaptor.forClass(ChatMessage.class);
-        verify(chatMessageRepository, times(2)).save(savedCaptor.capture());
-        assertEquals("ASSISTANT", savedCaptor.getAllValues().get(1).getRol());
+        verify(chatMessageRepository, times(1)).save(savedCaptor.capture());
+        assertEquals("USER", savedCaptor.getAllValues().getFirst().getRol());
     }
 
     @Test
