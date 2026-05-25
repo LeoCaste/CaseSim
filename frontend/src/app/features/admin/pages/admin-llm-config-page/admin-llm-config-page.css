@@ -43,6 +43,21 @@
   color: var(--cs-primary-dark);
 }
 
+.admin-llm-config__current-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+
+.admin-llm-config__current-status-grid p {
+  margin: 0;
+}
+
+.admin-llm-config__status-value-wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .admin-llm-config__row {
   display: flex;
   flex-direction: column;
@@ -90,6 +105,17 @@
 
 .admin-llm-config__row small {
   color: var(--cs-text-muted);
+}
+
+.admin-llm-config__field-note {
+  margin: 0;
+  color: var(--cs-text-muted);
+  font-size: 13px;
+}
+
+.admin-llm-config__field-note--warning {
+  color: var(--cs-primary-dark);
+  font-weight: 600;
 }
 
 .admin-llm-config__row code {
@@ -188,6 +214,19 @@
   gap: 12px;
 }
 
+.admin-llm-config__grid--technical-params .admin-llm-config__row {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.admin-llm-config__grid--technical-params {
+  align-items: stretch;
+}
+
+.admin-llm-config__grid--technical-params .admin-llm-config__row input[type='number'] {
+  margin-top: auto;
+}
+
 .admin-llm-config__actions {
   display: flex;
   gap: 12px;
@@ -232,4 +271,10 @@
 .admin-llm-config__success,
 .admin-llm-config__test-result--success {
   color: var(--cs-success);
+}
+
+@media (max-width: 720px) {
+  .admin-llm-config__current-status-grid {
+    grid-template-columns: 1fr;
+  }
 }
