@@ -87,7 +87,7 @@ export class AdminLlmService {
           timeout(this.requestTimeoutMs),
           map((response) => this.mapConfigResponse(response)),
           catchError((error) =>
-            throwError(() => new Error(this.resolveErrorMessage(error, 'No fue posible actualizar configuración LLM.')))
+            throwError(() => new Error(this.resolveUpdateConfigErrorMessage(error, payload)))
           )
         );
     }
@@ -408,6 +408,17 @@ export class AdminLlmService {
     }
 
     return fallback;
+  }
+
+  private resolveUpdateConfigErrorMessage(error: unknown, payload: UpdateLlmConfigPayload): string {
+    const resolvedMessage = this.resolveErrorMessage(error, 'No fue posible actualizar configuración LLM.');
+    const sanitizedMessage = this.sanitizeSensitiveText(resolvedMessage);
+
+    if (/modelo inválido/i.test(sanitizedMessage) && payload.provider === 'openrouter') {
+      return `${sanitizedMessage} Para OpenRouter usa el formato proveedor/modelo (ej: openai/gpt-4.1-mini), sin espacios.`;
+    }
+
+    return sanitizedMessage;
   }
 
   private isNotFoundError(error: unknown): boolean {

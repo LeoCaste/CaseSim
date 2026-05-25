@@ -58,6 +58,7 @@ export class AdminLlmConfigPage implements OnInit {
   readonly noInformationReplyMaxLength = 500;
   readonly maxTokensMin = 64;
   readonly maxTokensMax = 1024;
+  readonly genericModelPattern = /^[^\s]+$/;
   readonly suggestedModelsByProvider: Record<LlmProvider, LlmModel[]> = Object.fromEntries(
     Object.entries(LLM_PROVIDER_CATALOG).map(([provider, defaults]) => [provider, defaults.suggestedModels])
   ) as Record<LlmProvider, LlmModel[]>;
@@ -474,12 +475,20 @@ export class AdminLlmConfigPage implements OnInit {
   private validateModel(providerInput: string, modelInput: string): string | null {
     const provider = this.normalizeProvider(providerInput);
     const model = modelInput?.trim();
+    const validModels = this.modelOptionsByProvider(provider);
+
+    if (!validModels.length) {
+      return `No hay catálogo de modelos disponible para ${this.getProviderLabel(provider)}. Intenta más tarde o contacta soporte.`;
+    }
 
     if (!model) {
       return 'Debes seleccionar un modelo válido.';
     }
 
-    const validModels = this.modelOptionsByProvider(provider);
+    if (!this.genericModelPattern.test(model)) {
+      return 'Modelo inválido. Usa un identificador sin espacios (ej: gpt-4.1-mini).';
+    }
+
     if (validModels.length > 0 && !validModels.includes(model as LlmModel)) {
       return `Modelo no permitido para ${this.getProviderLabel(provider)}. Selecciona un modelo sugerido.`;
     }
@@ -492,7 +501,7 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   onModelOptionChange(value: string): void {
-    this.form.model = value;
+    this.form.model = value?.trim() ?? '';
     this.saveError = '';
   }
 

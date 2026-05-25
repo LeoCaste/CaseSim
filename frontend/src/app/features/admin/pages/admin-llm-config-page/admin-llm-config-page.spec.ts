@@ -115,6 +115,29 @@ describe('AdminLlmConfigPage', () => {
     expect(adminLlmServiceMock.updateConfig).not.toHaveBeenCalled();
   });
 
+  it('no debe permitir modelo OpenRouter fuera del catálogo conocido', () => {
+    component.config = { ...baseConfig, apiKeyConfigured: true };
+    component.form.provider = 'openrouter';
+    component.form.model = 'deepseek/deepseek-chat-v3-0324';
+    component.form.apiKey = '';
+
+    component.onSave();
+
+    expect(component.saveError).toContain('Modelo no permitido');
+    expect(adminLlmServiceMock.updateConfig).not.toHaveBeenCalled();
+  });
+
+  it('debe bloquear modelo OpenRouter vacío', () => {
+    component.config = { ...baseConfig, apiKeyConfigured: true };
+    component.form.provider = 'openrouter';
+    component.form.model = '';
+
+    component.onSave();
+
+    expect(component.saveError).toContain('Debes seleccionar un modelo válido');
+    expect(adminLlmServiceMock.updateConfig).not.toHaveBeenCalled();
+  });
+
   it('debe validar API key cuando el proveedor la requiere y no existe key configurada', () => {
     component.config = { ...baseConfig, apiKeyConfigured: false };
     component.form.provider = 'openai';
