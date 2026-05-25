@@ -35,10 +35,15 @@ class LlmUsageServiceTest {
     void getDailyUsageShouldMapRepositoryProjection() {
         LlmUsageDailyProjection row = mock(LlmUsageDailyProjection.class);
         when(row.getUsageDate()).thenReturn(LocalDate.of(2026, 4, 27));
+        when(row.getProvider()).thenReturn("groq");
+        when(row.getModel()).thenReturn("llama-3.3-70b-versatile");
+        when(row.getStatus()).thenReturn("success");
         when(row.getTokensInput()).thenReturn(120L);
         when(row.getTokensOutput()).thenReturn(80L);
         when(row.getCalls()).thenReturn(5L);
         when(row.getAvgLatencyMs()).thenReturn(350.0);
+        when(row.getTokenEstimated()).thenReturn(false);
+        when(row.getTokenSource()).thenReturn("real");
         when(llmUsageRepository.findDailyUsage()).thenReturn(List.of(row));
 
         List<LlmUsageDailyResponse> usage = service.getDailyUsage();
@@ -47,6 +52,8 @@ class LlmUsageServiceTest {
         assertEquals(120L, usage.getFirst().tokensInput());
         assertEquals(80L, usage.getFirst().tokensOutput());
         assertEquals(5L, usage.getFirst().calls());
+        assertEquals("llama-3.3-70b-versatile", usage.getFirst().model());
+        assertEquals("real", usage.getFirst().tokenSource());
     }
 
     @Test

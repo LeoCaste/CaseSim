@@ -168,14 +168,23 @@ public class LlmPatientResponseService implements PatientResponseService {
             );
 
             String llmResponse;
+            LlmResponse providerResponse = null;
+            String metricProvider = resolvedProvider;
+            String metricModel = resolvedModel;
+            Integer providerPromptTokens = null;
+            Integer providerCompletionTokens = null;
             try {
-                LlmResponse providerResponse = llmClient.generate(new LlmRequest(
+                providerResponse = llmClient.generate(new LlmRequest(
                         promptMessages,
                         llmProperties.getModel(),
                         llmProperties.getTemperature(),
                         llmProperties.getMaxTokens()
                 ));
                 llmResponse = providerResponse == null ? "" : providerResponse.content();
+                metricProvider = resolveMetricProvider(providerResponse, resolvedProvider);
+                metricModel = resolveMetricModel(providerResponse, resolvedModel);
+                providerPromptTokens = resolvePromptTokens(providerResponse);
+                providerCompletionTokens = resolveCompletionTokens(providerResponse);
                 log.info(
                         "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
                         requestId,
@@ -281,10 +290,10 @@ public class LlmPatientResponseService implements PatientResponseService {
 
             safeRegisterUsage(
                     session.getId(),
-                    resolvedProvider,
-                    resolvedModel,
-                    estimatedPromptTokens,
-                    llmUsageService.estimateTokens(finalResponse),
+                    metricProvider,
+                    metricModel,
+                    providerPromptTokens == null ? estimatedPromptTokens : providerPromptTokens,
+                    providerCompletionTokens == null ? llmUsageService.estimateTokens(finalResponse) : providerCompletionTokens,
                     (int) (System.currentTimeMillis() - startedAt),
                     fallbackUsed,
                     null
@@ -1252,6 +1261,36 @@ public class LlmPatientResponseService implements PatientResponseService {
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String resolveMetricProvider(LlmResponse providerResponse, String fallbackProvider) {
+        if (providerResponse == null || providerResponse.providerResult() == null) {
+            return fallbackProvider;
+        }
+        return hasText(providerResponse.providerResult().provider())
+                ? providerResponse.providerResult().provider().trim()
+                : fallbackProvider;
+    }
+
+    private String resolveMetricModel(LlmResponse providerResponse, String fallbackModel) {
+        if (providerResponse == null || providerResponse.providerResult() == null) {
+            return fallbackModel;
+        }
+        return hasText(providerResponse.providerResult().model())
+                ? providerResponse.providerResult().model().trim()
+                : fallbackModel;
+    }
+
+    private Integer resolvePromptTokens(LlmResponse providerResponse) {
+        return providerResponse == null || providerResponse.usage() == null
+                ? null
+                : providerResponse.usage().promptTokens();
+    }
+
+    private Integer resolveCompletionTokens(LlmResponse providerResponse) {
+        return providerResponse == null || providerResponse.usage() == null
+                ? null
+                : providerResponse.usage().completionTokens();
     }
 
     private List<String> buildPromptSectionsIncluded(PromptBuilderService.ClinicalPromptContext context, boolean adminConfigPresent) {

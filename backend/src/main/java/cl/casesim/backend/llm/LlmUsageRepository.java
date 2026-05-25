@@ -13,23 +13,58 @@ public interface LlmUsageRepository extends JpaRepository<LlmUsage, UUID> {
     @Query(value = """
             select
               cast(creado_en as date) as usageDate,
+              proveedor as provider,
+              modelo as model,
+              case
+                when fallback_usado = true then 'fallback'
+                when error_detalle is not null and trim(error_detalle) <> '' then 'error'
+                else 'success'
+              end as status,
               coalesce(sum(prompt_tokens), 0) as tokensInput,
               coalesce(sum(completion_tokens), 0) as tokensOutput,
               count(*) as calls,
-              avg(latencia_ms) as avgLatencyMs
+              avg(latencia_ms) as avgLatencyMs,
+              case
+                when bool_and(fallback_usado = false and (error_detalle is null or trim(error_detalle) = '')) then false
+                else true
+              end as tokenEstimated,
+              case
+                when bool_and(fallback_usado = false and (error_detalle is null or trim(error_detalle) = '')) then 'real'
+                else 'estimated'
+              end as tokenSource
             from uso_llm
-            group by cast(creado_en as date)
-            order by cast(creado_en as date) desc
+            group by cast(creado_en as date), proveedor, modelo,
+                     case
+                       when fallback_usado = true then 'fallback'
+                       when error_detalle is not null and trim(error_detalle) <> '' then 'error'
+                       else 'success'
+                     end
+            order by cast(creado_en as date) desc, provider asc, model asc
             """, nativeQuery = true)
     List<LlmUsageDailyProjection> findDailyUsage();
 
     @Query(value = """
             select
               cast(creado_en as date) as usageDate,
+              proveedor as provider,
+              modelo as model,
+              case
+                when fallback_usado = true then 'fallback'
+                when error_detalle is not null and trim(error_detalle) <> '' then 'error'
+                else 'success'
+              end as status,
               coalesce(sum(prompt_tokens), 0) as tokensInput,
               coalesce(sum(completion_tokens), 0) as tokensOutput,
               count(*) as calls,
-              avg(latencia_ms) as avgLatencyMs
+              avg(latencia_ms) as avgLatencyMs,
+              case
+                when bool_and(fallback_usado = false and (error_detalle is null or trim(error_detalle) = '')) then false
+                else true
+              end as tokenEstimated,
+              case
+                when bool_and(fallback_usado = false and (error_detalle is null or trim(error_detalle) = '')) then 'real'
+                else 'estimated'
+              end as tokenSource
             from uso_llm
             where (:fromDate is null or cast(creado_en as date) >= :fromDate)
               and (:toDate is null or cast(creado_en as date) <= :toDate)
@@ -39,8 +74,13 @@ public interface LlmUsageRepository extends JpaRepository<LlmUsage, UUID> {
                 or (:status = 'error' and fallback_usado = false and error_detalle is not null and trim(error_detalle) <> '')
                 or (:status = 'fallback' and fallback_usado = true)
               )
-            group by cast(creado_en as date)
-            order by cast(creado_en as date) desc
+            group by cast(creado_en as date), proveedor, modelo,
+                     case
+                       when fallback_usado = true then 'fallback'
+                       when error_detalle is not null and trim(error_detalle) <> '' then 'error'
+                       else 'success'
+                     end
+            order by cast(creado_en as date) desc, provider asc, model asc
             """, nativeQuery = true)
     List<LlmUsageDailyProjection> findDailyUsageFiltered(
             @Param("fromDate") LocalDate fromDate,

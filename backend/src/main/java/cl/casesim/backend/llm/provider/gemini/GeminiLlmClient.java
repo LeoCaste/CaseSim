@@ -80,9 +80,12 @@ public class GeminiLlmClient implements LlmClient {
                         .body(Map.class);
 
                 String content = responseMapper.extractContent(response);
+                Integer promptTokens = responseMapper.promptTokens(response);
+                Integer completionTokens = responseMapper.completionTokens(response);
+                Integer totalTokens = responseMapper.totalTokens(response);
                 return new LlmResponse(
                         content,
-                        null,
+                        new LlmTokenUsage(promptTokens, completionTokens, totalTokens, false),
                         new LlmProviderResult(provider, model, requestUrl, null)
                 );
             } catch (RestClientException ex) {

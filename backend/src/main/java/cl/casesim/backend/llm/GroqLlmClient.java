@@ -89,7 +89,7 @@ public class GroqLlmClient implements LlmClient {
                 if (!StringUtils.hasText(content)) {
                     throw new LlmClientException("Proveedor LLM devolvió respuesta vacía o no parseable.");
                 }
-                return new LlmResponse(content, null, new LlmProviderResult(provider, llmProperties.getModel(), resolvedUrl, null));
+                return new LlmResponse(content, extractUsage(response), new LlmProviderResult(provider, llmProperties.getModel(), resolvedUrl, null));
             } catch (RestClientException ex) {
                 if (ex instanceof ResourceAccessException) {
                     if (attempt == attempts) {
@@ -170,6 +170,34 @@ public class GroqLlmClient implements LlmClient {
         String sanitizedBody = sanitizeProviderBody(body);
         String suffix = StringUtils.hasText(sanitizedBody) ? " detail=" + sanitizedBody : "";
         return "Error HTTP proveedor LLM status=" + status + " category=" + category + " path=" + requestPath + suffix;
+    }
+
+    @SuppressWarnings("unchecked")
+    private LlmTokenUsage extractUsage(Map<String, Object> response) {
+        if (response == null) {
+            return null;
+        }
+        Object usageObj = response.get("usage");
+        if (!(usageObj instanceof Map<?, ?> usage)) {
+            return null;
+        }
+        Integer prompt = toInteger(usage.get("prompt_tokens"));
+        Integer completion = toInteger(usage.get("completion_tokens"));
+        Integer total = toInteger(usage.get("total_tokens"));
+        if (prompt == null && completion == null && total == null) {
+            return null;
+        }
+        return new LlmTokenUsage(prompt, completion, total, false);
+    }
+
+    private Integer toInteger(Object value) {
+        if (value instanceof Integer i) {
+            return i;
+        }
+        if (value instanceof Number n) {
+            return n.intValue();
+        }
+        return null;
     }
 
     private String buildHttpErrorMessage(RestClientResponseException responseException, String requestPath) {

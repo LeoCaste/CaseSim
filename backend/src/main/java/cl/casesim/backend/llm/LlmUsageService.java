@@ -170,10 +170,15 @@ public class LlmUsageService {
         return rows.stream()
                 .map(row -> new LlmUsageDailyResponse(
                         row.getUsageDate(),
+                        row.getProvider(),
+                        row.getModel(),
+                        row.getStatus(),
                         row.getTokensInput(),
                         row.getTokensOutput(),
                         row.getCalls(),
-                        row.getAvgLatencyMs()
+                        row.getAvgLatencyMs(),
+                        row.getTokenEstimated(),
+                        row.getTokenSource()
                 ))
                 .toList();
     }

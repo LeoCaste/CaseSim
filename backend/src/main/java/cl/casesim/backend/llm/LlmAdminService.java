@@ -186,6 +186,8 @@ public class LlmAdminService {
         String content = "";
         String provider = normalizeProvider(llmProperties.getProvider());
         String model = llmProperties.getModel();
+        Integer promptTokens = null;
+        Integer completionTokens = null;
 
         try {
             if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
@@ -196,6 +198,18 @@ public class LlmAdminService {
 
             LlmResponse response = llmClient.generate(new LlmRequest(List.of(new LlmMessage("user", "ping")), model, null, null));
             content = response == null ? "" : response.content();
+            if (response != null && response.providerResult() != null) {
+                if (StringUtils.hasText(response.providerResult().provider())) {
+                    provider = normalizeProvider(response.providerResult().provider());
+                }
+                if (StringUtils.hasText(response.providerResult().model())) {
+                    model = response.providerResult().model().trim();
+                }
+            }
+            if (response != null && response.usage() != null) {
+                promptTokens = response.usage().promptTokens();
+                completionTokens = response.usage().completionTokens();
+            }
             if (!StringUtils.hasText(content)) {
                 fallbackUsed = true;
                 error = "Proveedor respondió sin contenido.";
@@ -220,8 +234,8 @@ public class LlmAdminService {
                         null,
                         provider,
                         model,
-                        llmUsageService.estimateTokens("ping"),
-                        llmUsageService.estimateTokens(content),
+                        promptTokens == null ? llmUsageService.estimateTokens("ping") : promptTokens,
+                        completionTokens == null ? llmUsageService.estimateTokens(content) : completionTokens,
                         latency,
                         fallbackUsed,
                         error

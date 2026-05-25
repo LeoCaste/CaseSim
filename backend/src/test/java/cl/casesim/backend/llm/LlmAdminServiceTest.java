@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -98,6 +99,33 @@ class LlmAdminServiceTest {
         assertTrue(response.success());
         assertEquals("Conexión exitosa.", response.message());
         verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+    }
+
+    @Test
+    void testConnectionShouldUseProviderModelAndRealTokensFromProviderResponse() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openai");
+        llmProperties.setModel("configured-model");
+        llmProperties.setApiKey("sk-test");
+        when(llmClient.generate(any())).thenReturn(new LlmResponse(
+                "pong",
+                new LlmTokenUsage(12, 7, 19, false),
+                new LlmProviderResult("gemini", "gemini-2.5-flash-lite", "https://generativelanguage.googleapis.com", null)
+        ));
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertTrue(response.success());
+        verify(llmUsageService).registerCall(
+                any(),
+                eq("gemini"),
+                eq("gemini-2.5-flash-lite"),
+                eq(12),
+                eq(7),
+                any(),
+                eq(false),
+                eq(null)
+        );
     }
 
     @Test
