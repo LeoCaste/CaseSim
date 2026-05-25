@@ -10,7 +10,6 @@ import {
   LlmUsageStatusFilter,
   LlmUsageSummary
 } from '../../../../core/models/admin-llm.model';
-import { ADMIN_LLM_ACTIVE_PROVIDERS, LLM_PROVIDER_CATALOG } from '../../../../core/models/llm-provider-catalog';
 import { AdminLlmService } from '../../../../core/services/admin-llm.service';
 import { UserContext } from '../../../../core/services/user-context';
 
@@ -39,14 +38,17 @@ export class AdminLlmUsagePage implements OnInit {
   });
 
   usage: LlmUsageDailyMetric[] = [];
+  rawUsage: LlmUsageDailyMetric[] = [];
   summary: LlmUsageSummary | null = null;
   isLoading = false;
   loadError = '';
 
+  providerOptions: string[] = [];
   modelOptions: string[] = [];
-  filterForm: { from: string; to: string; model: string; status: LlmUsageStatusFilter } = {
+  filterForm: { from: string; to: string; provider: string; model: string; status: LlmUsageStatusFilter } = {
     from: '',
     to: '',
+    provider: '',
     model: '',
     status: 'all'
   };
@@ -60,7 +62,8 @@ export class AdminLlmUsagePage implements OnInit {
   }
 
   ngOnInit(): void {
-    this.modelOptions = this.buildFallbackModelOptions();
+    this.providerOptions = [];
+    this.modelOptions = [];
     this.loadSnapshot(this.activeFilters);
   }
 
@@ -89,6 +92,7 @@ export class AdminLlmUsagePage implements OnInit {
     this.filterForm = {
       from: '',
       to: '',
+      provider: '',
       model: '',
       status: 'all'
     };
@@ -102,7 +106,13 @@ export class AdminLlmUsagePage implements OnInit {
   }
 
   hasActiveFiltersApplied(): boolean {
-    return Boolean(this.activeFilters.from || this.activeFilters.to || this.activeFilters.model || this.activeFilters.status);
+    return Boolean(
+      this.activeFilters.from
+      || this.activeFilters.to
+      || this.activeFilters.model
+      || this.activeFilters.status
+      || this.filterForm.provider.trim()
+    );
   }
 
   retryLoad(): void {
@@ -110,19 +120,35 @@ export class AdminLlmUsagePage implements OnInit {
   }
 
   hasModelColumn(): boolean {
-    return this.usage.some((item) => Boolean((item as LlmUsageDailyMetric & { model?: string }).model));
+    return this.usage.some((item) => Boolean(item.model));
+  }
+
+  hasProviderColumn(): boolean {
+    return this.usage.some((item) => Boolean(item.provider));
   }
 
   hasStatusColumn(): boolean {
-    return this.usage.some((item) => Boolean((item as LlmUsageDailyMetric & { status?: string }).status));
+    return this.usage.some((item) => Boolean(item.status));
   }
 
   getModelValue(item: LlmUsageDailyMetric): string {
-    return (item as LlmUsageDailyMetric & { model?: string }).model ?? '—';
+    return item.model ?? '—';
+  }
+
+  getProviderValue(item: LlmUsageDailyMetric): string {
+    return item.provider ?? '—';
   }
 
   getStatusValue(item: LlmUsageDailyMetric): string {
-    return (item as LlmUsageDailyMetric & { status?: string }).status ?? '—';
+    return item.status ?? '—';
+  }
+
+  areTokensEstimated(): boolean {
+    if (!this.usage.length) {
+      return false;
+    }
+
+    return this.usage.some((item) => item.tokenEstimated === true);
   }
 
   getEstimatedCostUsd(): number {
@@ -194,10 +220,15 @@ export class AdminLlmUsagePage implements OnInit {
 
   getActiveFiltersContext(): string {
     const periodContext = this.buildPeriodContext();
-    const modelContext = this.activeFilters.model?.trim() ? this.activeFilters.model.trim() : 'Todos los modelos';
+    const providerContext = this.filterForm.provider.trim()
+      ? this.filterForm.provider.trim()
+      : this.getProviderFilterPlaceholder();
+    const modelContext = this.filterForm.model.trim()
+      ? this.filterForm.model.trim()
+      : this.getModelFilterPlaceholder();
     const statusContext = this.getStatusLabel(this.activeFilters.status);
 
-    return `Período: ${periodContext} · Modelo: ${modelContext} · Estado: ${statusContext}`;
+    return `Período: ${periodContext} · Proveedor: ${providerContext} · Modelo: ${modelContext} · Estado: ${statusContext}`;
   }
 
   private loadSnapshot(filters: LlmUsageFilters): void {
@@ -222,17 +253,29 @@ export class AdminLlmUsagePage implements OnInit {
       )
       .subscribe({
         next: ({ usage, summary }) => {
-          this.usage = usage;
-          this.summary = summary;
-          this.modelOptions = this.buildModelOptions(usage);
+          this.rawUsage = usage;
+          this.providerOptions = this.buildProviderOptions(this.rawUsage);
+          this.modelOptions = this.buildModelOptions(this.rawUsage);
+
+          if (this.filterForm.provider && !this.providerOptions.includes(this.filterForm.provider)) {
+            this.filterForm.provider = '';
+          }
+          if (this.filterForm.model && !this.modelOptions.includes(this.filterForm.model)) {
+            this.filterForm.model = '';
+          }
+
+          this.usage = this.applyClientFilters(this.rawUsage);
+          this.summary = this.buildClientSummary(this.usage, summary);
           this.loadError = '';
           this.triggerViewUpdate();
         },
         error: () => {
+          this.rawUsage = [];
           this.usage = [];
           this.summary = null;
           this.loadError = 'No se pudieron cargar las métricas LLM. Intenta nuevamente.';
-          this.modelOptions = this.buildFallbackModelOptions();
+          this.providerOptions = [];
+          this.modelOptions = [];
           this.triggerViewUpdate();
         }
       });
@@ -257,10 +300,6 @@ export class AdminLlmUsagePage implements OnInit {
       filters.to = this.filterForm.to;
     }
 
-    if (this.filterForm.model) {
-      filters.model = this.filterForm.model;
-    }
-
     if (this.filterForm.status !== 'all') {
       filters.status = this.filterForm.status;
     }
@@ -268,34 +307,99 @@ export class AdminLlmUsagePage implements OnInit {
     return filters;
   }
 
+  private applyClientFilters(usage: LlmUsageDailyMetric[]): LlmUsageDailyMetric[] {
+    const providerFilter = this.filterForm.provider.trim().toLowerCase();
+    const modelFilter = this.filterForm.model.trim().toLowerCase();
+
+    return usage.filter((item) => {
+      const providerMatches = !providerFilter || (item.provider?.trim().toLowerCase() ?? '') === providerFilter;
+      const modelMatches = !modelFilter || (item.model?.trim().toLowerCase() ?? '') === modelFilter;
+      return providerMatches && modelMatches;
+    });
+  }
+
+  private buildProviderOptions(usage: LlmUsageDailyMetric[]): string[] {
+    const providersFromUsage = Array.from(
+      new Set(
+        usage
+          .filter((item) => this.hasValidUsageEvidence(item))
+          .map((item) => item.provider?.trim())
+          .filter((provider): provider is string => Boolean(provider))
+      )
+    );
+
+    return providersFromUsage;
+  }
+
   private buildModelOptions(usage: LlmUsageDailyMetric[]): string[] {
+    const providerFilter = this.filterForm.provider.trim().toLowerCase();
+
     const modelsFromUsage = Array.from(
       new Set(
         usage
-          .map((item) => (item as LlmUsageDailyMetric & { model?: string }).model?.trim())
+          .filter((item) => {
+            if (!providerFilter) {
+              return true;
+            }
+
+            return (item.provider?.trim().toLowerCase() ?? '') === providerFilter;
+          })
+          .filter((item) => this.hasValidUsageEvidence(item))
+          .map((item) => item.model?.trim())
           .filter((model): model is string => Boolean(model))
       )
     );
 
-    if (modelsFromUsage.length > 0) {
-      return modelsFromUsage;
-    }
-
-    return this.buildFallbackModelOptions();
+    return modelsFromUsage;
   }
 
-  private buildFallbackModelOptions(): string[] {
-    const activeProviderModels = ADMIN_LLM_ACTIVE_PROVIDERS.flatMap(
-      (provider) => LLM_PROVIDER_CATALOG[provider].knownModels
-    );
-
-    const options = Array.from(new Set(activeProviderModels));
-
-    if (!options.includes('llama-3.1-8b-instant')) {
-      options.push('llama-3.1-8b-instant');
+  getModelFilterPlaceholder(): string {
+    if (this.modelOptions.length > 0) {
+      return 'Todos los modelos';
     }
 
-    return options;
+    if (this.hasUsageWithMissingModel()) {
+      return 'Hay uso registrado, pero el backend no informa modelo para este filtro';
+    }
+
+    return 'Sin modelos con uso registrado para este filtro';
+  }
+
+  getProviderFilterPlaceholder(): string {
+    if (this.providerOptions.length > 0) {
+      return 'Todos los proveedores';
+    }
+
+    if (this.hasUsageWithMissingProvider()) {
+      return 'Hay uso registrado, pero el backend no informa proveedor para este período';
+    }
+
+    return 'Sin proveedores con uso registrado en este período';
+  }
+
+  private hasValidUsageEvidence(item: LlmUsageDailyMetric): boolean {
+    if (item.tokenEstimated === false) {
+      return true;
+    }
+
+    const tokenSource = item.tokenSource?.trim().toLowerCase();
+    if (tokenSource === 'real') {
+      return true;
+    }
+
+    return this.hasUsageEvidence(item);
+  }
+
+  private hasUsageWithMissingModel(): boolean {
+    return this.rawUsage.some((item) => this.hasUsageEvidence(item) && !item.model?.trim());
+  }
+
+  private hasUsageWithMissingProvider(): boolean {
+    return this.rawUsage.some((item) => this.hasUsageEvidence(item) && !item.provider?.trim());
+  }
+
+  private hasUsageEvidence(item: LlmUsageDailyMetric): boolean {
+    return item.calls > 0 || item.tokensInput > 0 || item.tokensOutput > 0;
   }
 
   private buildPeriodContext(): string {
@@ -327,6 +431,36 @@ export class AdminLlmUsagePage implements OnInit {
     }
 
     return 'Fallback';
+  }
+
+  private buildClientSummary(usage: LlmUsageDailyMetric[], backendSummary: LlmUsageSummary): LlmUsageSummary {
+    const totalCalls = usage.reduce((total, item) => total + item.calls, 0);
+    const totalTokens = usage.reduce((total, item) => total + item.tokensInput + item.tokensOutput, 0);
+    const totalLatencyWeight = usage.reduce((total, item) => total + (item.avgLatencyMs ?? 0) * item.calls, 0);
+    const totalLatencyCalls = usage.reduce((total, item) => total + (item.avgLatencyMs !== null ? item.calls : 0), 0);
+    const avgLatencyMs = totalLatencyCalls > 0 ? Math.round(totalLatencyWeight / totalLatencyCalls) : null;
+
+    const fallbackCount = usage
+      .filter((item) => item.status?.trim().toLowerCase() === 'fallback')
+      .reduce((total, item) => total + item.calls, 0);
+    const errorCount = usage
+      .filter((item) => item.status?.trim().toLowerCase() === 'error')
+      .reduce((total, item) => total + item.calls, 0);
+
+    const hasModelOrProviderFilter = Boolean(this.filterForm.provider.trim() || this.filterForm.model.trim());
+    const safeBackendTokens = backendSummary.totalTokens > 0 ? backendSummary.totalTokens : 0;
+    const tokenRatio = safeBackendTokens > 0 ? Math.min(totalTokens / safeBackendTokens, 1) : 0;
+
+    return {
+      totalCalls,
+      totalTokens,
+      avgLatencyMs,
+      fallbackCount,
+      errorCount,
+      estimatedCostUsd: hasModelOrProviderFilter ? backendSummary.estimatedCostUsd * tokenRatio : backendSummary.estimatedCostUsd,
+      estimatedCostClp: hasModelOrProviderFilter ? backendSummary.estimatedCostClp * tokenRatio : backendSummary.estimatedCostClp,
+      usdToClpRate: backendSummary.usdToClpRate
+    };
   }
 
   private getRatioPercentage(value: number, total: number): string {

@@ -40,14 +40,20 @@ export class AdminLlmService {
       tokensInput: 25100,
       tokensOutput: 18320,
       calls: 182,
-      avgLatencyMs: 812
+      avgLatencyMs: 812,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokenEstimated: true
     },
     {
       date: '2026-04-26',
       tokensInput: 22840,
       tokensOutput: 16970,
       calls: 170,
-      avgLatencyMs: 776
+      avgLatencyMs: 776,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      tokenEstimated: true
     }
   ];
 
@@ -290,13 +296,19 @@ export class AdminLlmService {
   }
 
   private mapUsageItem(item: BackendLlmUsageDailyResponse): LlmUsageDailyMetric {
-    const mappedItem: LlmUsageDailyMetric & { model?: string; status?: string } = {
+    const mappedItem: LlmUsageDailyMetric = {
       date: item.date,
       tokensInput: item.tokensInput,
       tokensOutput: item.tokensOutput,
       calls: item.calls,
-      avgLatencyMs: item.avgLatencyMs
+      avgLatencyMs: item.avgLatencyMs,
+      tokenEstimated: typeof item.tokenEstimated === 'boolean' ? item.tokenEstimated : undefined,
+      tokenSource: typeof item.tokenSource === 'string' ? item.tokenSource : undefined
     };
+
+    if (item.provider) {
+      mappedItem.provider = item.provider;
+    }
 
     if (item.model) {
       mappedItem.model = item.model;
@@ -376,7 +388,7 @@ export class AdminLlmService {
     return usage.filter((item) => {
       const afterFrom = filters.from ? item.date >= filters.from : true;
       const beforeTo = filters.to ? item.date <= filters.to : true;
-      const modelMatches = filters.model ? filters.model === this.mockConfig.model : true;
+      const modelMatches = filters.model ? item.model?.trim() === filters.model.trim() : true;
       const statusMatches = !filters.status || filters.status === 'all';
 
       return afterFrom && beforeTo && modelMatches && statusMatches;
@@ -536,8 +548,11 @@ interface BackendLlmUsageDailyResponse {
   tokensOutput: number;
   calls: number;
   avgLatencyMs: number | null;
+  provider?: string;
   model?: string;
   status?: string;
+  tokenEstimated?: boolean;
+  tokenSource?: string;
 }
 
 interface BackendLlmSummaryResponse {

@@ -79,6 +79,11 @@ export interface LlmUsageDailyMetric {
   tokensOutput: number;
   calls: number;
   avgLatencyMs: number | null;
+  provider?: string;
+  model?: string;
+  status?: string;
+  tokenEstimated?: boolean;
+  tokenSource?: string;
 }
 
 export interface LlmUsageSummary {
