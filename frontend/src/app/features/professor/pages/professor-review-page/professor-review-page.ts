@@ -29,7 +29,7 @@ export class ProfessorReviewPage implements OnInit {
     submittedAt: '25/04/2026 · 10:42'
   };
 
-  transcript: Array<{ role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string }> = [];
+  transcript: Array<{ role: string; speakerType: 'PATIENT' | 'STUDENT' | 'SYSTEM'; time: string; content: string }> = [];
 
   notebook = {
     notes:
@@ -97,11 +97,40 @@ export class ProfessorReviewPage implements OnInit {
     this.diagnosis = review.diagnosis;
   }
 
-  private mapMessage(message: SessionMessage): { role: 'Paciente' | 'Estudiante' | 'Sistema'; time: string; content: string } {
+  private mapMessage(message: SessionMessage): { role: string; speakerType: 'PATIENT' | 'STUDENT' | 'SYSTEM'; time: string; content: string } {
+    const speakerType = this.resolveSpeakerType(message.role);
+
     return {
-      role: message.role === 'PATIENT' ? 'Paciente' : message.role === 'STUDENT' ? 'Estudiante' : 'Sistema',
+      role: this.resolveSpeakerLabel(speakerType),
+      speakerType,
       time: message.timestamp,
       content: message.content
     };
+  }
+
+  private resolveSpeakerType(role: string): 'PATIENT' | 'STUDENT' | 'SYSTEM' {
+    const normalizedRole = role?.trim().toUpperCase();
+
+    if (normalizedRole === 'PATIENT' || normalizedRole === 'ASSISTANT') {
+      return 'PATIENT';
+    }
+
+    if (normalizedRole === 'STUDENT' || normalizedRole === 'USER') {
+      return 'STUDENT';
+    }
+
+    return 'SYSTEM';
+  }
+
+  private resolveSpeakerLabel(speakerType: 'PATIENT' | 'STUDENT' | 'SYSTEM'): string {
+    if (speakerType === 'STUDENT') {
+      return this.session.student?.trim() || 'Estudiante';
+    }
+
+    if (speakerType === 'PATIENT') {
+      return this.session.caseName?.trim() || 'Paciente simulado';
+    }
+
+    return 'Sistema';
   }
 }
