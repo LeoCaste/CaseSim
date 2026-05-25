@@ -1,0 +1,86 @@
+.error-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.error-modal-card {
+  width: min(560px, 100%);
+  padding: 22px;
+  border-radius: 14px;
+  border: 1px solid #fecdca;
+  background: var(--cs-surface);
+  box-shadow: var(--cs-shadow);
+}
+
+.error-modal-card__eyebrow {
+  margin: 0 0 6px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.error-modal-card h2 {
+  margin: 0;
+  color: var(--cs-primary-dark);
+  font-size: 22px;
+}
+
+.error-modal-card__detail {
+  margin: 16px 0 8px;
+  color: var(--cs-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.error-modal-card__detail-list {
+  margin: 0 0 10px 20px;
+  padding: 0;
+  color: var(--cs-text);
+}
+
+.error-modal-card__detail-list li {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.error-modal-card__suggestion {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.5;
+}
+
+.error-modal-card__actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cs-button.primary {
+  color: white;
+  background: var(--cs-primary);
+  border: 1px solid var(--cs-primary);
+}
+
+.cs-button.secondary {
+  color: var(--cs-primary-dark);
+  background: white;
+  border: 1px solid var(--cs-border);
+}

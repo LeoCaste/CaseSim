@@ -1,0 +1,22 @@
+<article class="course-card">
+  <header class="course-card__header">
+    <div>
+      <p>Simulación</p>
+      <h3>{{ simulation.name }}</h3>
+      <span>Caso: {{ simulation.caseName }}</span>
+      <small>{{ simulation.course }}</small>
+    </div>
+  </header>
+
+  <dl class="course-card__stats">
+    <div>
+      <dt>Estudiantes</dt>
+      <dd>{{ simulation.students }}</dd>
+    </div>
+
+    <div>
+      <dt>Completadas</dt>
+      <dd>{{ simulation.completedSessions }}</dd>
+    </div>
+  </dl>
+</article>

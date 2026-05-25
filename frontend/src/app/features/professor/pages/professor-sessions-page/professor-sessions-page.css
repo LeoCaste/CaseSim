@@ -1,0 +1,24 @@
+.professor-sessions {
+  width: 100%;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--cs-secondary);
+  font-weight: 700;
+}
+
+.session-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--cs-surface);
+}
+
+.session-table th,
+.session-table td {
+  border-bottom: 1px solid var(--cs-border);
+  padding: 10px;
+  text-align: left;
+}

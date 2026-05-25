@@ -1,0 +1,70 @@
+<section class="professor-dashboard">
+  <header class="dashboard-header">
+    <div>
+      <p class="dashboard-header__eyebrow">Panel profesor</p>
+      <h1>Seguimiento de simulación clínica</h1>
+      <p>
+        Revisa el avance de la simulación activa y las sesiones registradas por los estudiantes.
+      </p>
+    </div>
+
+    <div class="dashboard-header__actions">
+      <a routerLink="/clinical-cases" class="cs-button secondary">
+        Gestionar casos
+      </a>
+
+      <a routerLink="/clinical-cases" class="cs-button primary">
+        Nueva simulación
+      </a>
+    </div>
+  </header>
+
+  <p *ngIf="isLoading">Cargando panel del profesor...</p>
+  <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
+  <p *ngIf="!isLoading && !loadError && summary.length === 0 && simulations.length === 0 && activities.length === 0 && sessions.length === 0">
+    No hay información disponible para mostrar.
+  </p>
+
+  <section class="summary-grid" *ngIf="!isLoading && !loadError">
+    <article *ngFor="let item of summary" class="summary-card">
+      <span>{{ item.label }}</span>
+      <strong>{{ item.value }}</strong>
+    </article>
+  </section>
+
+  <section class="dashboard-grid" *ngIf="!isLoading && !loadError">
+    <div class="dashboard-column">
+      <h2>Simulación activa</h2>
+
+      <app-professor-course-card
+        *ngFor="let simulation of simulations"
+        [simulation]="simulation"
+      ></app-professor-course-card>
+    </div>
+
+    <div class="dashboard-column">
+      <h2>Estado de actividades</h2>
+
+      <app-professor-activity-summary
+        *ngFor="let activity of activities"
+        [activity]="activity"
+      ></app-professor-activity-summary>
+    </div>
+  </section>
+
+  <section class="sessions-section" *ngIf="!isLoading && !loadError">
+    <div class="sessions-section__header">
+      <div>
+        <h2>Sesiones recientes</h2>
+        <p>
+          Las sesiones en curso solo muestran estado general. La revisión se habilita al finalizar.
+        </p>
+      </div>
+      <a routerLink="/professor/sessions" class="cs-button secondary">Ver todas</a>
+    </div>
+
+    <app-recent-session-table
+      [sessions]="sessions"
+    ></app-recent-session-table>
+  </section>
+</section>

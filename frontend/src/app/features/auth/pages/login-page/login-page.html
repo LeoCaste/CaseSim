@@ -1,0 +1,60 @@
+<section class="login-page">
+  <article class="login-card">
+    <header class="login-card__header">
+      <div class="login-logo">CS</div>
+
+      <div>
+        <p>CaseSim</p>
+        <h1>Ingreso institucional</h1>
+        <span>Simulación clínica asistida por IA</span>
+      </div>
+    </header>
+
+    <form class="login-form" (ngSubmit)="login()">
+      <label>
+        Correo institucional
+        <input
+          type="email"
+          name="email"
+          [(ngModel)]="email"
+          (ngModelChange)="onEmailChange($event)"
+          required
+          placeholder="correo institucional"
+          autocomplete="email"
+        />
+      </label>
+
+      <label *ngIf="requiresPassword">
+        Contraseña
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="password"
+          required
+          placeholder="contraseña"
+          autocomplete="current-password"
+        />
+      </label>
+
+      <p class="login-help">
+        {{ requiresPassword ? 'Usuario con verificación por contraseña.' : 'Ingresa tu correo institucional' }}
+      </p>
+
+      <p class="login-help" *ngIf="sessionMessage">
+        {{ sessionMessage }}
+      </p>
+
+      <p class="login-error" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </p>
+
+      <button class="login-button" type="submit" [disabled]="isCheckingEmail || isLoggingIn">
+        {{ submitButtonLabel }}
+      </button>
+
+      <p class="login-help" *ngIf="showForgotPasswordLink">
+        <a routerLink="/forgot-password" [queryParams]="{ email: email.trim() }">¿Olvidaste tu contraseña?</a>
+      </p>
+    </form>
+  </article>
+</section>

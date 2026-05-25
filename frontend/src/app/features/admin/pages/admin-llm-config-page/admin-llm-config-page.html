@@ -1,0 +1,201 @@
+<section class="admin-llm-config">
+  <header class="admin-llm-config__header">
+    <p class="admin-llm-config__eyebrow">Administración</p>
+    <h1>Configuración LLM</h1>
+    <p>Gestiona proveedor, modelo y estado operativo para respuestas clínicas.</p>
+  </header>
+
+  <p *ngIf="loadError" class="admin-llm-config__error">{{ loadError }}</p>
+
+  <section *ngIf="!isLoading && config" class="admin-llm-config__panel">
+    <section class="admin-llm-config__block">
+      <h2>Estado actual</h2>
+      <div class="admin-llm-config__current-status-grid">
+        <p><strong>LLM habilitado:</strong> {{ enabledStatusLabel }}</p>
+        <p><strong>Proveedor actual:</strong> {{ config.provider || '-' }}</p>
+        <p class="admin-llm-config__status-value-wrap"><strong>Modelo actual:</strong> {{ config.model || '-' }}</p>
+        <p><strong>API key configurada:</strong> {{ apiKeyConfiguredLabel }}</p>
+        <p *ngIf="config.maskedApiKey" class="admin-llm-config__status-value-wrap"><strong>API key (enmascarada):</strong> {{ config.maskedApiKey }}</p>
+        <p><strong>Última actualización:</strong> {{ config.updatedAt ? (config.updatedAt | date: 'dd/MM/yyyy HH:mm') : 'Sin registro' }}</p>
+      </div>
+      <p *ngIf="!config.apiKeyConfigured" class="admin-llm-config__hint">
+        No hay API key registrada. Ingresa una nueva key y guarda para activar la integración.
+      </p>
+    </section>
+
+    <section class="admin-llm-config__block admin-llm-config__status">
+      <h2>Configuración editable</h2>
+
+      <div class="admin-llm-config__row admin-llm-config__switch-row">
+        <label for="enabled">LLM habilitado</label>
+        <input id="enabled" type="checkbox" [(ngModel)]="form.enabled" />
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="provider">Proveedor</label>
+        <select id="provider" [(ngModel)]="form.provider" (ngModelChange)="onProviderChange($event)">
+          <option *ngFor="let provider of providers" [value]="provider">{{ getProviderLabel(provider) }}</option>
+        </select>
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="model">Modelo</label>
+        <select
+          id="model"
+          [ngModel]="form.model"
+          (ngModelChange)="onModelOptionChange($event)"
+          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
+        >
+          <option value="" disabled>Selecciona un modelo recomendado</option>
+          <option *ngFor="let model of modelOptions" [value]="model">{{ model }}</option>
+        </select>
+        <small>Selecciona un modelo sugerido para el proveedor activo.</small>
+      </div>
+
+      <div class="admin-llm-config__row">
+        <label for="apiKey">Nueva API key</label>
+        <input
+          id="apiKey"
+          type="password"
+          [(ngModel)]="form.apiKey"
+          name="llm-api-key"
+          autocomplete="new-password"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
+        />
+        <small *ngIf="hasApiKeyMask">API key actual: {{ config.maskedApiKey }}</small>
+        <small *ngIf="isApiKeyRequired && config.apiKeyConfigured">Dejar vacío para mantener la API key actual.</small>
+        <small *ngIf="isApiKeyRequired && !config.apiKeyConfigured">API key requerida para habilitar este proveedor.</small>
+        <small *ngIf="!isApiKeyRequired">Este proveedor no requiere API key.</small>
+      </div>
+
+      <div class="admin-llm-config__subsection">
+        <h3>Comportamiento del paciente IA</h3>
+
+        <div class="admin-llm-config__row">
+          <label for="basePrompt">Prompt base</label>
+          <p class="admin-llm-config__field-note admin-llm-config__field-note--warning">
+            Estas reglas afectan el comportamiento global de todos los pacientes simulados.
+          </p>
+          <p class="admin-llm-config__field-note">
+            Modifícalas con cuidado, ya que pueden cambiar cómo responde el paciente durante las entrevistas.
+          </p>
+          <textarea
+            id="basePrompt"
+            rows="7"
+            [maxLength]="basePromptMaxLength"
+            [(ngModel)]="form.patientBehavior.basePrompt"
+          ></textarea>
+          <small>{{ form.patientBehavior.basePrompt.length }} / {{ basePromptMaxLength }}</small>
+        </div>
+
+        <div class="admin-llm-config__row">
+          <label for="additionalRules">Reglas adicionales</label>
+          <textarea
+            id="additionalRules"
+            rows="5"
+            [maxLength]="additionalRulesMaxLength"
+            [(ngModel)]="form.patientBehavior.additionalRules"
+          ></textarea>
+          <small>{{ form.patientBehavior.additionalRules.length }} / {{ additionalRulesMaxLength }}</small>
+        </div>
+
+        <div class="admin-llm-config__row">
+          <label for="noInformationReply">Respuesta sin información</label>
+          <textarea
+            id="noInformationReply"
+            rows="3"
+            [maxLength]="noInformationReplyMaxLength"
+            [(ngModel)]="form.patientBehavior.noInformationReply"
+          ></textarea>
+          <small>{{ form.patientBehavior.noInformationReply.length }} / {{ noInformationReplyMaxLength }}</small>
+        </div>
+
+        <div class="admin-llm-config__row">
+          <label for="revealStrategy">Estrategia revelación</label>
+          <small>Define cómo el paciente entrega antecedentes clínicos durante la entrevista.</small>
+          <select id="revealStrategy" [(ngModel)]="form.patientBehavior.revealStrategy">
+            <option *ngFor="let strategy of revealStrategies" [value]="strategy">{{ strategy }}</option>
+          </select>
+        </div>
+
+        <div class="admin-llm-config__grid admin-llm-config__grid--technical-params">
+          <div class="admin-llm-config__row">
+            <label for="maxHistoryMessages">Historial máximo</label>
+            <small>Cantidad de mensajes previos usados como contexto para mantener continuidad.</small>
+            <input id="maxHistoryMessages" type="number" min="1" max="30" step="1" [(ngModel)]="form.patientBehavior.maxHistoryMessages" />
+          </div>
+
+          <div class="admin-llm-config__row">
+            <label for="temperature">Temperature</label>
+            <small>Valores bajos generan respuestas más consistentes; valores altos aumentan variabilidad.</small>
+            <input id="temperature" type="number" min="0" max="2" step="0.1" [(ngModel)]="form.patientBehavior.temperature" />
+          </div>
+
+          <div class="admin-llm-config__row">
+            <label for="maxTokens">Max tokens</label>
+            <small>Límite máximo de longitud de respuesta del paciente.</small>
+            <input
+              id="maxTokens"
+              type="number"
+              [min]="maxTokensMin"
+              [max]="maxTokensMax"
+              step="1"
+              [(ngModel)]="form.patientBehavior.maxTokens"
+            />
+          </div>
+        </div>
+
+        <div class="admin-llm-config__row admin-llm-config__switch-row">
+          <label for="safetyFilterEnabled">Safety filter</label>
+          <input id="safetyFilterEnabled" type="checkbox" [(ngModel)]="form.patientBehavior.safetyFilterEnabled" />
+        </div>
+        <p class="admin-llm-config__field-note">Ayuda a bloquear respuestas fuera del rol de paciente simulado.</p>
+      </div>
+    </section>
+
+    <section class="admin-llm-config__block">
+      <h2>Acciones</h2>
+      <div class="admin-llm-config__actions">
+          <button type="button" (click)="onSave()" [disabled]="isSaving || isDeletingApiKey || isTestingConnection || isLoading">
+            {{ isSaving ? 'Guardando...' : 'Guardar configuración' }}
+          </button>
+
+          <button type="button" class="secondary" (click)="onRestoreRecommended()" [disabled]="isSaving || isDeletingApiKey || isTestingConnection || isLoading">
+            Restaurar valores recomendados
+          </button>
+
+          <button type="button" class="secondary" (click)="onTestConnection()" [disabled]="isTestingConnection || isSaving || isDeletingApiKey || isLoading">
+            {{ isTestingConnection ? 'Probando...' : 'Probar conexión' }}
+          </button>
+
+          <button
+            *ngIf="config.apiKeyConfigured"
+            type="button"
+            class="danger"
+            (click)="onRemoveApiKey()"
+            [disabled]="isDeletingApiKey || isTestingConnection || isSaving || isLoading"
+          >
+            {{ isDeletingApiKey ? 'Eliminando...' : 'Eliminar API key' }}
+          </button>
+        </div>
+      </section>
+
+    <p *ngIf="saveMessage" class="admin-llm-config__success">{{ saveMessage }}</p>
+    <p *ngIf="saveError" class="admin-llm-config__error">{{ saveError }}</p>
+
+    <p
+      *ngIf="testFeedback"
+      class="admin-llm-config__test-result"
+      [class.admin-llm-config__test-result--success]="testFeedbackStatus === 'success'"
+      [class.admin-llm-config__test-result--error]="testFeedbackStatus === 'error'"
+    >
+      {{ testFeedback }}
+    </p>
+  </section>
+
+  <p *ngIf="isLoading" class="admin-llm-config__loading">Cargando configuración...</p>
+  <p *ngIf="!isLoading && !loadError && !config" class="admin-llm-config__loading">Sin configuración disponible.</p>
+</section>

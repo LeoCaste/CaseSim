@@ -1,0 +1,31 @@
+<article class="activity-summary">
+  <header class="activity-summary__header">
+    <div>
+      <p>{{ activity.course }}</p>
+      <h3>{{ activity.title }}</h3>
+      <span>Caso: {{ activity.caseName }}</span>
+    </div>
+
+    <span
+      class="activity-status"
+      [class.active]="activity.status === 'Activa'"
+      [class.draft]="activity.status !== 'Activa'"
+    >
+      {{ activity.status }}
+    </span>
+  </header>
+
+  <div class="activity-summary__progress">
+    <div class="progress-label">
+      <span>Sesiones completadas</span>
+      <strong>{{ activity.completed }}/{{ activity.total }}</strong>
+    </div>
+
+    <div class="progress-track">
+      <div
+        class="progress-fill"
+        [style.width.%]="progress"
+      ></div>
+    </div>
+  </div>
+</article>

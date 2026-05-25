@@ -1,0 +1,40 @@
+<div class="modal-backdrop">
+  <section class="diagnosis-modal" role="dialog" aria-modal="true">
+    <header class="diagnosis-modal__header">
+      <p>Concluir atención</p>
+      <h2>Enviar diagnóstico final</h2>
+    </header>
+
+    <div class="diagnosis-modal__body">
+      <p class="diagnosis-modal__warning">
+        Al enviar tu diagnóstico, la entrevista finalizará y quedará registrada.
+      </p>
+
+      <label for="diagnosis">Diagnóstico presuntivo</label>
+      <textarea
+        id="diagnosis"
+        placeholder="Ej: Neumonía atípica por Mycoplasma pneumoniae..."
+        [(ngModel)]="diagnosis"
+        [ngModelOptions]="{ standalone: true }"
+      ></textarea>
+
+      <label for="reasoning">Razonamiento clínico</label>
+      <textarea
+        id="reasoning"
+        placeholder="Describe brevemente los antecedentes que sustentan tu hipótesis..."
+        [(ngModel)]="reasoning"
+        [ngModelOptions]="{ standalone: true }"
+      ></textarea>
+    </div>
+
+    <footer class="diagnosis-modal__actions">
+      <button class="modal-button secondary" type="button" (click)="cancel.emit()">
+        Continuar entrevista
+      </button>
+
+      <button class="modal-button primary" type="button" (click)="onConfirm()">
+        Enviar diagnóstico y finalizar
+      </button>
+    </footer>
+  </section>
+</div>

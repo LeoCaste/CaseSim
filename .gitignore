@@ -23,3 +23,10 @@ Thumbs.db
 # opence
 AGENTS.md
 .opencode
+CASESIM_CONTEXT.md
+
+# Variables de entorno
+.env.staging.example
+.env
+.env.staging
+.env.staging.prod

@@ -1,0 +1,109 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.diagnosis-modal {
+  width: min(620px, 100%);
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+  overflow: hidden;
+}
+
+.diagnosis-modal__header {
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--cs-border);
+  background: linear-gradient(135deg, #ffffff 0%, #eef7f6 100%);
+}
+
+.diagnosis-modal__header p {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.diagnosis-modal__header h2 {
+  margin: 0;
+  color: var(--cs-primary-dark);
+  font-size: 24px;
+}
+
+.diagnosis-modal__body {
+  padding: 24px;
+}
+
+.diagnosis-modal__warning {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  color: var(--cs-warning);
+  background: #fffaeb;
+  border: 1px solid #fedf89;
+  border-radius: 12px;
+  line-height: 1.5;
+}
+
+.diagnosis-modal__body label {
+  display: block;
+  margin: 16px 0 6px;
+  color: var(--cs-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.diagnosis-modal__body textarea {
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  border: 1px solid var(--cs-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fbfcfd;
+}
+
+.diagnosis-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px 24px;
+  border-top: 1px solid var(--cs-border);
+  background: #fbfcfd;
+}
+
+.modal-button {
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.modal-button.secondary {
+  color: var(--cs-primary-dark);
+  background: white;
+  border: 1px solid var(--cs-border);
+}
+
+.modal-button.primary {
+  color: white;
+  background: var(--cs-primary);
+  border: 1px solid var(--cs-primary);
+}
+
+@media (max-width: 640px) {
+  .diagnosis-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,33 @@
+<section class="case-list-page">
+  <header class="case-list-header">
+    <div>
+      <p class="case-list-header__eyebrow">Banco de casos</p>
+      <h1>Casos clínicos simulados</h1>
+      <p>
+        Crea, edita y asigna casos clínicos a futuras simulaciones.
+      </p>
+    </div>
+
+    <div class="case-list-header__actions">
+      <a routerLink="/clinical-cases/new" class="cs-button primary">
+        Crear nuevo caso
+      </a>
+    </div>
+  </header>
+
+  <p *ngIf="loading">Cargando casos clínicos...</p>
+
+  <p class="feedback success" *ngIf="!loading && success">{{ success }}</p>
+
+  <p *ngIf="!loading && error">{{ error }}</p>
+
+  <p *ngIf="!loading && !error && cases.length === 0">No hay casos clínicos registrados.</p>
+
+  <section class="case-grid" *ngIf="!loading && !error && cases.length > 0">
+    <app-clinical-case-card
+      *ngFor="let clinicalCase of cases"
+      [clinicalCase]="clinicalCase"
+      (deleted)="onCaseDeleted($event)"
+    ></app-clinical-case-card>
+  </section>
+</section>

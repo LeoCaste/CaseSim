@@ -1,0 +1,70 @@
+.case-list-page {
+  width: 100%;
+}
+
+.case-list-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.case-list-header__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.case-list-header h1 {
+  margin: 0 0 8px;
+  color: var(--cs-primary-dark);
+  font-size: 32px;
+}
+
+.case-list-header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.55;
+}
+
+.case-list-header__actions {
+  display: flex;
+  align-items: flex-start;
+}
+
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.cs-button {
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cs-button.primary {
+  color: white;
+  background: var(--cs-primary);
+  border: 1px solid var(--cs-primary);
+}
+
+.feedback.success {
+  color: var(--cs-success);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .case-list-header {
+    flex-direction: column;
+  }
+
+  .case-grid {
+    grid-template-columns: 1fr;
+  }
+}

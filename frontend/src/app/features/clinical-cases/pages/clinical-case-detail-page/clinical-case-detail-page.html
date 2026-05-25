@@ -1,0 +1,192 @@
+<section class="case-detail-page">
+  <header class="case-detail-header">
+    <div>
+      <p class="case-detail-header__eyebrow">Detalle del caso</p>
+      <h1>{{ pageTitle }}</h1>
+      <p *ngIf="clinicalCase">
+        Paciente simulado: {{ clinicalCase.patientName }} · {{ clinicalCase.age }} años · Sexo {{ clinicalCase.sex }}
+      </p>
+    </div>
+
+    <div class="case-detail-header__actions" *ngIf="clinicalCase">
+      <button routerLink="/clinical-cases" class="cs-button secondary" type="button">
+        Volver
+      </button>
+
+      <button
+        [routerLink]="['/clinical-cases', clinicalCase.id, 'edit']"
+        class="cs-button secondary"
+        type="button"
+      >
+        Editar
+      </button>
+
+      <button
+        [routerLink]="['/clinical-cases', clinicalCase.id, 'assign']"
+        class="cs-button primary"
+        type="button"
+      >
+        Asignar a simulación
+      </button>
+    </div>
+  </header>
+
+  <p *ngIf="loading">Cargando casos clínicos...</p>
+  <p *ngIf="!loading && error">{{ error }}</p>
+
+  <section class="detail-layout" *ngIf="!loading && !error && clinicalCase">
+    <main class="detail-main">
+      <section class="detail-card">
+        <header>
+          <p>Información base</p>
+          <h2>Paciente simulado</h2>
+        </header>
+
+        <dl class="detail-grid">
+          <div>
+            <dt>Nombre</dt>
+            <dd>{{ clinicalCase.patientName }}</dd>
+          </div>
+
+          <div>
+            <dt>Edad</dt>
+            <dd>{{ clinicalCase.age }} años</dd>
+          </div>
+
+          <div>
+            <dt>Sexo</dt>
+            <dd>{{ clinicalCase.sex }}</dd>
+          </div>
+
+          <div>
+            <dt>Contexto</dt>
+            <dd>{{ clinicalCase.context }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="detail-card">
+        <header>
+          <p>Entrevista</p>
+          <h2>Motivo de consulta</h2>
+        </header>
+
+        <div class="detail-block">
+          <span>Motivo de consulta</span>
+          <p>{{ clinicalCase.reason }}</p>
+        </div>
+
+        <div class="detail-block">
+          <span>Mensaje inicial del paciente</span>
+          <p>{{ clinicalCase.initialMessage }}</p>
+        </div>
+      </section>
+
+      <section class="detail-card">
+        <header>
+          <p>Antecedentes</p>
+          <h2>Información que el paciente puede entregar</h2>
+        </header>
+
+        <div class="facts-list">
+          <article class="fact-item" *ngFor="let fact of clinicalCase.facts">
+            <div>
+              <span>{{ fact.category }}</span>
+              <h3>{{ fact.title }}</h3>
+              <p>
+                Se menciona cuando el estudiante pregunta por: {{ fact.trigger }}
+              </p>
+            </div>
+
+            <strong
+              [class.initial]="getFactVisibilityLabel(fact.visibility) === 'Inicial'"
+              [class.guided]="getFactVisibilityLabel(fact.visibility) === 'Bajo pregunta'"
+            >
+              {{ getFactVisibilityLabel(fact.visibility) }}
+            </strong>
+          </article>
+
+          <p *ngIf="clinicalCase.facts.length === 0">Este caso no tiene antecedentes clínicos cargados.</p>
+        </div>
+      </section>
+    </main>
+
+    <aside class="detail-side">
+      <section class="detail-card">
+        <header>
+          <p>Seguimiento</p>
+          <h2>Estudiantes asociados al caso</h2>
+        </header>
+
+        <div class="students-list">
+          <article class="student-item" *ngFor="let student of associatedStudents">
+            <div>
+              <h3>{{ student.name }}</h3>
+              <p>{{ student.status }}</p>
+            </div>
+
+            <a
+              *ngIf="student.canReview"
+              routerLink="/professor/sessions"
+              class="review-link"
+            >
+              Revisar
+            </a>
+
+            <button
+              *ngIf="!student.canReview"
+              class="review-link disabled"
+              type="button"
+              disabled
+            >
+              Revisar
+            </button>
+          </article>
+        </div>
+
+        <p class="students-note">
+          Las sesiones en curso o pendientes no se revisan hasta completar la entrevista clínica.
+        </p>
+      </section>
+
+      <section class="detail-card">
+        <header>
+          <p>Comportamiento</p>
+          <h2>Paciente LLM</h2>
+        </header>
+
+        <div class="detail-block">
+          <span>Tono</span>
+          <p>{{ personalityTone }}</p>
+        </div>
+
+        <div class="detail-block">
+          <span>Nivel de detalle</span>
+          <p>{{ personalityDetailLevel }}</p>
+        </div>
+
+        <div class="detail-block">
+          <span>Estilo de respuesta</span>
+          <p>{{ personalityBehaviorNotes }}</p>
+        </div>
+
+        <div class="detail-block">
+          <span>Si no tiene información</span>
+          <p>{{ clinicalCase.fallbackResponse }}</p>
+        </div>
+      </section>
+
+      <section class="detail-card">
+        <header>
+          <p>Orientación clínica</p>
+          <h2>Diagnóstico base</h2>
+        </header>
+
+        <div class="detail-block">
+          <span>Diagnóstico esperado</span>
+          <p>{{ clinicalCase.expectedDiagnosis }}</p>
+        </div>
+      </section>
+    </aside>
+  </section>
+</section>

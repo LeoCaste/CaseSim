@@ -1,0 +1,71 @@
+<article class="clinical-case-card">
+  <header class="clinical-case-card__header">
+    <div>
+      <p>{{ clinicalCase.title }}</p>
+      <h2>{{ clinicalCase.patientName }}</h2>
+      <span>
+        {{ clinicalCase.age ?? '-' }} años · Sexo {{ clinicalCase.sex ?? '-' }}
+      </span>
+    </div>
+
+    <span
+      class="case-status"
+      [class.ready]="clinicalCase.status === 'READY'"
+      [class.draft]="clinicalCase.status !== 'READY'"
+    >
+      {{ statusLabel }}
+    </span>
+  </header>
+
+  <section class="case-reason">
+    <span>Motivo de consulta</span>
+    <p>{{ clinicalCase.reason ?? '-' }}</p>
+  </section>
+
+  <dl class="case-stats">
+    <div>
+      <dt>Carácter</dt>
+      <dd>Formativo</dd>
+    </div>
+
+    <div>
+      <dt>Duración</dt>
+      <dd>{{ estimatedTimeLabel }}</dd>
+    </div>
+
+    <div>
+      <dt>Hechos clínicos</dt>
+      <dd>{{ clinicalCase.factsCount }}</dd>
+    </div>
+  </dl>
+
+  <footer class="clinical-case-card__actions">
+    <a
+      [routerLink]="['/clinical-cases', clinicalCase.id]"
+      class="case-button secondary"
+    >
+      Ver detalle
+    </a>
+
+    <a
+      [routerLink]="['/clinical-cases', clinicalCase.id, 'edit']"
+      class="case-button secondary"
+    >
+      Editar
+    </a>
+
+    <a
+      [routerLink]="['/clinical-cases', clinicalCase.id, 'assign']"
+      class="case-button primary"
+    >
+      Asignar a simulación
+    </a>
+
+    <button class="case-button danger" type="button" (click)="onDeleteCase()" [disabled]="deleting">
+      {{ deleting ? 'Eliminando...' : 'Eliminar' }}
+    </button>
+  </footer>
+
+  <p class="case-feedback success" *ngIf="deleteSuccess">{{ deleteSuccess }}</p>
+  <p class="case-feedback error" *ngIf="deleteError">{{ deleteError }}</p>
+</article>

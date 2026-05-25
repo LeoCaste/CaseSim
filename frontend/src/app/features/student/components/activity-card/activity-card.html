@@ -1,0 +1,59 @@
+<article class="activity-card">
+  <header class="activity-card__header">
+    <div>
+      <p>{{ activity.course }}</p>
+      <h2>{{ activity.title }}</h2>
+    </div>
+
+    <span
+      class="cs-badge"
+      [ngClass]="{
+        'success': activity.statusType === 'success',
+        'warning': activity.statusType === 'warning',
+        'neutral': activity.statusType === 'neutral'
+      }"
+    >
+      {{ activity.status }}
+    </span>
+  </header>
+
+  <div class="activity-card__body">
+    <dl>
+      <div>
+        <dt>Paciente</dt>
+        <dd>{{ activity.patient }}</dd>
+      </div>
+
+      <div>
+        <dt>Profesor</dt>
+        <dd>{{ activity.professor }}</dd>
+      </div>
+
+      <div>
+        <dt>Duración</dt>
+        <dd>{{ activity.duration }}</dd>
+      </div>
+    </dl>
+
+    <p class="activity-card__description">
+      {{ activity.description }}
+    </p>
+  </div>
+
+  <footer class="activity-card__footer">
+    <a
+      *ngIf="activity.route; else disabledAction"
+      [routerLink]="activity.route"
+      (click)="onStartRequested()"
+      class="activity-card__action"
+    >
+      {{ activity.actionLabel }}
+    </a>
+
+    <ng-template #disabledAction>
+      <button class="activity-card__action disabled" type="button" disabled>
+        {{ activity.actionLabel }}
+      </button>
+    </ng-template>
+  </footer>
+</article>

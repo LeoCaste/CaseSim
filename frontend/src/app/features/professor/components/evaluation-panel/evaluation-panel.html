@@ -1,0 +1,132 @@
+<section class="evaluation-card">
+  <header>
+    <p>Diagnóstico final</p>
+    <h2>Respuesta del estudiante</h2>
+  </header>
+
+  <div class="evaluation-block">
+    <span>Diagnóstico presuntivo</span>
+    <p>{{ diagnosis.finalDiagnosis }}</p>
+  </div>
+
+  <div class="evaluation-block">
+    <span>Razonamiento clínico</span>
+    <p>{{ diagnosis.reasoning }}</p>
+  </div>
+
+  <div class="feedback-box" *ngIf="showFeedbackEditor">
+    <label>
+      Feedback para el estudiante
+      <textarea
+        [(ngModel)]="feedbackDraft"
+        placeholder="Escribe una observación breve..."
+      ></textarea>
+    </label>
+
+    <div class="feedback-actions">
+      <button
+        class="cs-button tertiary"
+        type="button"
+        (click)="cancelFeedbackEditor()"
+      >
+        Cancelar
+      </button>
+
+      <button
+        class="cs-button secondary"
+        type="button"
+        (click)="saveFeedback()"
+        [disabled]="!feedbackDraft.trim()"
+      >
+        {{ isEditingFeedback ? 'Guardar cambios' : 'Guardar feedback' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="feedback-preview" *ngIf="feedbackText && !showFeedbackEditor">
+    <p class="feedback-preview__label">Feedback guardado</p>
+    <p class="feedback-preview__content">{{ feedbackText }}</p>
+
+    <div class="feedback-preview__actions">
+      <button class="cs-button tertiary" type="button" (click)="editFeedback()">
+        Editar
+      </button>
+
+      <button class="cs-button danger-text" type="button" (click)="requestDeleteFeedback()">
+        Eliminar
+      </button>
+    </div>
+
+    <div class="delete-confirm" *ngIf="showDeleteConfirmation">
+      <p>¿Eliminar este feedback?</p>
+
+      <div>
+        <button class="cs-button tertiary" type="button" (click)="cancelDeleteFeedback()">
+          Cancelar
+        </button>
+
+        <button class="cs-button danger" type="button" (click)="confirmDeleteFeedback()">
+          Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p *ngIf="feedbackNotice" class="feedback-saved">
+    {{ feedbackNotice }}
+  </p>
+
+  <footer class="evaluation-actions">
+    <button
+      class="cs-button secondary"
+      type="button"
+      *ngIf="!feedbackText && !showFeedbackEditor"
+      (click)="openFeedbackEditor()"
+    >
+      Agregar feedback
+    </button>
+
+    <button
+      class="cs-button primary"
+      type="button"
+      (click)="openFinishReviewModal()"
+    >
+      Finalizar revisión
+    </button>
+  </footer>
+
+  <section
+    *ngIf="showFinishModal"
+    class="modal-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-live="polite"
+  >
+    <article class="modal-card">
+      <p class="modal-title" *ngIf="!isFinishSuccess">¿Finalizar esta revisión?</p>
+      <p class="modal-title modal-title--success" *ngIf="isFinishSuccess">
+        Revisión finalizada correctamente.
+      </p>
+
+      <p class="modal-message" *ngIf="isFinishSuccess">
+        Puedes volver al panel para continuar con otras evaluaciones.
+      </p>
+
+      <div class="modal-actions" *ngIf="!isFinishSuccess">
+        <button class="cs-button secondary" type="button" (click)="cancelFinishReviewModal()">
+          Cancelar
+        </button>
+
+        <button class="cs-button primary" type="button" (click)="confirmFinishReview()">
+          Finalizar revisión
+        </button>
+      </div>
+
+      <div class="modal-actions" *ngIf="isFinishSuccess">
+        <button class="cs-button primary" type="button" (click)="finishReview()">
+          Volver al dashboard
+        </button>
+      </div>
+    </article>
+  </section>
+</section>

@@ -1,0 +1,134 @@
+<section class="interview-page">
+  <article class="interview-card">
+    <header class="patient-header">
+      <div>
+        <p class="patient-header__eyebrow">Paciente simulado</p>
+        <h1>{{ patientNameDisplay }}</h1>
+        <p>{{ patientAgeDisplay }} · Sexo {{ patientSexDisplay }}</p>
+        <p class="patient-header__reason">
+          Motivo principal: {{ chiefComplaintDisplay }}
+        </p>
+      </div>
+
+      <div class="patient-header__status">
+        <span class="cs-badge success">Entrevista en curso</span>
+        <span class="cs-badge warning">Diagnóstico pendiente</span>
+        <span class="cs-badge neutral">Sin límite de tiempo</span>
+      </div>
+    </header>
+
+    <section class="clinical-summary">
+      <article class="clinical-summary__item">
+        <span class="clinical-summary__label">Motivo de consulta</span>
+        <strong>{{ chiefComplaintDisplay }}</strong>
+      </article>
+
+    </section>
+
+    <div class="interview-layout">
+      <main class="conversation-panel" #conversationPanel>
+        <p class="conversation-state" *ngIf="isLoading">Cargando sesión clínica...</p>
+        <p class="submission-error" *ngIf="loadError">{{ loadError }}</p>
+
+        <section
+          class="clinical-message"
+          *ngFor="let message of messages"
+          [class.patient]="message.role === 'Paciente'"
+          [class.student]="message.role === 'Estudiante'"
+        >
+          <div class="message-meta">
+            <span>{{ message.role }}</span>
+            <time>{{ message.time }}</time>
+          </div>
+
+          <p>{{ message.content }}</p>
+        </section>
+
+        <p class="conversation-state" *ngIf="!isLoading && !loadError && messages.length === 0">
+          Aún no hay mensajes en esta entrevista.
+        </p>
+
+        <section class="clinical-message patient loading" *ngIf="isSendingMessage">
+          <div class="message-meta">
+            <span>Paciente</span>
+            <time>Ahora</time>
+          </div>
+
+          <p>Paciente simulado redactando respuesta...</p>
+        </section>
+      </main>
+
+      <aside class="notebook-panel">
+        <div class="notebook-header">
+          <h2>Cuadernillo clínico</h2>
+          <p>Tus notas no son visibles para el paciente simulado.</p>
+        </div>
+
+        <label for="clinical-notes">Notas clínicas</label>
+          <textarea
+            id="clinical-notes"
+            class="notebook-textarea large"
+            placeholder="Escribe tus notas clínicas aquí..."
+            [(ngModel)]="clinicalNotes"
+            [ngModelOptions]="{ standalone: true }"
+          ></textarea>
+
+        <label for="diagnostic-hypothesis">Hipótesis diagnóstica</label>
+          <textarea
+            id="diagnostic-hypothesis"
+            class="notebook-textarea"
+            placeholder="Escribe tu hipótesis diagnóstica..."
+            [(ngModel)]="diagnosticHypothesis"
+            [ngModelOptions]="{ standalone: true }"
+          ></textarea>
+      </aside>
+    </div>
+
+    <footer class="intervention-panel">
+      <label for="clinical-intervention">Intervención clínica</label>
+
+      <div class="intervention-row">
+        <textarea
+          #interventionInput
+          id="clinical-intervention"
+          placeholder="Escribe tu intervención clínica..."
+          [(ngModel)]="clinicalIntervention"
+          (keydown)="onInterventionKeydown($event)"
+          [disabled]="isLoading || !session.id || isSendingMessage || isSubmittingFinalDiagnosis"
+        ></textarea>
+
+        <div class="intervention-actions">
+          <button
+            class="cs-button primary"
+            type="button"
+            (click)="sendIntervention()"
+            [disabled]="isLoading || !session.id || isSendingMessage || isSubmittingFinalDiagnosis"
+          >
+            {{ isSendingMessage ? 'Enviando...' : 'Enviar mensaje' }}
+          </button>
+
+          <button
+            class="cs-button danger secondary-danger"
+            type="button"
+            (click)="openFinalDiagnosisModal()"
+            [disabled]="isLoading || !session.id || isSendingMessage || isSubmittingFinalDiagnosis"
+          >
+            {{ isSubmittingFinalDiagnosis ? 'Finalizando...' : 'Diagnóstico final' }}
+          </button>
+        </div>
+      </div>
+
+      <p class="submission-error" *ngIf="finalDiagnosisError">
+        {{ finalDiagnosisError }}
+      </p>
+    </footer>
+  </article>
+
+  <app-final-diagnosis-modal
+    *ngIf="showFinalDiagnosisModal"
+    [diagnosis]="finalDiagnosis"
+    [reasoning]="finalReasoning"
+    (cancel)="closeFinalDiagnosisModal()"
+    (confirm)="confirmFinalDiagnosis($event)"
+  ></app-final-diagnosis-modal>
+</section>

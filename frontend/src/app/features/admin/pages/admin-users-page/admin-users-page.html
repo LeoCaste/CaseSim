@@ -1,0 +1,169 @@
+<section class="admin-users">
+  <header class="admin-users__header">
+    <h1>Usuarios</h1>
+    <p>Administra usuarios, roles y estado de acceso del sistema.</p>
+  </header>
+
+  <section class="admin-users__card">
+    <div class="admin-users__card-header">
+      <h2>{{ formMode === 'create' ? 'Crear usuario' : 'Editar usuario' }}</h2>
+      <p>Ingresa usuarios al sistema.</p>
+    </div>
+
+    <form class="admin-users__form" (ngSubmit)="submitForm()">
+      <div class="admin-users__row">
+        <label for="name">Nombre</label>
+        <input id="name" name="name" type="text" [(ngModel)]="form.name" />
+        <small *ngIf="getNameError()" class="admin-users__error">{{ getNameError() }}</small>
+      </div>
+
+      <div class="admin-users__row">
+        <label for="email">Correo electrónico</label>
+        <input id="email" name="email" type="email" [placeholder]="emailPlaceholder" [(ngModel)]="form.email" />
+        <small *ngIf="getEmailError()" class="admin-users__error">{{ getEmailError() }}</small>
+      </div>
+
+      <div class="admin-users__row">
+        <label for="role">Rol</label>
+        <select id="role" name="role" [(ngModel)]="form.role" (ngModelChange)="onRoleChange($event)">
+          <option *ngFor="let option of roleOptions" [value]="option.code">{{ getRoleLabel(option.code) }}</option>
+        </select>
+      </div>
+
+      <div *ngIf="requiresPassword()" class="admin-users__row">
+        <label for="password">Contraseña inicial (solo Administrador)</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          [(ngModel)]="form.password"
+        />
+        <small *ngIf="getPasswordError()" class="admin-users__error">{{ getPasswordError() }}</small>
+      </div>
+
+      <div class="admin-users__actions">
+        <button type="submit" [disabled]="isSubmitting">
+          {{ isSubmitting ? (formMode === 'create' ? 'Creando...' : 'Guardando...') : (formMode === 'create' ? 'Crear usuario' : 'Guardar cambios') }}
+        </button>
+        <button *ngIf="formMode === 'edit'" type="button" class="secondary" (click)="startCreate()" [disabled]="isSubmitting">
+          Cancelar edición
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="admin-users__card">
+    <div class="admin-users__card-header">
+      <h2>Usuarios registrados</h2>
+    </div>
+
+    <div class="admin-users__feedback" *ngIf="pageSuccess">
+      <p class="admin-users__success">{{ pageSuccess }}</p>
+    </div>
+    <div class="admin-users__feedback" *ngIf="pageError">
+      <p class="admin-users__error">{{ pageError }}</p>
+    </div>
+
+    <div *ngIf="loadError" class="admin-users__feedback admin-users__feedback--error">
+      <p class="admin-users__error">{{ loadError }}</p>
+      <button type="button" class="secondary" (click)="fetchUsers()" [disabled]="loading">Reintentar</button>
+    </div>
+
+    <p *ngIf="loading" class="admin-users__loading">Cargando usuarios...</p>
+
+    <ng-container *ngIf="!loading && !loadError">
+      <div class="admin-users__filters">
+        <input type="text" placeholder="Buscar por nombre o correo" [(ngModel)]="searchTerm" name="searchTerm" />
+
+        <select [(ngModel)]="roleFilter" name="roleFilter">
+          <option value="all">Todos</option>
+          <option value="ADMIN">Administrador</option>
+          <option value="PROFESOR">Profesor</option>
+          <option value="ESTUDIANTE">Estudiante</option>
+        </select>
+
+        <select [(ngModel)]="statusFilter" name="statusFilter">
+          <option value="active">Activos</option>
+          <option value="inactive">Inactivos</option>
+          <option value="all">Todos</option>
+        </select>
+      </div>
+
+      <p class="admin-users__counter">{{ filteredUsers.length }} usuarios encontrados</p>
+
+      <section *ngIf="!hasAnyUsers" class="admin-users__empty">
+        <p>Sin usuarios registrados.</p>
+      </section>
+
+      <section *ngIf="hasAnyUsers && filteredUsers.length === 0" class="admin-users__empty">
+        <p>No se encontraron usuarios para los filtros seleccionados.</p>
+        <button type="button" class="secondary" (click)="clearFilters()">Limpiar filtros</button>
+      </section>
+
+      <section *ngIf="filteredUsers.length > 0" class="admin-users__table-wrapper">
+        <div class="admin-users__table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let user of filteredUsers">
+                <td>{{ user.name }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ getRoleLabel(user.role) }}</td>
+                <td>
+                  <span class="admin-users__status-chip" [class.admin-users__status-chip--inactive]="!user.active">
+                    {{ user.active ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </td>
+                <td class="admin-users__table-actions">
+                  <div class="admin-users__menu" (click)="onMenuClick($event)">
+                    <button
+                      type="button"
+                      class="admin-users__menu-trigger"
+                      [disabled]="isDeletingUser(user.id) || isTogglingUser(user.id)"
+                      (click)="onMenuButtonClick($event, user.id)"
+                      aria-label="Abrir acciones"
+                    >
+                      ⋮
+                    </button>
+                    <div *ngIf="isMenuOpen(user.id)" class="admin-users__menu-dropdown">
+                      <button type="button" (click)="onRowActionEdit(user)">Editar</button>
+                      <button type="button" (click)="onRowActionToggle(user)">{{ user.active ? 'Desactivar' : 'Activar' }}</button>
+                      <button type="button" class="danger" (click)="onRowActionDelete(user)">Eliminar</button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </ng-container>
+  </section>
+
+  <div *ngIf="confirmDialog" class="admin-users__modal-backdrop">
+    <div class="admin-users__modal" role="dialog" aria-modal="true" (click)="onMenuClick($event)">
+      <h3>{{ getConfirmTitle() }}</h3>
+      <p>{{ getConfirmMessage() }}</p>
+      <div class="admin-users__modal-actions">
+        <button type="button" class="secondary" (click)="closeConfirmDialog()" [disabled]="isProcessingConfirmation">Cancelar</button>
+        <button
+          type="button"
+          [class.danger]="confirmDialog.type === 'delete'"
+          (click)="executeConfirmation()"
+          [disabled]="isProcessingConfirmation"
+        >
+          {{ getConfirmActionLabel() }}
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

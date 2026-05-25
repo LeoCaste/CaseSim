@@ -1,0 +1,52 @@
+<div class="session-table-wrapper">
+  <table class="session-table">
+    <thead>
+    <tr>
+      <th>Estudiante</th>
+      <th>Caso</th>
+      <th>Estado</th>
+      <th>Fecha</th>
+      <th></th>
+    </tr>
+    </thead>
+
+    <tbody>
+    <tr *ngFor="let session of sessions">
+      <td>{{ session.student }}</td>
+      <td>{{ session.caseName }}</td>
+
+      <td>
+          <span
+            class="cs-badge"
+            [ngClass]="{
+              'success': session.status === 'Completada',
+              'warning': session.status === 'En curso',
+              'neutral': session.status !== 'Completada' && session.status !== 'En curso'
+            }"
+          >
+            {{ session.status }}
+          </span>
+      </td>
+
+      <td>{{ session.submittedAt }}</td>
+
+      <td>
+        <a
+          *ngIf="session.status === 'Completada'"
+          [routerLink]="['/professor/sessions', session.id]"
+          class="review-link"
+        >
+          Revisar
+        </a>
+
+        <span
+          *ngIf="session.status !== 'Completada'"
+          class="review-link disabled"
+        >
+            Revisar
+          </span>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+</div>

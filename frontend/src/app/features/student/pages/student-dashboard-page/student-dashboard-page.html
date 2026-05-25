@@ -1,0 +1,52 @@
+<section class="student-dashboard">
+  <header class="student-dashboard__header">
+    <div>
+      <p class="student-dashboard__eyebrow">Panel estudiante</p>
+      <h1>Simulaciones disponibles</h1>
+      <p>
+        Selecciona una simulación clínica disponible para iniciar o continuar tu entrevista.
+      </p>
+    </div>
+  </header>
+
+  <section class="student-dashboard__notice">
+    <strong>Indicaciones generales</strong>
+    <p>
+      Compórtate como lo harías en una consulta real. La entrevista, tu diagnóstico
+      y tu cuadernillo clínico quedarán registrados.
+    </p>
+  </section>
+
+  <section class="activities-grid">
+    <p *ngIf="isLoading" class="student-dashboard__loading">Cargando actividades...</p>
+    <p *ngIf="loadError" class="student-dashboard__error">{{ loadError }}</p>
+    <p *ngIf="!isLoading && !loadError && activities.length === 0" class="student-dashboard__empty">
+      No hay actividades disponibles por ahora.
+    </p>
+
+    <app-activity-card
+      *ngFor="let activity of activities"
+      [activity]="activity"
+      (startRequested)="onStartActivity($event)"
+    ></app-activity-card>
+  </section>
+
+  <section class="history-section">
+    <header>
+      <h2>Historial de entrevistas</h2>
+      <p>Revisa las simulaciones que ya fueron registradas.</p>
+    </header>
+
+    <article class="history-card" *ngFor="let item of history">
+      <div>
+        <span>{{ item.status }}</span>
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.patient }} · {{ item.date }}</p>
+      </div>
+
+      <a [routerLink]="item.route" class="history-link">
+        Ver estado
+      </a>
+    </article>
+  </section>
+</section>

@@ -1,0 +1,142 @@
+.student-session-page {
+  width: 100%;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.session-header__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.session-header h1 {
+  margin: 0 0 8px;
+  color: var(--cs-primary-dark);
+  font-size: 32px;
+}
+
+.session-header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+}
+
+.session-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 18px;
+}
+
+.session-side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.session-card {
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  overflow: hidden;
+}
+
+.session-card header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cs-border);
+  background: linear-gradient(135deg, #ffffff 0%, #f2fbf8 100%);
+}
+
+.session-card header p {
+  margin: 0 0 4px;
+  color: var(--cs-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.session-card header h2 {
+  margin: 0;
+  color: var(--cs-primary-dark);
+}
+
+.message-list {
+  padding: 20px;
+  background: #fbfcfd;
+}
+
+.session-message {
+  max-width: 760px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--cs-border);
+  background: var(--cs-surface);
+}
+
+.session-message.patient {
+  border-left: 4px solid var(--cs-secondary);
+}
+
+.session-message.student {
+  margin-left: auto;
+  border-left: 4px solid var(--cs-primary);
+}
+
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--cs-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.session-message p,
+.session-block p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.session-block {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--cs-border);
+}
+
+.session-block:last-child {
+  border-bottom: 0;
+}
+
+.session-block span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--cs-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1000px) {
+  .session-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .session-message.student {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .session-header {
+    flex-direction: column;
+  }
+}

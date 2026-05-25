@@ -1,0 +1,280 @@
+.admin-llm-config {
+  width: 100%;
+  max-width: 880px;
+}
+
+.admin-llm-config__header {
+  margin-bottom: 20px;
+}
+
+.admin-llm-config__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-llm-config__header h1 {
+  margin: 0 0 8px;
+  color: var(--cs-primary-dark);
+}
+
+.admin-llm-config__header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+}
+
+.admin-llm-config__panel {
+  padding: 20px;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+}
+
+.admin-llm-config__block {
+  margin-bottom: 16px;
+}
+
+.admin-llm-config__block h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--cs-primary-dark);
+}
+
+.admin-llm-config__current-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+
+.admin-llm-config__current-status-grid p {
+  margin: 0;
+}
+
+.admin-llm-config__status-value-wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-llm-config__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.admin-llm-config__switch-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-llm-config__switch-row--inline {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.admin-llm-config__row label {
+  font-weight: 600;
+  color: var(--cs-primary-dark);
+}
+
+.admin-llm-config__row input[type='text'],
+.admin-llm-config__row input[type='password'],
+.admin-llm-config__row input[type='number'],
+.admin-llm-config__row textarea,
+.admin-llm-config__row select {
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--cs-text);
+  background: #ffffff;
+}
+
+.admin-llm-config__row textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.admin-llm-config__row input[readonly] {
+  background: var(--cs-surface-muted);
+}
+
+.admin-llm-config__row small {
+  color: var(--cs-text-muted);
+}
+
+.admin-llm-config__field-note {
+  margin: 0;
+  color: var(--cs-text-muted);
+  font-size: 13px;
+}
+
+.admin-llm-config__field-note--warning {
+  color: var(--cs-primary-dark);
+  font-weight: 600;
+}
+
+.admin-llm-config__row code {
+  font-size: 12px;
+}
+
+.admin-llm-config__inline-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.admin-llm-config__inline-actions .link {
+  border: none;
+  background: transparent;
+  color: var(--cs-primary);
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-llm-config__inline-actions .link:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-llm-config__model-search {
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--cs-surface-muted);
+}
+
+.admin-llm-config__model-results {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.admin-llm-config__model-result-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--cs-border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-llm-config__model-result-btn.is-selected {
+  border-color: var(--cs-primary);
+  background: #eef4ff;
+}
+
+.admin-llm-config__status {
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid var(--cs-border);
+  border-radius: 8px;
+  background: var(--cs-surface-muted);
+}
+
+.admin-llm-config__status p {
+  margin: 0 0 6px;
+  color: var(--cs-text-muted);
+}
+
+.admin-llm-config__status p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-llm-config__hint {
+  color: var(--cs-secondary);
+  font-weight: 600;
+}
+
+.admin-llm-config__subsection {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cs-border);
+}
+
+.admin-llm-config__subsection h3 {
+  margin: 0 0 12px;
+  color: var(--cs-primary-dark);
+  font-size: 15px;
+}
+
+.admin-llm-config__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.admin-llm-config__grid--technical-params .admin-llm-config__row {
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.admin-llm-config__grid--technical-params {
+  align-items: stretch;
+}
+
+.admin-llm-config__grid--technical-params .admin-llm-config__row input[type='number'] {
+  margin-top: auto;
+}
+
+.admin-llm-config__actions {
+  display: flex;
+  gap: 12px;
+}
+
+.admin-llm-config__actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: var(--cs-primary);
+  cursor: pointer;
+}
+
+.admin-llm-config__actions button.secondary {
+  background: var(--cs-secondary);
+}
+
+.admin-llm-config__actions button.danger {
+  background: #b42318;
+}
+
+.admin-llm-config__actions button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-llm-config__loading,
+.admin-llm-config__error,
+.admin-llm-config__success,
+.admin-llm-config__test-result {
+  margin-top: 12px;
+}
+
+.admin-llm-config__error,
+.admin-llm-config__test-result--error {
+  color: #b42318;
+}
+
+.admin-llm-config__success,
+.admin-llm-config__test-result--success {
+  color: var(--cs-success);
+}
+
+@media (max-width: 720px) {
+  .admin-llm-config__current-status-grid {
+    grid-template-columns: 1fr;
+  }
+}

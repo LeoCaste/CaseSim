@@ -1,0 +1,70 @@
+.completed-page {
+  min-height: calc(100vh - 160px);
+  display: grid;
+  place-items: center;
+}
+
+.completed-card {
+  width: min(560px, 100%);
+  padding: 42px;
+  text-align: center;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: 20px;
+  box-shadow: var(--cs-shadow);
+}
+
+.completed-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--cs-success);
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.completed-eyebrow {
+  margin: 0 0 8px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.completed-card h1 {
+  margin: 0 0 12px;
+  color: var(--cs-primary-dark);
+  font-size: 30px;
+}
+
+.completed-card p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.6;
+}
+
+.completed-actions {
+  margin-top: 28px;
+}
+
+.completed-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-weight: 800;
+}
+
+.completed-button.secondary {
+  color: var(--cs-primary-dark);
+  background: white;
+  border: 1px solid var(--cs-border);
+}

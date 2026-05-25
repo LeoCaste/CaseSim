@@ -1,0 +1,129 @@
+.student-dashboard {
+  width: 100%;
+}
+
+.student-dashboard__header {
+  margin-bottom: 22px;
+}
+
+.student-dashboard__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.student-dashboard__header h1 {
+  margin: 0 0 8px;
+  color: var(--cs-primary-dark);
+  font-size: 32px;
+}
+
+.student-dashboard__header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.55;
+}
+
+.student-dashboard__notice {
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: #f2fbf8;
+  border: 1px solid #cfe8df;
+  border-radius: var(--cs-radius);
+}
+
+.student-dashboard__notice strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--cs-primary-dark);
+}
+
+.student-dashboard__notice p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.55;
+}
+
+.activities-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.student-dashboard__error {
+  margin: 0;
+  color: #b42318;
+  font-weight: 700;
+}
+
+.history-section {
+  margin-top: 28px;
+}
+
+.history-section header {
+  margin-bottom: 14px;
+}
+
+.history-section h2 {
+  margin: 0 0 4px;
+  color: var(--cs-primary-dark);
+  font-size: 22px;
+}
+
+.history-section p {
+  margin: 0;
+  color: var(--cs-text-muted);
+}
+
+.history-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+}
+
+.history-card span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cs-success);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.history-card h3 {
+  margin: 0 0 4px;
+  color: var(--cs-primary-dark);
+  font-size: 18px;
+}
+
+.history-link {
+  color: var(--cs-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.history-link:hover {
+  text-decoration: none;
+}
+
+@media (max-width: 1100px) {
+  .activities-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .activities-grid {
+    grid-template-columns: 1fr;
+  }
+}

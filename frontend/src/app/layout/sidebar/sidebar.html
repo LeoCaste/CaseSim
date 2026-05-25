@@ -1,0 +1,43 @@
+<aside class="sidebar">
+  <nav>
+    <ng-container *ngIf="userContext.getRole() === 'student'">
+      <a routerLink="/student/dashboard" routerLinkActive="active">
+        Panel estudiante
+      </a>
+
+      <a routerLink="/interview" routerLinkActive="active">
+        Entrevista clínica
+      </a>
+    </ng-container>
+
+    <ng-container *ngIf="userContext.getRole() === 'professor'">
+      <a routerLink="/professor/dashboard" routerLinkActive="active">
+        Panel profesor
+      </a>
+
+      <a routerLink="/professor/sessions" routerLinkActive="active">
+        Sesiones / revisión
+      </a>
+
+      <a routerLink="/clinical-cases" routerLinkActive="active">
+        Casos clínicos
+      </a>
+    </ng-container>
+
+    <ng-container *ngIf="userContext.getRole() === 'admin'">
+      <p class="sidebar__group-title">Administración</p>
+      <a routerLink="/admin/users" routerLinkActive="active">
+        Usuarios
+      </a>
+
+      <p class="sidebar__group-title">LLM</p>
+      <a routerLink="/admin/llm-config" routerLinkActive="active">
+        Configuración LLM
+      </a>
+
+      <a routerLink="/admin/llm-usage" routerLinkActive="active">
+        Métricas LLM
+      </a>
+    </ng-container>
+  </nav>
+</aside>

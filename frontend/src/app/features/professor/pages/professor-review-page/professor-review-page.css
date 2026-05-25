@@ -1,0 +1,142 @@
+.review-page {
+  width: 100%;
+  height: calc(100dvh - 120px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.review-header__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.review-header h1 {
+  margin: 0 0 8px;
+  color: var(--cs-primary-dark);
+  font-size: 32px;
+}
+
+.review-header p {
+  margin: 0;
+  color: var(--cs-text-muted);
+  line-height: 1.55;
+}
+
+.review-header__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  justify-content: flex-end;
+}
+
+.review-context {
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: var(--cs-surface);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+}
+
+.review-context__eyebrow {
+  margin: 0 0 6px;
+  color: var(--cs-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.review-context h2 {
+  margin: 0 0 6px;
+  color: var(--cs-primary-dark);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.review-context__meta {
+  margin: 0;
+  color: var(--cs-text-muted);
+  font-size: 14px;
+}
+
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.85fr);
+  column-gap: 6px;
+  row-gap: 12px;
+  min-height: 0;
+}
+
+.review-column {
+  min-width: 0;
+  min-height: 0;
+}
+
+.review-column--transcript {
+  display: flex;
+  overflow: hidden;
+}
+
+.review-column--transcript > app-session-transcript {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+.review-column--side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.review-column--side > app-student-notebook,
+.review-column--side > app-evaluation-panel {
+  display: block;
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .review-page {
+    height: auto;
+  }
+
+  .review-layout {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
+
+  .review-column--transcript {
+    min-height: clamp(320px, 56dvh, 560px);
+  }
+
+  .review-column--side {
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 760px) {
+  .review-header {
+    flex-direction: column;
+  }
+
+  .review-header__status {
+    justify-content: flex-start;
+  }
+}
