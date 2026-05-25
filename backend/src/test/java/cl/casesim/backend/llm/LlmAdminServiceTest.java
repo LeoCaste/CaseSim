@@ -2,6 +2,7 @@ package cl.casesim.backend.llm;
 
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
+import cl.casesim.backend.llm.dto.LlmProviderModelsResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
 import org.junit.jupiter.api.Test;
@@ -126,6 +127,33 @@ class LlmAdminServiceTest {
                 eq(false),
                 eq(null)
         );
+    }
+
+    @Test
+    void getAvailableModelsShouldIncludeOpenRouterCatalog() {
+        List<LlmProviderModelsResponse> catalog = service.getAvailableModels(null);
+
+        LlmProviderModelsResponse openRouterEntry = catalog.stream()
+                .filter(entry -> "openrouter".equals(entry.provider()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(openRouterEntry.models().contains("openai/gpt-4.1-mini"));
+        assertTrue(openRouterEntry.models().contains("google/gemini-2.5-flash-lite"));
+    }
+
+    @Test
+    void getAvailableModelsShouldFilterByProvider() {
+        List<LlmProviderModelsResponse> catalog = service.getAvailableModels("groq");
+
+        assertEquals(1, catalog.size());
+        assertEquals("groq", catalog.getFirst().provider());
+        assertTrue(catalog.getFirst().models().contains("llama-3.3-70b-versatile"));
+    }
+
+    @Test
+    void getAvailableModelsShouldRejectUnsupportedProviderForRealOperation() {
+        assertThrows(BadRequestException.class, () -> service.getAvailableModels("anthropic"));
     }
 
     @Test
@@ -256,6 +284,59 @@ class LlmAdminServiceTest {
         assertEquals("gemini", response.provider());
         assertEquals("gemini-2.5-flash-lite", response.model());
         assertEquals("https://generativelanguage.googleapis.com/v1beta/models", llmProperties.getBaseUrl());
+    }
+
+    @Test
+    void updateConfigShouldAcceptOpenRouterModelWithProviderPrefix() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openrouter",
+                "openai/gpt-4.1-mini",
+                null,
+                true,
+                "sk-or-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("openrouter", response.provider());
+        assertEquals("openai/gpt-4.1-mini", response.model());
+        assertEquals("https://openrouter.ai/api/v1/chat/completions", llmProperties.getBaseUrl());
+    }
+
+    @Test
+    void updateConfigShouldRejectOpenRouterModelWithInvalidCharacters() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openrouter",
+                "openai/gpt#4.1-mini",
+                null,
+                true,
+                "sk-or-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+
+        assertTrue(exception.getMessage().contains("OpenRouter"));
     }
 
     @Test

@@ -2,6 +2,7 @@ package cl.casesim.backend.llm;
 
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
+import cl.casesim.backend.llm.dto.LlmProviderModelsResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
 import jakarta.annotation.PostConstruct;
@@ -14,6 +15,7 @@ import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -28,6 +30,7 @@ public class LlmAdminService {
     private static final int DEFAULT_MAX_TOKENS = 350;
     private static final double DEFAULT_TEMPERATURE = 0.4;
     private static final Pattern GENERIC_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$");
+    private static final Pattern OPENROUTER_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:/-]{1,119}$");
 
     private final LlmConfigRepository llmConfigRepository;
     private final LlmProperties llmProperties;
@@ -81,6 +84,24 @@ public class LlmAdminService {
                 llmProperties.isEnabledSafetyFilter(),
                 null
         );
+    }
+
+    public List<LlmProviderModelsResponse> getAvailableModels(String provider) {
+        Map<String, List<String>> modelsByProvider = LlmModelCatalog.modelsByProvider();
+        if (!StringUtils.hasText(provider)) {
+            return modelsByProvider.entrySet().stream()
+                    .map(entry -> new LlmProviderModelsResponse(entry.getKey(), entry.getValue()))
+                    .toList();
+        }
+
+        String normalizedProvider = normalizeProvider(provider);
+        validateProvider(normalizedProvider);
+        List<String> models = modelsByProvider.get(normalizedProvider);
+        if (models == null) {
+            throw new BadRequestException("No hay catálogo de modelos para el provider solicitado.");
+        }
+
+        return List.of(new LlmProviderModelsResponse(normalizedProvider, models));
     }
 
     @Transactional
@@ -431,7 +452,14 @@ public class LlmAdminService {
                 .replaceAll("\\s+", "-")
                 .replaceAll("-+", "-");
 
-        if (!GENERIC_MODEL_PATTERN.matcher(normalized).matches()) {
+        Pattern validationPattern = LlmProviderSupport.OPENROUTER.equals(provider)
+                ? OPENROUTER_MODEL_PATTERN
+                : GENERIC_MODEL_PATTERN;
+
+        if (!validationPattern.matcher(normalized).matches()) {
+            if (LlmProviderSupport.OPENROUTER.equals(provider)) {
+                throw new BadRequestException("Modelo inválido para OpenRouter. Use formato provider/model sin espacios (ej: openai/gpt-4.1-mini).");
+            }
             throw new BadRequestException("Modelo inválido. Use un identificador sin espacios (ej: gpt-4.1-mini).");
         }
 

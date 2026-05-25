@@ -1,6 +1,7 @@
 package cl.casesim.backend.llm;
 
 import cl.casesim.backend.llm.dto.LlmConfigResponse;
+import cl.casesim.backend.llm.dto.LlmProviderModelsResponse;
 import cl.casesim.backend.llm.dto.LlmSummaryResponse;
 import cl.casesim.backend.llm.dto.LlmUsageDailyResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
@@ -32,6 +33,13 @@ public class LlmAdminController {
     @GetMapping("/config")
     public LlmConfigResponse getConfig() {
         return llmAdminService.getConfig();
+    }
+
+    @GetMapping("/models")
+    public List<LlmProviderModelsResponse> getAvailableModels(
+            @RequestParam(required = false) String provider
+    ) {
+        return llmAdminService.getAvailableModels(provider);
     }
 
     @PutMapping("/config")
