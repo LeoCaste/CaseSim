@@ -47,6 +47,7 @@ export class ClinicalCaseFormPage implements OnInit {
   saveErrorModalSuggestion = '';
   isLoading = false;
   loadError = '';
+  saveAttempted = false;
   private caseId?: string;
   private readonly destroyRef = inject(DestroyRef);
 
@@ -172,6 +173,7 @@ export class ClinicalCaseFormPage implements OnInit {
     }
 
     if (!this.validateFacts()) {
+      this.saveAttempted = true;
       this.saveError = this.factsValidationError;
       this.focusFirstInvalidField();
       this.cdr.detectChanges();
@@ -205,6 +207,7 @@ export class ClinicalCaseFormPage implements OnInit {
     }
 
     if (!this.validateFacts()) {
+      this.saveAttempted = true;
       this.showSaveModal = false;
       this.saveError = this.factsValidationError;
       this.focusFirstInvalidField();
@@ -360,6 +363,50 @@ export class ClinicalCaseFormPage implements OnInit {
 
   get saveLabel(): string {
     return this.isEditMode ? 'Guardar cambios' : 'Guardar caso';
+  }
+
+  get pendingRequiredItems(): string[] {
+    const pending: string[] = [];
+
+    if (!this.caseFormState.patientName.trim()) {
+      pending.push('Nombre del paciente');
+    }
+
+    if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) {
+      pending.push('Edad del paciente (mayor a 0)');
+    }
+
+    if (!this.caseFormState.reason.trim()) {
+      pending.push('Motivo principal de consulta');
+    }
+
+    if (this.clinicalFacts.length === 0) {
+      pending.push('Al menos un antecedente clínico');
+      return pending;
+    }
+
+    this.clinicalFacts.forEach((fact, index) => {
+      const factNumber = index + 1;
+
+      if (!fact.category.trim()) {
+        pending.push(`Antecedente ${factNumber}: categoría`);
+      }
+      if (!fact.title.trim()) {
+        pending.push(`Antecedente ${factNumber}: título`);
+      }
+      if (!fact.content.trim()) {
+        pending.push(`Antecedente ${factNumber}: contenido`);
+      }
+      if (!fact.trigger.trim()) {
+        pending.push(`Antecedente ${factNumber}: gatillante`);
+      }
+    });
+
+    return pending;
+  }
+
+  get shouldShowPendingRequiredSummary(): boolean {
+    return this.saveAttempted && this.pendingRequiredItems.length > 0;
   }
 
   private syncFromFormState(): void {
