@@ -119,6 +119,23 @@ export class AdminLlmUsagePage implements OnInit {
     this.loadSnapshot(this.activeFilters);
   }
 
+  onProviderFilterChange(): void {
+    this.modelOptions = this.buildModelOptions(this.rawUsage);
+
+    if (!this.filterForm.provider.trim()) {
+      this.filterForm.model = '';
+      return;
+    }
+
+    if (this.filterForm.model && !this.modelOptions.includes(this.filterForm.model)) {
+      this.filterForm.model = '';
+    }
+  }
+
+  shouldShowModelFilter(): boolean {
+    return Boolean(this.filterForm.provider.trim());
+  }
+
   hasModelColumn(): boolean {
     return this.usage.some((item) => Boolean(item.model));
   }
