@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { Mocked, vi } from 'vitest';
 
 import { ForgotPasswordPage } from './forgot-password-page';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -8,11 +9,13 @@ import { AuthService } from '../../../../core/services/auth.service';
 describe('ForgotPasswordPage', () => {
   let component: ForgotPasswordPage;
   let fixture: ComponentFixture<ForgotPasswordPage>;
-  let authServiceSpy: jasmine.SpyObj<AuthService>;
+  let authServiceSpy: Mocked<Pick<AuthService, 'forgotPassword'>>;
 
   beforeEach(async () => {
-    authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['forgotPassword']);
-    authServiceSpy.forgotPassword.and.returnValue(of({}));
+    authServiceSpy = {
+      forgotPassword: vi.fn()
+    };
+    authServiceSpy.forgotPassword.mockReturnValue(of({}));
 
     await TestBed.configureTestingModule({
       imports: [ForgotPasswordPage],
@@ -68,7 +71,7 @@ describe('ForgotPasswordPage', () => {
   });
 
   it('should show backend message when payload includes message', () => {
-    authServiceSpy.forgotPassword.and.returnValue(
+    authServiceSpy.forgotPassword.mockReturnValue(
       of({ message: 'La recuperación por correo no está habilitada. Contacte al administrador técnico.' })
     );
     component.email = 'admin@casesim.cl';
@@ -77,11 +80,11 @@ describe('ForgotPasswordPage', () => {
 
     expect(component.infoMessage).toBe('La recuperación por correo no está habilitada. Contacte al administrador técnico.');
     expect(component.errorMessage).toBe('');
-    expect(component.isSubmitting).toBeFalse();
+    expect(component.isSubmitting).toBe(false);
   });
 
   it('should use neutral fallback message when backend message is not present', () => {
-    authServiceSpy.forgotPassword.and.returnValue(of({}));
+    authServiceSpy.forgotPassword.mockReturnValue(of({}));
     component.email = 'admin@casesim.cl';
 
     component.submit();
@@ -90,17 +93,17 @@ describe('ForgotPasswordPage', () => {
       'Si el correo existe en la plataforma, recibirás instrucciones para restablecer tu contraseña.'
     );
     expect(component.errorMessage).toBe('');
-    expect(component.isSubmitting).toBeFalse();
+    expect(component.isSubmitting).toBe(false);
   });
 
   it('should show error message and stop loading on request failure', () => {
-    authServiceSpy.forgotPassword.and.returnValue(throwError(() => new Error('network error')));
+    authServiceSpy.forgotPassword.mockReturnValue(throwError(() => new Error('network error')));
     component.email = 'admin@casesim.cl';
 
     component.submit();
 
     expect(component.errorMessage).toBe('No fue posible procesar la solicitud. Intenta nuevamente.');
     expect(component.infoMessage).toBe('');
-    expect(component.isSubmitting).toBeFalse();
+    expect(component.isSubmitting).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { Mocked, vi } from 'vitest';
 
 import { LoginPage } from './login-page';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -10,15 +11,18 @@ import { UserContext } from '../../../../core/services/user-context';
 describe('LoginPage', () => {
   let component: LoginPage;
   let fixture: ComponentFixture<LoginPage>;
-  let authServiceSpy: jasmine.SpyObj<AuthService>;
+  let authServiceSpy: Mocked<Pick<AuthService, 'preCheck' | 'login'>>;
   let router: Router;
 
   const buildUnauthorizedError = () => new HttpErrorResponse({ status: 401 });
 
   beforeEach(async () => {
-    authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['preCheck', 'login']);
-    authServiceSpy.preCheck.and.returnValue(of({ requiresPassword: false }));
-    authServiceSpy.login.and.returnValue(
+    authServiceSpy = {
+      preCheck: vi.fn(),
+      login: vi.fn()
+    };
+    authServiceSpy.preCheck.mockReturnValue(of({ requiresPassword: false }));
+    authServiceSpy.login.mockReturnValue(
       of({ id: 'user-1', fullName: 'Usuario Test', email: 'test@casesim.cl', role: 'student' })
     );
 
@@ -30,14 +34,14 @@ describe('LoginPage', () => {
         {
           provide: UserContext,
           useValue: {
-            setUser: jasmine.createSpy('setUser')
+            setUser: vi.fn()
           }
         }
       ]
     }).compileComponents();
 
     router = TestBed.inject(Router);
-    spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(LoginPage);
     component = fixture.componentInstance;
@@ -62,13 +66,13 @@ describe('LoginPage', () => {
     component.requiresPassword = true;
     component.password = 'incorrecta';
     (component as any).passwordRequiredForEmail = 'admin@casesim.cl';
-    authServiceSpy.login.and.returnValue(throwError(() => buildUnauthorizedError()));
+    authServiceSpy.login.mockReturnValue(throwError(() => buildUnauthorizedError()));
 
     component.login();
     fixture.detectChanges();
 
     const link = fixture.nativeElement.querySelector('a[routerLink="/forgot-password"]');
-    expect(component.showForgotPasswordLink).toBeTrue();
+    expect(component.showForgotPasswordLink).toBe(true);
     expect(link).not.toBeNull();
   });
 
@@ -77,12 +81,12 @@ describe('LoginPage', () => {
     component.requiresPassword = true;
     component.password = 'incorrecta';
     (component as any).passwordRequiredForEmail = 'admin@casesim.cl';
-    authServiceSpy.login.and.returnValue(throwError(() => buildUnauthorizedError()));
-    const detectChangesSpy = spyOn((component as any).cdr, 'detectChanges').and.callThrough();
+    authServiceSpy.login.mockReturnValue(throwError(() => buildUnauthorizedError()));
+    const detectChangesSpy = vi.spyOn((component as any).cdr, 'detectChanges');
 
     component.login();
 
-    expect(component.showForgotPasswordLink).toBeTrue();
+    expect(component.showForgotPasswordLink).toBe(true);
     expect(component.errorMessage).toBe('Contraseña inválida.');
     expect(detectChangesSpy).toHaveBeenCalled();
   });
@@ -91,14 +95,14 @@ describe('LoginPage', () => {
     component.email = 'estudiante@casesim.cl';
     component.requiresPassword = false;
     component.password = '';
-    authServiceSpy.preCheck.and.returnValue(of({ requiresPassword: false }));
-    authServiceSpy.login.and.returnValue(throwError(() => buildUnauthorizedError()));
+    authServiceSpy.preCheck.mockReturnValue(of({ requiresPassword: false }));
+    authServiceSpy.login.mockReturnValue(throwError(() => buildUnauthorizedError()));
 
     component.login();
     fixture.detectChanges();
 
     const link = fixture.nativeElement.querySelector('a[routerLink="/forgot-password"]');
-    expect(component.showForgotPasswordLink).toBeFalse();
+    expect(component.showForgotPasswordLink).toBe(false);
     expect(link).toBeNull();
   });
 });

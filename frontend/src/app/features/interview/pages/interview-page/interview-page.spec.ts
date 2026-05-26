@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { Mocked, vi } from 'vitest';
 
 import { InterviewPage } from './interview-page';
 import { UserContext } from '../../../../core/services/user-context';
@@ -10,7 +11,9 @@ import { InterviewSessionData, InterviewSessionService } from '../../../../core/
 describe('InterviewPage', () => {
   let component: InterviewPage;
   let fixture: ComponentFixture<InterviewPage>;
-  let interviewSessionServiceSpy: jasmine.SpyObj<InterviewSessionService>;
+  let interviewSessionServiceSpy: Mocked<
+    Pick<InterviewSessionService, 'getInterviewSession' | 'sendMessage' | 'submitFinalDiagnosis'>
+  >;
 
   const sessionFixture: InterviewSessionData = {
     id: 'df9af08e-7dcc-43c7-a9f9-248f7d5de5d4',
@@ -23,13 +26,13 @@ describe('InterviewPage', () => {
   };
 
   beforeEach(async () => {
-    interviewSessionServiceSpy = jasmine.createSpyObj<InterviewSessionService>('InterviewSessionService', [
-      'getInterviewSession',
-      'sendMessage',
-      'submitFinalDiagnosis'
-    ]);
-    interviewSessionServiceSpy.getInterviewSession.and.returnValue(of(sessionFixture));
-    interviewSessionServiceSpy.submitFinalDiagnosis.and.returnValue(of(true));
+    interviewSessionServiceSpy = {
+      getInterviewSession: vi.fn(),
+      sendMessage: vi.fn(),
+      submitFinalDiagnosis: vi.fn()
+    };
+    interviewSessionServiceSpy.getInterviewSession.mockReturnValue(of(sessionFixture));
+    interviewSessionServiceSpy.submitFinalDiagnosis.mockReturnValue(of(true));
 
     await TestBed.configureTestingModule({
       imports: [InterviewPage],
@@ -41,13 +44,13 @@ describe('InterviewPage', () => {
         {
           provide: UserContext,
           useValue: {
-            setRole: jasmine.createSpy('setRole')
+            setRole: vi.fn()
           }
         },
         {
           provide: Router,
           useValue: {
-            navigate: jasmine.createSpy('navigate')
+            navigate: vi.fn()
           }
         }
       ]
@@ -64,7 +67,7 @@ describe('InterviewPage', () => {
   });
 
   it('should append fallback messages when backend response is recovered by service', () => {
-    interviewSessionServiceSpy.sendMessage.and.returnValue(
+    interviewSessionServiceSpy.sendMessage.mockReturnValue(
       of([
         {
           id: 'm-student-01',
@@ -85,13 +88,13 @@ describe('InterviewPage', () => {
     component.sendIntervention();
 
     expect(component.loadError).toBe('');
-    expect(component.isSendingMessage).toBeFalse();
+    expect(component.isSendingMessage).toBe(false);
     expect(component.messages.length).toBe(2);
     expect(component.messages[1]?.content).toContain('Me cuesta responder');
   });
 
   it('should show temporary-unavailability message on 503 without usable body', () => {
-    interviewSessionServiceSpy.sendMessage.and.returnValue(
+    interviewSessionServiceSpy.sendMessage.mockReturnValue(
       throwError(() => new HttpErrorResponse({ status: 503, error: null }))
     );
     component.clinicalIntervention = '¿Presenta otros síntomas asociados?';
@@ -99,6 +102,6 @@ describe('InterviewPage', () => {
     component.sendIntervention();
 
     expect(component.loadError).toBe('Paciente simulado temporalmente no disponible. Intenta nuevamente en unos minutos.');
-    expect(component.isSendingMessage).toBeFalse();
+    expect(component.isSendingMessage).toBe(false);
   });
 });

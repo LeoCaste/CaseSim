@@ -1,18 +1,20 @@
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
+import { GuardResult, Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
+import { Mock, vi } from 'vitest';
 import { firstValueFrom, of, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 
 import { AuthService } from '../services/auth.service';
 import { setupAccessGuard } from './setup-access.guard';
 
 describe('setupAccessGuard', () => {
   let router: Router;
-  let authServiceMock: { bootstrapStatus: jasmine.Spy };
+  let authServiceMock: { bootstrapStatus: Mock };
 
   beforeEach(() => {
     authServiceMock = {
-      bootstrapStatus: jasmine.createSpy('bootstrapStatus')
+      bootstrapStatus: vi.fn()
     };
 
     TestBed.configureTestingModule({
@@ -24,30 +26,30 @@ describe('setupAccessGuard', () => {
   });
 
   it('permite acceso cuando necesita setup inicial', async () => {
-    authServiceMock.bootstrapStatus.and.returnValue(of({ needsInitialSetup: true }));
+    authServiceMock.bootstrapStatus.mockReturnValue(of({ needsInitialSetup: true }));
 
     const result = await firstValueFrom(
-      TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never))
+      TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never)) as Observable<GuardResult>
     );
 
-    expect(result).toBeTrue();
+    expect(result).toBe(true);
   });
 
   it('redirige a /login cuando no necesita setup inicial', async () => {
-    authServiceMock.bootstrapStatus.and.returnValue(of({ needsInitialSetup: false }));
+    authServiceMock.bootstrapStatus.mockReturnValue(of({ needsInitialSetup: false }));
 
     const result = await firstValueFrom(
-      TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never))
+      TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never)) as Observable<GuardResult>
     );
 
     expect(router.serializeUrl(result as ReturnType<Router['createUrlTree']>)).toBe('/login');
   });
 
   it('redirige a /login cuando bootstrap-status falla', async () => {
-    authServiceMock.bootstrapStatus.and.returnValue(throwError(() => new Error('network')));
+    authServiceMock.bootstrapStatus.mockReturnValue(throwError(() => new Error('network')));
 
     const result = await firstValueFrom(
-      TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never))
+      TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never)) as Observable<GuardResult>
     );
 
     expect(router.serializeUrl(result as ReturnType<Router['createUrlTree']>)).toBe('/login');

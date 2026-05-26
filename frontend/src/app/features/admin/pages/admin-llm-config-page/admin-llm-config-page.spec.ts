@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
+import { vi } from 'vitest';
 
 import { LlmConfig, RECOMMENDED_PATIENT_BEHAVIOR_CONFIG } from '../../../../core/models/admin-llm.model';
 import { AdminLlmService } from '../../../../core/services/admin-llm.service';
@@ -22,10 +23,10 @@ describe('AdminLlmConfigPage', () => {
   };
 
   const adminLlmServiceMock = {
-    getConfig: jasmine.createSpy('getConfig').and.returnValue(of(baseConfig)),
-    updateConfig: jasmine.createSpy('updateConfig').and.returnValue(of(baseConfig)),
-    removeApiKey: jasmine.createSpy('removeApiKey').and.returnValue(of(baseConfig)),
-    testConnection: jasmine.createSpy('testConnection').and.returnValue(of({ success: true, message: 'ok' }))
+    getConfig: vi.fn().mockReturnValue(of(baseConfig)),
+    updateConfig: vi.fn().mockReturnValue(of(baseConfig)),
+    removeApiKey: vi.fn().mockReturnValue(of(baseConfig)),
+    testConnection: vi.fn().mockReturnValue(of({ success: true, message: 'ok' }))
   };
 
   beforeEach(async () => {
@@ -162,7 +163,7 @@ describe('AdminLlmConfigPage', () => {
   });
 
   it('debe mostrar mensaje de error simple al fallar test de conexión', () => {
-    adminLlmServiceMock.testConnection.and.returnValue(
+    adminLlmServiceMock.testConnection.mockReturnValue(
       of({
         success: false,
         message: 'Credenciales inválidas para el proveedor.',
@@ -181,7 +182,7 @@ describe('AdminLlmConfigPage', () => {
   });
 
   it('debe apagar loading de test cuando servicio lanza error', () => {
-    adminLlmServiceMock.testConnection.and.returnValue(throwError(() => new Error('network')));
+    adminLlmServiceMock.testConnection.mockReturnValue(throwError(() => new Error('network')));
 
     component.onTestConnection();
 
