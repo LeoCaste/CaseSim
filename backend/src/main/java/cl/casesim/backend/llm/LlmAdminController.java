@@ -7,6 +7,9 @@ import cl.casesim.backend.llm.dto.LlmUsageDailyResponse;
 import cl.casesim.backend.llm.dto.TestConnectionResponse;
 import cl.casesim.backend.llm.dto.UpdateLlmConfigRequest;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,6 +24,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/llm")
 public class LlmAdminController {
+
+    private static final Logger log = LoggerFactory.getLogger(LlmAdminController.class);
 
     private final LlmAdminService llmAdminService;
     private final LlmUsageService llmUsageService;
@@ -52,9 +57,15 @@ public class LlmAdminController {
         return llmAdminService.deleteApiKey();
     }
 
-    @PostMapping("/test-connection")
-    public TestConnectionResponse testConnection() {
-        return llmAdminService.testConnection();
+    @PostMapping(path = {"/test-connection", "/test-connection/", "/testConnection", "/testConnection/"})
+    public ResponseEntity<TestConnectionResponse> testConnection() {
+        log.debug("LLM admin test-connection endpoint called");
+        TestConnectionResponse response = llmAdminService.testConnection();
+        Integer status = response.httpStatus();
+        if (status == null || status < 100 || status > 599) {
+            status = response.success() ? 200 : 500;
+        }
+        return ResponseEntity.status(status).body(response);
     }
 
     @GetMapping("/usage")

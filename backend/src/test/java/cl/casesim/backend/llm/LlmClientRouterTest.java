@@ -90,6 +90,23 @@ class LlmClientRouterTest {
         assertEquals(0, groqClient.calls);
     }
 
+    @Test
+    void seleccionaAnthropicCuandoProviderEsAnthropic() {
+        LlmProperties properties = new LlmProperties();
+        properties.setProvider("anthropic");
+
+        RecordingClient defaultClient = new RecordingClient("openai", "default");
+        RecordingClient anthropicClient = new RecordingClient("anthropic");
+
+        LlmClientRouter router = new LlmClientRouter(properties, List.of(defaultClient, anthropicClient));
+
+        String result = router.generateChatCompletion(List.of(new LlmMessage("user", "hola")), 0.4, 100);
+
+        assertEquals("anthropic", result);
+        assertEquals(0, defaultClient.calls);
+        assertEquals(1, anthropicClient.calls);
+    }
+
     private static class RecordingClient implements LlmClient {
         private final String provider;
         private final String response;

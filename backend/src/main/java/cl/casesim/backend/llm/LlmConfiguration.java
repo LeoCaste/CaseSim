@@ -82,13 +82,23 @@ public class LlmConfiguration {
     }
 
     @Bean
+    public AnthropicLlmClient anthropicLlmClient(
+            LlmProperties llmProperties,
+            LlmProviderUrlResolver urlResolver,
+            LlmProviderErrorMapper errorMapper
+    ) {
+        return new AnthropicLlmClient(llmProperties, urlResolver, errorMapper);
+    }
+
+    @Bean
     public LlmClient llmClient(
             LlmProperties llmProperties,
             OpenAiLlmClient openAiLlmClient,
             GroqLlmClient groqLlmClient,
-            GeminiLlmClient geminiLlmClient
+            GeminiLlmClient geminiLlmClient,
+            AnthropicLlmClient anthropicLlmClient
     ) {
-        return new LlmClientRouter(llmProperties, java.util.List.of(openAiLlmClient, groqLlmClient, geminiLlmClient));
+        return new LlmClientRouter(llmProperties, java.util.List.of(openAiLlmClient, groqLlmClient, geminiLlmClient, anthropicLlmClient));
     }
 
     @Bean

@@ -105,6 +105,20 @@ class LlmProviderUrlResolverTest {
     }
 
     @Test
+    void anthropicDefaultUrl() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        String url = resolver.resolve("anthropic", null);
+        assertEquals("https://api.anthropic.com/v1/messages", url);
+    }
+
+    @Test
+    void anthropicBaseNormalizaEndpointMessages() {
+        LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
+        String base = resolver.resolveBaseUrl("anthropic", "https://api.anthropic.com/v1/messages/");
+        assertEquals("https://api.anthropic.com/v1", base);
+    }
+
+    @Test
     void geminiConfigBaseSinModelsAgregaSegmentoCorrecto() {
         LlmProviderUrlResolver resolver = new LlmProviderUrlResolver();
         String configuredBase = "https://generativelanguage.googleapis.com/v1beta";

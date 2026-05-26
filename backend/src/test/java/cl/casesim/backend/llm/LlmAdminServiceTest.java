@@ -81,7 +81,14 @@ class LlmAdminServiceTest {
         TestConnectionResponse response = service.testConnection();
 
         assertTrue(response.success());
+        assertEquals(Integer.valueOf(200), response.httpStatus());
+        assertEquals("Conexión exitosa.", response.publicMessage());
         assertEquals("Conexión exitosa.", response.message());
+        assertEquals("openai", response.provider());
+        assertEquals("gpt-4o-mini", response.model());
+        assertEquals("api.openai.com", response.resolvedBaseHost());
+        assertEquals("/v1/chat/completions", response.endpointPath());
+        assertNull(response.detail());
         verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
     }
 
@@ -140,6 +147,7 @@ class LlmAdminServiceTest {
 
         assertTrue(openRouterEntry.models().contains("openai/gpt-4.1-mini"));
         assertTrue(openRouterEntry.models().contains("google/gemini-2.5-flash-lite"));
+        assertTrue(openRouterEntry.models().contains("anthropic/claude-sonnet-4.5"));
     }
 
     @Test
@@ -152,8 +160,12 @@ class LlmAdminServiceTest {
     }
 
     @Test
-    void getAvailableModelsShouldRejectUnsupportedProviderForRealOperation() {
-        assertThrows(BadRequestException.class, () -> service.getAvailableModels("anthropic"));
+    void getAvailableModelsShouldIncludeAnthropicCatalog() {
+        List<LlmProviderModelsResponse> catalog = service.getAvailableModels("anthropic");
+
+        assertEquals(1, catalog.size());
+        assertEquals("anthropic", catalog.getFirst().provider());
+        assertTrue(catalog.getFirst().models().contains("claude-sonnet-4-5"));
     }
 
     @Test
@@ -237,10 +249,10 @@ class LlmAdminServiceTest {
     }
 
     @Test
-    void updateConfigShouldRejectAnthropicAsNotImplementedForRealOperation() {
+    void updateConfigShouldAcceptAnthropicAsRealProvider() {
         UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
                 "anthropic",
-                "claude-3-5-sonnet",
+                "claude-sonnet-4-5",
                 null,
                 true,
                 "sk-new",
@@ -255,7 +267,14 @@ class LlmAdminServiceTest {
                 null
         );
 
-        assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("anthropic", response.provider());
+        assertEquals("claude-sonnet-4-5", response.model());
+        assertEquals("https://api.anthropic.com/v1/messages", response.baseUrl());
     }
 
     @Test
@@ -312,6 +331,57 @@ class LlmAdminServiceTest {
         assertEquals("openrouter", response.provider());
         assertEquals("openai/gpt-4.1-mini", response.model());
         assertEquals("https://openrouter.ai/api/v1/chat/completions", llmProperties.getBaseUrl());
+    }
+
+    @Test
+    void updateConfigShouldNormalizeClaudeAliasForOpenRouter() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "openrouter",
+                "claude-3.5-sonnet",
+                null,
+                true,
+                "sk-or-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LlmConfigResponse response = service.updateConfig(request);
+
+        assertEquals("anthropic/claude-sonnet-4.5", response.model());
+        assertEquals("anthropic/claude-sonnet-4.5", llmProperties.getModel());
+    }
+
+    @Test
+    void updateConfigShouldRejectAnthropicModelWithOpenRouterPrefix() {
+        UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
+                "anthropic",
+                "anthropic/claude-sonnet-4.5",
+                null,
+                true,
+                "sk-ant-test",
+                "",
+                "responde corto",
+                "No tengo información asociada a eso.",
+                RevealStrategy.DIRECT,
+                8,
+                0.7,
+                400,
+                true,
+                null
+        );
+        when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> service.updateConfig(request));
+        assertTrue(ex.getMessage().contains("sin prefijo 'anthropic/'"));
     }
 
     @Test
@@ -518,6 +588,7 @@ class LlmAdminServiceTest {
         TestConnectionResponse response = service.testConnection();
 
         assertFalse(response.success());
+        assertEquals(Integer.valueOf(400), response.httpStatus());
         assertEquals("LLM deshabilitado o sin API key.", response.message());
         verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
     }
@@ -534,13 +605,77 @@ class LlmAdminServiceTest {
                 .thenThrow(new LlmClientException("403", null, new LlmProviderError(LlmErrorCategory.AUTH_ERROR, 403, "forbidden")))
                 .thenThrow(new LlmClientException("429q", null, new LlmProviderError(LlmErrorCategory.QUOTA_EXCEEDED, 429, "quota")))
                 .thenThrow(new LlmClientException("429r", null, new LlmProviderError(LlmErrorCategory.RATE_LIMIT, 429, "rate")))
+                .thenThrow(new LlmClientException("404", null, new LlmProviderError(LlmErrorCategory.MODEL_NOT_FOUND, 404, "model not found")))
+                .thenThrow(new LlmClientException("400", null, new LlmProviderError(LlmErrorCategory.INVALID_REQUEST, 400, "invalid payload")))
                 .thenThrow(new LlmClientException("500", null, new LlmProviderError(LlmErrorCategory.PROVIDER_UNAVAILABLE, 503, "down")));
 
         assertEquals("API key inválida o no autorizada (401).", service.testConnection().message());
         assertEquals("Conexión rechazada por permisos del provider (403).", service.testConnection().message());
         assertEquals("Conexión fallida: cuota del provider agotada (429).", service.testConnection().message());
         assertEquals("Conexión limitada por rate-limit del provider (429).", service.testConnection().message());
+        TestConnectionResponse modelNotFoundResponse = service.testConnection();
+        assertEquals("Modelo no disponible para el provider configurado (modelo inválido/no encontrado). Verifique el ID exacto del modelo. Detail: model not found", modelNotFoundResponse.message());
+        assertEquals(Integer.valueOf(400), modelNotFoundResponse.httpStatus());
+        assertEquals(Integer.valueOf(400), modelNotFoundResponse.statusCode());
+        assertEquals("MODEL_NOT_FOUND", modelNotFoundResponse.errorCode());
+        assertEquals("openai", modelNotFoundResponse.provider());
+        assertEquals("gpt-4o-mini", modelNotFoundResponse.model());
+        assertEquals("api.openai.com", modelNotFoundResponse.resolvedBaseHost());
+        assertEquals("Solicitud inválida al provider LLM (400). Revise provider, modelo y configuración. Detail: invalid payload", service.testConnection().message());
         assertEquals("Proveedor LLM temporalmente no disponible (5xx).", service.testConnection().message());
+    }
+
+    @Test
+    void testConnectionShouldExplainOpenRouterNoEndpointsFoundClearly() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openrouter");
+        llmProperties.setModel("anthropic/claude-sonnet-4.5");
+        llmProperties.setApiKey("sk-or-test");
+
+        when(llmClient.generate(any())).thenThrow(new LlmClientException(
+                "upstream 404",
+                null,
+                new LlmProviderError(LlmErrorCategory.MODEL_NOT_FOUND, 404, "No endpoints found for model")
+        ));
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertFalse(response.success());
+        assertEquals("OpenRouter no tiene endpoints disponibles para el modelo/provider configurado en este momento. Verifique disponibilidad en OpenRouter o cambie de modelo.", response.message());
+    }
+
+    @Test
+    void testConnectionShouldExposeSanitizedDiagnosticDetailWithoutSecrets() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openrouter");
+        llmProperties.setModel("anthropic/claude-3.5-sonnet");
+        llmProperties.setApiKey("sk-secret-123456789");
+        llmProperties.setBaseUrl("https://openrouter.ai/api/v1/chat/completions?key=abc");
+
+        when(llmClient.generate(any())).thenThrow(new LlmClientException(
+                "auth error",
+                null,
+                new LlmProviderError(
+                        LlmErrorCategory.AUTH_ERROR,
+                        401,
+                        "Authorization: Bearer sk-secret-123456789, x-api-key=sk-secret-123456789, request-id=trace_abc123"
+                )
+        ));
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertFalse(response.success());
+        assertEquals(Integer.valueOf(401), response.httpStatus());
+        assertEquals(Integer.valueOf(401), response.statusCode());
+        assertEquals("AUTH_ERROR", response.errorCode());
+        assertEquals("openrouter", response.provider());
+        assertEquals("anthropic/claude-3.5-sonnet", response.model());
+        assertEquals("openrouter.ai", response.resolvedBaseHost());
+        assertEquals("/api/v1/chat/completions", response.endpointPath());
+        assertEquals("trace_abc123", response.traceId());
+        assertNotNull(response.detail());
+        assertFalse(response.detail().contains("sk-secret-123456789"));
+        assertFalse(response.detail().toLowerCase().contains("authorization: bearer sk-secret"));
     }
 
     @Test
@@ -564,6 +699,29 @@ class LlmAdminServiceTest {
                 any(Boolean.class),
                 contains("TEST_CONNECTION|HTTP_401|AUTH_ERROR")
         );
+    }
+
+    @Test
+    void testConnectionShouldNotExposeProvider404AsBackendEndpoint404() {
+        llmProperties.setEnabled(true);
+        llmProperties.setProvider("openrouter");
+        llmProperties.setModel("anthropic/claude-3.5-sonnet");
+        llmProperties.setApiKey("sk-or-test");
+        llmProperties.setBaseUrl("https://openrouter.ai/api/v1/chat/completions");
+
+        when(llmClient.generate(any())).thenThrow(new LlmClientException(
+                "upstream 404",
+                null,
+                new LlmProviderError(LlmErrorCategory.UNKNOWN, 404, "Not Found")
+        ));
+
+        TestConnectionResponse response = service.testConnection();
+
+        assertFalse(response.success());
+        assertEquals(Integer.valueOf(502), response.httpStatus());
+        assertEquals(Integer.valueOf(502), response.statusCode());
+        assertEquals("UNKNOWN", response.errorCode());
+        assertEquals("openrouter", response.provider());
     }
 
     @Test
