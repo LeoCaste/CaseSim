@@ -319,12 +319,19 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
-    void siLlmDeshabilitadoLanzaErrorDisponibleParaFrontend() {
+    void siLlmDeshabilitadoRetornaFallbackTecnico() {
         properties.setEnabled(false);
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
 
-        LlmUnavailableException ex = assertThrows(LlmUnavailableException.class, () -> service.generateResponse(session, "hola"));
+        String response = service.generateResponse(session, "hola");
 
-        assertTrue(ex.getMessage().contains("configuración LLM incompleta"));
+        assertTrue(response.contains("Perdón, me cuesta responder"));
+
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(readBooleanField(usage, "fallbackUsed"));
+        assertTrue(readStringField(usage, "error").contains("LLM_DISABLED_OR_MISSING_API_KEY"));
     }
 
     @Test

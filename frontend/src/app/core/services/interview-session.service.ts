@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 
 import { DiagnosisReview, SessionMessage } from '../models/student-session.model';
@@ -99,7 +99,18 @@ export class InterviewSessionService {
       .post<BackendChatMessageResponse[]>(`${this.apiBaseUrl}/sessions/${resolvedSessionId}/messages`, {
         content
       })
-      .pipe(map((messages) => messages.map((message) => this.mapBackendMessage(message))));
+      .pipe(
+        map((messages) => messages.map((message) => this.mapBackendMessage(message))),
+        catchError((error: unknown) => {
+          const fallbackMessages = this.extractFallbackMessagesFromError(error);
+
+          if (fallbackMessages.length > 0) {
+            return of(fallbackMessages.map((message) => this.mapBackendMessage(message)));
+          }
+
+          return throwError(() => error);
+        })
+      );
   }
 
   submitFinalDiagnosis(
@@ -331,6 +342,47 @@ export class InterviewSessionService {
 
   private looksLikeUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  }
+
+  private extractFallbackMessagesFromError(error: unknown): BackendChatMessageResponse[] {
+    if (!(error instanceof HttpErrorResponse)) {
+      return [];
+    }
+
+    const payload = error.error as BackendChatMessageResponse[] | { messages?: unknown; fallbackMessages?: unknown } | null | undefined;
+
+    const directMessages = this.normalizeBackendMessages(payload);
+    if (directMessages.length > 0) {
+      return directMessages;
+    }
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return [];
+    }
+
+    const nestedMessages = this.normalizeBackendMessages(payload.messages);
+    if (nestedMessages.length > 0) {
+      return nestedMessages;
+    }
+
+    return this.normalizeBackendMessages(payload.fallbackMessages);
+  }
+
+  private normalizeBackendMessages(candidate: unknown): BackendChatMessageResponse[] {
+    if (!Array.isArray(candidate)) {
+      return [];
+    }
+
+    return candidate.filter((message): message is BackendChatMessageResponse => this.isBackendChatMessageResponse(message));
+  }
+
+  private isBackendChatMessageResponse(candidate: unknown): candidate is BackendChatMessageResponse {
+    if (!candidate || typeof candidate !== 'object') {
+      return false;
+    }
+
+    const message = candidate as Partial<BackendChatMessageResponse>;
+    return typeof message.role === 'string' && typeof message.content === 'string' && typeof message.createdAt === 'string';
   }
 }
 

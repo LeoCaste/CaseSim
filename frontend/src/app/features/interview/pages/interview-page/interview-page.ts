@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, DestroyRef, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -114,8 +115,8 @@ export class InterviewPage implements OnInit {
           this.scrollConversationToBottom();
           this.cdr.detectChanges();
         },
-        error: () => {
-          this.loadError = 'No fue posible enviar el mensaje. Intenta nuevamente.';
+        error: (error) => {
+          this.loadError = this.resolveSendMessageError(error);
           this.cdr.detectChanges();
         }
       });
@@ -253,6 +254,47 @@ export class InterviewPage implements OnInit {
     }
 
     return `${message.role}|${message.time}|${message.content}`;
+  }
+
+  private resolveSendMessageError(error?: unknown): string {
+    if (error instanceof HttpErrorResponse && error.status === 503) {
+      const backendMessage = this.extractBackendErrorMessage(error);
+      return (
+        backendMessage ||
+        'Paciente simulado temporalmente no disponible. Intenta nuevamente en unos minutos.'
+      );
+    }
+
+    return this.extractBackendErrorMessage(error) || 'No fue posible enviar el mensaje. Intenta nuevamente.';
+  }
+
+  private extractBackendErrorMessage(error: unknown): string | null {
+    if (!(error instanceof HttpErrorResponse)) {
+      return null;
+    }
+
+    const payload = error.error as
+      | { message?: unknown; error?: unknown; detail?: unknown }
+      | string
+      | null
+      | undefined;
+
+    if (typeof payload === 'string' && payload.trim()) {
+      return payload.trim();
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    const candidates = [payload.message, payload.error, payload.detail];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+
+    return null;
   }
 
   get patientNameDisplay(): string {
