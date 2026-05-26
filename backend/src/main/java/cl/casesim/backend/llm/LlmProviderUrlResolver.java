@@ -15,8 +15,10 @@ public class LlmProviderUrlResolver {
     private static final String OPENROUTER_DEFAULT_BASE = "https://openrouter.ai/api/v1";
     private static final String OLLAMA_DEFAULT_BASE = "http://localhost:11434/v1";
     private static final String GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+    private static final String ANTHROPIC_DEFAULT_BASE = "https://api.anthropic.com/v1";
     private static final String OPENAI_PATH = "/chat/completions";
     private static final String GROQ_PATH = "/chat/completions";
+    private static final String ANTHROPIC_PATH = "/messages";
 
     public String resolve(String provider, String configuredBaseUrl) {
         if (LlmProviderSupport.GEMINI.equals(LlmProviderSupport.normalize(provider))) {
@@ -43,6 +45,7 @@ public class LlmProviderUrlResolver {
             case LlmProviderSupport.OPENROUTER -> OPENROUTER_DEFAULT_BASE;
             case LlmProviderSupport.OLLAMA -> normalizeDefaultOpenAiCompatibleBase(configured, OLLAMA_DEFAULT_BASE);
             case LlmProviderSupport.GEMINI -> normalizeGeminiBase(configured);
+            case LlmProviderSupport.ANTHROPIC -> normalizeAnthropicBase(configured);
             default -> throw new LlmClientException("Proveedor no soportado para resolver URL: " + normalizedProvider);
         };
     }
@@ -53,8 +56,20 @@ public class LlmProviderUrlResolver {
             case LlmProviderSupport.OPENAI, LlmProviderSupport.OPENAI_COMPATIBLE -> OPENAI_PATH;
             case LlmProviderSupport.GROQ -> GROQ_PATH;
             case LlmProviderSupport.OPENROUTER, LlmProviderSupport.OLLAMA -> OPENAI_PATH;
+            case LlmProviderSupport.ANTHROPIC -> ANTHROPIC_PATH;
             default -> throw new LlmClientException("Proveedor no soportado para path de chat completions: " + normalizedProvider);
         };
+    }
+
+    String normalizeAnthropicBase(String configured) {
+        if (!StringUtils.hasText(configured)) {
+            return ANTHROPIC_DEFAULT_BASE;
+        }
+        String normalized = trimTrailingSlash(configured);
+        if (normalized.endsWith("/messages")) {
+            return normalized.substring(0, normalized.length() - "/messages".length());
+        }
+        return normalized;
     }
 
     String normalizeDefaultOpenAiCompatibleBase(String configured, String defaultBase) {

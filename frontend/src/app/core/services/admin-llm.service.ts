@@ -21,6 +21,8 @@ import { environment } from '../../../environments/environment';
 export class AdminLlmService {
   private readonly requestTimeoutMs = 8000;
   private readonly apiBaseUrl = environment.apiBaseUrl;
+  private readonly adminLlmBasePath = '/admin/llm';
+  private readonly testConnectionPaths = ['test-connection', 'testConnection'];
   private mockUsageTick = 0;
 
   private mockConfig: LlmConfig = {
@@ -134,11 +136,15 @@ export class AdminLlmService {
 
   testConnection(): Observable<LlmTestConnectionResult> {
     if (!environment.useMocks) {
-      return this.http.post<BackendTestConnectionResponse>(`${this.apiBaseUrl}/admin/llm/test-connection`, {}).pipe(
+      return this.postTestConnectionWithFallback(0).pipe(
         timeout(this.requestTimeoutMs),
         map((response) => ({
           success: response.success,
-          message: response.message?.trim() || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor')
+          message: this.resolveTestConnectionResponseMessage(response),
+          statusCode: this.resolveTestConnectionStatusCode(response),
+          errorCode: this.resolveTestConnectionErrorCode(response),
+          traceId: this.resolveTestConnectionTraceId(response),
+          retryable: this.isRetryableTestConnectionStatus(this.resolveTestConnectionStatusCode(response))
         })),
         catchError((error) =>
           of(this.buildTestConnectionErrorResult(error))
@@ -157,6 +163,50 @@ export class AdminLlmService {
       success: true,
       message: 'Conexión exitosa'
     });
+  }
+
+  private postTestConnectionWithFallback(pathIndex: number): Observable<BackendTestConnectionResponse> {
+    const endpointPath = this.testConnectionPaths[pathIndex];
+    const endpointUrl = this.buildAdminLlmUrl(endpointPath);
+    return this.http.post<BackendTestConnectionResponse>(endpointUrl, {}).pipe(
+      catchError((error: unknown) => {
+        const canRetryWithFallback = this.shouldFallbackTestConnectionRoute(error, endpointUrl);
+        const isNotFound = this.isNotFoundError(error);
+        const hasFallbackPath = pathIndex < this.testConnectionPaths.length - 1;
+        const fallbackPath = hasFallbackPath ? this.testConnectionPaths[pathIndex + 1] : null;
+        const fallbackUrl = fallbackPath ? this.buildAdminLlmUrl(fallbackPath) : null;
+        const canTryFallback = canRetryWithFallback && hasFallbackPath && fallbackUrl !== endpointUrl;
+
+        if (canTryFallback) {
+          console.warn('[AdminLlmService] testConnection 404, intentando ruta fallback.', {
+            attemptedUrl: endpointUrl,
+            fallbackUrl
+          });
+          return this.postTestConnectionWithFallback(pathIndex + 1);
+        }
+
+        if (isNotFound && canRetryWithFallback) {
+          console.error('[AdminLlmService] testConnection endpoint no encontrado.', {
+            attemptedUrl: endpointUrl,
+            fallbackUrl,
+            error
+          });
+        }
+
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private buildAdminLlmUrl(pathSuffix: string): string {
+    const normalizedBase = this.apiBaseUrl.trim().replace(/\/+$/, '');
+    const normalizedAdminPath = this.adminLlmBasePath.replace(/^\/+|\/+$/g, '');
+    const normalizedSuffix = pathSuffix.replace(/^\/+/, '');
+
+    const alreadyContainsAdminPath = new RegExp(`/${normalizedAdminPath}$`, 'i').test(normalizedBase);
+    const baseWithAdminPath = alreadyContainsAdminPath ? normalizedBase : `${normalizedBase}/${normalizedAdminPath}`;
+
+    return `${baseWithAdminPath}/${normalizedSuffix}`;
   }
 
   getUsage(filters?: LlmUsageFilters): Observable<LlmUsageDailyMetric[]> {
@@ -426,45 +476,201 @@ export class AdminLlmService {
     return maybeError?.status === 404;
   }
 
-  private resolveTestConnectionErrorMessage(error: unknown): string {
-    const maybeError = error as { status?: number; error?: { message?: string } };
-    const backendMessage = maybeError?.error?.message?.trim();
-    if (backendMessage) {
-      return this.sanitizeSensitiveText(backendMessage);
+  private shouldFallbackTestConnectionRoute(error: unknown, attemptedUrl: string): boolean {
+    if (!this.isNotFoundError(error)) {
+      return false;
     }
 
-    if (maybeError?.status === 401) {
+    const maybeError = error as { error?: unknown };
+    const errorBody = maybeError?.error;
+
+    if (!errorBody) {
+      return true;
+    }
+
+    if (typeof errorBody === 'string') {
+      return this.looksLikeEndpointNotMappedMessage(errorBody, attemptedUrl);
+    }
+
+    if (typeof errorBody !== 'object') {
+      return false;
+    }
+
+    const payload = errorBody as Backend404ErrorPayload;
+    if (this.hasBusinessErrorSignals(payload)) {
+      return false;
+    }
+
+    const endpointPath = typeof payload.path === 'string' ? payload.path.trim() : '';
+    const attemptedPath = this.extractPathWithoutQuery(attemptedUrl);
+    const status = this.resolveHttpStatusCode(payload.status, payload.httpStatus);
+    const statusText = typeof payload.error === 'string' ? payload.error.trim().toLowerCase() : '';
+    const message = this.extractBackendErrorDetail(payload as BackendErrorEnvelope)
+      || payload.message?.trim()
+      || payload.detail?.trim()
+      || '';
+
+    const matchesAttemptedPath = endpointPath.length > 0 && attemptedPath.length > 0 && endpointPath === attemptedPath;
+    const hasFrameworkNotFoundText = this.looksLikeEndpointNotMappedMessage(`${statusText} ${message}`, attemptedUrl);
+
+    return status === 404 && (matchesAttemptedPath || hasFrameworkNotFoundText);
+  }
+
+  private hasBusinessErrorSignals(payload: Backend404ErrorPayload): boolean {
+    const hasErrorCode = Boolean(payload.errorCode?.trim() || payload.code?.trim());
+    if (hasErrorCode) {
+      return true;
+    }
+
+    const detail = this.extractBackendErrorDetail(payload as BackendErrorEnvelope);
+    if (!detail) {
+      return false;
+    }
+
+    const normalized = detail.toLowerCase();
+    return !this.looksLikeEndpointNotMappedMessage(normalized, '');
+  }
+
+  private looksLikeEndpointNotMappedMessage(message: string, attemptedUrl: string): boolean {
+    const normalizedMessage = message.trim().toLowerCase();
+    if (!normalizedMessage) {
+      return false;
+    }
+
+    const attemptedPath = this.extractPathWithoutQuery(attemptedUrl).toLowerCase();
+    const endpointKeywords = [
+      'no static resource',
+      'no handler found',
+      'no resource found',
+      'endpoint',
+      'not found'
+    ];
+
+    const hasEndpointKeyword = endpointKeywords.some((keyword) => normalizedMessage.includes(keyword));
+    const mentionsAttemptedPath = attemptedPath.length > 0 && normalizedMessage.includes(attemptedPath);
+
+    return hasEndpointKeyword || mentionsAttemptedPath;
+  }
+
+  private extractPathWithoutQuery(url: string): string {
+    if (!url.trim()) {
+      return '';
+    }
+
+    try {
+      const parsed = new URL(url);
+      return parsed.pathname;
+    } catch {
+      const withoutHost = url.replace(/^https?:\/\/[^/]+/i, '');
+      return withoutHost.split('?')[0] || withoutHost;
+    }
+  }
+
+  private resolveTestConnectionErrorMessage(error: unknown): string {
+    const maybeError = error as { status?: number; error?: BackendErrorEnvelope };
+    const statusCode = this.resolveHttpStatusCode(maybeError?.status, maybeError?.error?.httpStatus);
+    const backendMessage = this.extractBackendErrorDetail(maybeError?.error);
+    if (backendMessage) {
+      if (this.isOpenRouterNoEndpointsFoundMessage(backendMessage)) {
+        return 'OpenRouter no tiene endpoint disponible para ese modelo. Prueba otro modelo Claude o revisa tu cuenta.';
+      }
+
+      return this.sanitizeSensitiveText(this.stripHttpDiagnosticPrefix(backendMessage));
+    }
+
+    if (statusCode === 401) {
       return 'Credenciales inválidas para el proveedor. Verifica API key activa y vuelve a intentar.';
     }
 
-    if (maybeError?.status === 403) {
+    if (statusCode === 403) {
       return 'Acceso denegado por el proveedor. Revisa permisos de la API key o restricciones de proyecto.';
     }
 
-    if (maybeError?.status === 429) {
+    if (statusCode === 429) {
       return 'Límite de tasa o cuota alcanzado en el proveedor. Espera unos minutos o ajusta tu plan/cuota.';
     }
 
-    if (typeof maybeError?.status === 'number' && maybeError.status >= 500) {
+    if (statusCode === 404) {
+      return 'No se encontró el endpoint de test de conexión en backend. Verifica apiBaseUrl y la ruta /api/v1/admin/llm/test-connection.';
+    }
+
+    if (typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500) {
+      return 'La configuración enviada no fue aceptada por el backend/proveedor. Revisa provider, modelo y credenciales.';
+    }
+
+    if (typeof statusCode === 'number' && statusCode >= 500) {
       return 'El proveedor presenta un error temporal del servidor. Intenta nuevamente en breve.';
     }
 
     return this.sanitizeSensitiveText(this.resolveErrorMessage(error, 'No se pudo conectar con el proveedor'));
   }
 
+  private resolveTestConnectionResponseMessage(response: BackendTestConnectionResponse): string {
+    const candidateMessage =
+      response.publicMessage?.trim()
+      || response.message?.trim()
+      || response.detail?.trim()
+      || response.error?.message?.trim()
+      || response.error?.detail?.trim()
+      || response.error?.publicMessage?.trim()
+      || response.providerMessage?.trim()
+      || '';
+
+    const fallback = response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor';
+    const resolvedMessage = candidateMessage || fallback;
+
+    if (this.isOpenRouterNoEndpointsFoundMessage(resolvedMessage)) {
+      return 'OpenRouter no tiene endpoint disponible para ese modelo. Prueba otro modelo Claude o revisa tu cuenta.';
+    }
+
+    return this.sanitizeSensitiveText(this.stripHttpDiagnosticPrefix(resolvedMessage));
+  }
+
+  private isOpenRouterNoEndpointsFoundMessage(message: string): boolean {
+    return /no\s+endpoints\s+found/i.test(message);
+  }
+
+  private extractBackendErrorDetail(error: BackendErrorEnvelope | undefined): string {
+    if (!error) {
+      return '';
+    }
+
+    return (
+      error.publicMessage?.trim()
+      || error.message?.trim()
+      || error.errorMessage?.trim()
+      || error.backendMessage?.trim()
+      || error.detail?.trim()
+      || error.providerMessage?.trim()
+      || error.error?.trim()
+      || ''
+    );
+  }
+
   private buildTestConnectionErrorResult(error: unknown): LlmTestConnectionResult {
     const maybeError = error as {
       status?: number;
-      error?: { code?: string; errorCode?: string; traceId?: string; requestId?: string; correlationId?: string };
+      error?: {
+        code?: string;
+        errorCode?: string;
+        traceId?: string;
+        requestId?: string;
+        correlationId?: string;
+        requestTraceId?: string;
+        trace?: string;
+        httpStatus?: number | string;
+      };
       headers?: { get(name: string): string | null };
     };
 
-    const statusCode = typeof maybeError?.status === 'number' ? maybeError.status : undefined;
-    const errorCode = maybeError?.error?.errorCode?.trim() || maybeError?.error?.code?.trim() || undefined;
+    const statusCode = this.resolveHttpStatusCode(maybeError?.status, maybeError?.error?.httpStatus);
+    const errorCode = this.resolveErrorCode(maybeError?.error);
     const traceId =
       maybeError?.error?.traceId?.trim()
       || maybeError?.error?.requestId?.trim()
       || maybeError?.error?.correlationId?.trim()
+      || maybeError?.error?.requestTraceId?.trim()
+      || maybeError?.error?.trace?.trim()
       || maybeError?.headers?.get?.('x-trace-id')?.trim()
       || maybeError?.headers?.get?.('x-request-id')?.trim()
       || maybeError?.headers?.get?.('x-correlation-id')?.trim()
@@ -488,6 +694,48 @@ export class AdminLlmService {
     return statusCode === 429 || statusCode >= 500;
   }
 
+  private resolveTestConnectionStatusCode(response: BackendTestConnectionResponse): number | undefined {
+    return this.resolveHttpStatusCode(response.statusCode, response.httpStatus);
+  }
+
+  private resolveTestConnectionErrorCode(response: BackendTestConnectionResponse): string | undefined {
+    return this.resolveErrorCode(response.error) || response.errorCode?.trim() || response.code?.trim() || undefined;
+  }
+
+  private resolveTestConnectionTraceId(response: BackendTestConnectionResponse): string | undefined {
+    return (
+      response.traceId?.trim()
+      || response.requestId?.trim()
+      || response.correlationId?.trim()
+      || response.error?.traceId?.trim()
+      || response.error?.requestId?.trim()
+      || response.error?.correlationId?.trim()
+      || response.error?.requestTraceId?.trim()
+      || undefined
+    );
+  }
+
+  private resolveHttpStatusCode(statusCode?: number, httpStatus?: number | string): number | undefined {
+    if (typeof statusCode === 'number' && Number.isFinite(statusCode)) {
+      return statusCode;
+    }
+
+    if (typeof httpStatus === 'number' && Number.isFinite(httpStatus)) {
+      return httpStatus;
+    }
+
+    if (typeof httpStatus === 'string') {
+      const parsedStatus = Number.parseInt(httpStatus, 10);
+      return Number.isFinite(parsedStatus) ? parsedStatus : undefined;
+    }
+
+    return undefined;
+  }
+
+  private resolveErrorCode(error?: BackendErrorEnvelope): string | undefined {
+    return error?.errorCode?.trim() || error?.code?.trim() || undefined;
+  }
+
   private sanitizeSensitiveText(message: string): string {
     if (!message.trim()) {
       return message;
@@ -497,6 +745,20 @@ export class AdminLlmService {
       .replace(/sk-[A-Za-z0-9_-]{10,}/g, '***')
       .replace(/AIza[0-9A-Za-z\-_]{20,}/g, '***')
       .replace(/(api[_-]?key|token|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=***');
+  }
+
+  private stripHttpDiagnosticPrefix(message: string): string {
+    if (!message.trim()) {
+      return message;
+    }
+
+    const normalizedMessage = message
+      .replace(/^\s*(?:HTTP\s*)?\d{3}\s*[:\-–]\s*/i, '')
+      .replace(/^\s*[245]xx\s*[:\-–]\s*/i, '')
+      .replace(/^\s*\d{3}\s*\([^)]+\)\s*[:\-–]\s*/i, '')
+      .trim();
+
+    return normalizedMessage || message.trim();
   }
 
   private buildDefaultConfig(): LlmConfig {
@@ -550,7 +812,36 @@ interface BackendUpdateLlmConfigRequest {
 
 interface BackendTestConnectionResponse {
   success: boolean;
-  message: string;
+  statusCode?: number;
+  httpStatus?: number | string;
+  errorCode?: string;
+  code?: string;
+  publicMessage?: string;
+  message?: string;
+  detail?: string;
+  providerMessage?: string;
+  traceId?: string;
+  requestId?: string;
+  correlationId?: string;
+  error?: BackendErrorEnvelope;
+}
+
+interface BackendErrorEnvelope {
+  publicMessage?: string;
+  message?: string;
+  errorMessage?: string;
+  backendMessage?: string;
+  detail?: string;
+  providerMessage?: string;
+  error?: string;
+  code?: string;
+  errorCode?: string;
+  httpStatus?: number | string;
+  traceId?: string;
+  requestId?: string;
+  correlationId?: string;
+  requestTraceId?: string;
+  trace?: string;
 }
 
 interface BackendLlmUsageDailyResponse {
@@ -564,6 +855,11 @@ interface BackendLlmUsageDailyResponse {
   status?: string;
   tokenEstimated?: boolean;
   tokenSource?: string;
+}
+
+interface Backend404ErrorPayload extends BackendErrorEnvelope {
+  status?: number;
+  path?: string;
 }
 
 interface BackendLlmSummaryResponse {

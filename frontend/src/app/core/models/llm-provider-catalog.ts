@@ -29,8 +29,18 @@ export const LLM_PROVIDER_CATALOG: Record<LlmProvider, LlmProviderDefinition> = 
   anthropic: {
     label: 'Anthropic',
     defaultBaseUrl: 'https://api.anthropic.com/v1',
-    suggestedModels: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'],
-    knownModels: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'],
+    suggestedModels: [
+      'claude-3-5-haiku-latest',
+      'claude-3-5-sonnet-latest',
+      'claude-3-7-sonnet-latest',
+      'claude-sonnet-4-20250514'
+    ],
+    knownModels: [
+      'claude-3-5-haiku-latest',
+      'claude-3-5-sonnet-latest',
+      'claude-3-7-sonnet-latest',
+      'claude-sonnet-4-20250514'
+    ],
     defaultModel: 'claude-3-5-haiku-latest',
     requiresApiKey: true
   },
@@ -57,12 +67,16 @@ export const LLM_PROVIDER_CATALOG: Record<LlmProvider, LlmProviderDefinition> = 
       'openai/gpt-4.1-mini',
       'google/gemini-2.0-flash-001',
       'anthropic/claude-3.5-sonnet',
+      'anthropic/claude-3.7-sonnet',
+      'anthropic/claude-sonnet-4',
       'meta-llama/llama-3.1-8b-instruct'
     ],
     knownModels: [
       'openai/gpt-4.1-mini',
       'google/gemini-2.0-flash-001',
       'anthropic/claude-3.5-sonnet',
+      'anthropic/claude-3.7-sonnet',
+      'anthropic/claude-sonnet-4',
       'meta-llama/llama-3.1-8b-instruct'
     ],
     defaultModel: 'openai/gpt-4.1-mini',

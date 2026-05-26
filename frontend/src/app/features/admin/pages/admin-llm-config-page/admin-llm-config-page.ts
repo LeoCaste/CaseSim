@@ -47,10 +47,6 @@ export class AdminLlmConfigPage implements OnInit {
   saveError = '';
   testFeedback = '';
   testFeedbackStatus: 'success' | 'error' | null = null;
-  testFeedbackStatusCode: number | null = null;
-  testFeedbackErrorCode = '';
-  testFeedbackTraceId = '';
-  testFeedbackRetryable = false;
   readonly providers: LlmProvider[] = ADMIN_LLM_ACTIVE_PROVIDERS;
   readonly revealStrategies: PatientRevealStrategy[] = ['PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'];
   readonly basePromptMaxLength = 4000;
@@ -159,10 +155,14 @@ export class AdminLlmConfigPage implements OnInit {
 
     this.testFeedback = '';
     this.testFeedbackStatus = null;
-    this.testFeedbackStatusCode = null;
-    this.testFeedbackErrorCode = '';
-    this.testFeedbackTraceId = '';
-    this.testFeedbackRetryable = false;
+
+    const providerModelValidationError = this.validateProviderModelPair(this.form.provider, this.form.model);
+    if (providerModelValidationError) {
+      this.testFeedback = providerModelValidationError;
+      this.testFeedbackStatus = 'error';
+      return;
+    }
+
     this.isTestingConnection = true;
     this.triggerViewUpdate();
 
@@ -183,10 +183,6 @@ export class AdminLlmConfigPage implements OnInit {
         error: () => {
           this.testFeedback = 'No se pudo conectar con el proveedor';
           this.testFeedbackStatus = 'error';
-          this.testFeedbackStatusCode = null;
-          this.testFeedbackErrorCode = '';
-          this.testFeedbackTraceId = '';
-          this.testFeedbackRetryable = false;
           this.triggerViewUpdate();
         }
       });
@@ -326,10 +322,6 @@ export class AdminLlmConfigPage implements OnInit {
     return Boolean(this.config?.maskedApiKey?.trim());
   }
 
-  get hasTestFeedbackTraceability(): boolean {
-    return !!this.testFeedbackStatusCode || !!this.testFeedbackErrorCode || !!this.testFeedbackTraceId;
-  }
-
   private loadConfig(): void {
     this.isLoading = true;
     this.loadError = '';
@@ -337,10 +329,6 @@ export class AdminLlmConfigPage implements OnInit {
     this.saveError = '';
     this.testFeedback = '';
     this.testFeedbackStatus = null;
-    this.testFeedbackStatusCode = null;
-    this.testFeedbackErrorCode = '';
-    this.testFeedbackTraceId = '';
-    this.testFeedbackRetryable = false;
     this.triggerViewUpdate();
 
     this.adminLlmService
@@ -388,6 +376,10 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private normalizeProvider(provider: string): LlmProvider {
+    if (provider === 'anthropic') {
+      return 'anthropic';
+    }
+
     if (provider === 'openrouter') {
       return 'openrouter';
     }
@@ -398,6 +390,10 @@ export class AdminLlmConfigPage implements OnInit {
 
     if (provider === 'groq') {
       return 'groq';
+    }
+
+    if (provider === 'openai-compatible') {
+      return 'openai-compatible';
     }
 
     return 'openai';
@@ -434,6 +430,7 @@ export class AdminLlmConfigPage implements OnInit {
   }
 
   private buildSanitizedPayload(form: UpdateLlmConfigPayload): UpdateLlmConfigPayload {
+    const normalizedProvider = this.normalizeProvider(form.provider);
     const behavior = this.clonePatientBehavior(form.patientBehavior);
     behavior.basePrompt = behavior.basePrompt?.trim() ?? '';
     behavior.additionalRules = behavior.additionalRules?.trim() ?? '';
@@ -443,9 +440,9 @@ export class AdminLlmConfigPage implements OnInit {
     behavior.maxHistoryMessages = Number(behavior.maxHistoryMessages);
 
     return {
-      provider: this.normalizeProvider(form.provider),
+      provider: normalizedProvider,
       model: form.model?.trim(),
-      baseUrl: form.baseUrl?.trim(),
+      baseUrl: this.resolveBaseUrl(form.baseUrl, normalizedProvider),
       enabled: form.enabled,
       apiKey: form.apiKey,
       patientBehavior: behavior
@@ -489,6 +486,11 @@ export class AdminLlmConfigPage implements OnInit {
       return 'Modelo inválido. Usa un identificador sin espacios (ej: gpt-4.1-mini).';
     }
 
+    const providerModelValidationError = this.validateProviderModelPair(provider, model);
+    if (providerModelValidationError) {
+      return providerModelValidationError;
+    }
+
     if (validModels.length > 0 && !validModels.includes(model as LlmModel)) {
       return `Modelo no permitido para ${this.getProviderLabel(provider)}. Selecciona un modelo sugerido.`;
     }
@@ -509,6 +511,17 @@ export class AdminLlmConfigPage implements OnInit {
     return [...(this.suggestedModelsByProvider[provider] ?? [])];
   }
 
+  private validateProviderModelPair(providerInput: string, modelInput: string): string | null {
+    const provider = this.normalizeProvider(providerInput);
+    const model = modelInput?.trim() ?? '';
+
+    if (provider === 'anthropic' && model.includes('/')) {
+      return 'Este modelo parece ser de OpenRouter. Para Anthropic directo usa un modelo sin prefijo.';
+    }
+
+    return null;
+  }
+
   private clonePatientBehavior(source: PatientBehaviorConfig): PatientBehaviorConfig {
     return {
       basePrompt: source?.basePrompt ?? RECOMMENDED_PATIENT_BEHAVIOR_CONFIG.basePrompt,
@@ -525,9 +538,5 @@ export class AdminLlmConfigPage implements OnInit {
   private applyTestConnectionFeedback(response: LlmTestConnectionResult): void {
     this.testFeedback = response.message || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor');
     this.testFeedbackStatus = response.success ? 'success' : 'error';
-    this.testFeedbackStatusCode = response.statusCode ?? null;
-    this.testFeedbackErrorCode = response.errorCode?.trim() ?? '';
-    this.testFeedbackTraceId = response.traceId?.trim() ?? '';
-    this.testFeedbackRetryable = !!response.retryable;
   }
 }

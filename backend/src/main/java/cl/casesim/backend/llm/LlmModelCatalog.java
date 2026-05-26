@@ -22,6 +22,11 @@ public final class LlmModelCatalog {
                 "gpt-4o-mini",
                 "gpt-4.1"
         ));
+        models.put(LlmProviderSupport.ANTHROPIC, List.of(
+                "claude-sonnet-4-5",
+                "claude-sonnet-4",
+                "claude-3-5-haiku-20241022"
+        ));
         models.put(LlmProviderSupport.GROQ, List.of(
                 "llama-3.1-8b-instant",
                 "llama-3.3-70b-versatile",
@@ -33,6 +38,9 @@ public final class LlmModelCatalog {
                 "gemini-1.5-pro"
         ));
         models.put(LlmProviderSupport.OPENROUTER, List.of(
+                "anthropic/claude-sonnet-4.5",
+                "anthropic/claude-sonnet-4",
+                "anthropic/claude-3.5-haiku-20241022",
                 "openai/gpt-4.1-mini",
                 "openai/gpt-4o-mini",
                 "google/gemini-2.5-flash-lite",

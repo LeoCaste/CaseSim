@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class OpenAiLlmClient implements LlmClient {
@@ -102,7 +103,7 @@ public class OpenAiLlmClient implements LlmClient {
                 }
                 if (ex instanceof RestClientResponseException responseException) {
                     LlmProviderError providerError = errorMapper.map(responseException.getStatusCode().value(), responseException.getResponseBodyAsString());
-                    String message = buildHttpErrorMessage(responseException, finalPath);
+                    String message = buildHttpErrorMessage(provider, responseException, finalPath);
                     if (attempt == attempts) {
                         throw new cl.casesim.backend.llm.LlmClientException(message, ex, providerError);
                     }
@@ -141,18 +142,10 @@ public class OpenAiLlmClient implements LlmClient {
                         .contentType(MediaType.APPLICATION_JSON);
                 applyOpenRouterOptionalHeaders(requestSpec);
                 yield requestSpec
-                        .body(buildOpenAiCompatiblePayload(messages, temperature, maxTokens))
+                        .body(buildOpenRouterPayload(messages, temperature, maxTokens))
                         .retrieve()
                         .body(Map.class);
             }
-            case LlmProviderSupport.ANTHROPIC -> restClient.post()
-                    .uri(resolveAnthropicUrl())
-                    .header("x-api-key", llmProperties.getApiKey().trim())
-                    .header("anthropic-version", "2023-06-01")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(buildAnthropicPayload(messages, temperature, maxTokens))
-                    .retrieve()
-                    .body(Map.class);
             default -> throw new cl.casesim.backend.llm.LlmClientException("Proveedor no implementado: " + provider);
         };
     }
@@ -175,6 +168,30 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
+    Map<String, Object> buildOpenRouterPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
+        double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
+        int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
+        String resolvedModel = OpenRouterModelNormalizer.normalize(llmProperties.getModel());
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("model", resolvedModel);
+        payload.put("messages", messages);
+        payload.put("temperature", resolvedTemperature);
+        payload.put("max_tokens", resolvedMaxTokens);
+        if (isOpenRouterClaudeModel(resolvedModel)) {
+            // Compatibilidad observada: algunos modelos Claude en OpenRouter esperan max_completion_tokens.
+            payload.put("max_completion_tokens", resolvedMaxTokens);
+        }
+        return payload;
+    }
+
+    private boolean isOpenRouterClaudeModel(String model) {
+        if (!StringUtils.hasText(model)) {
+            return false;
+        }
+        String normalizedModel = model.trim().toLowerCase();
+        return normalizedModel.startsWith("anthropic/claude-") || normalizedModel.startsWith("claude-");
+    }
+
     private Map<String, Object> buildOpenAiResponsesPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
         double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
         int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
@@ -191,37 +208,9 @@ public class OpenAiLlmClient implements LlmClient {
         );
     }
 
-    private Map<String, Object> buildAnthropicPayload(List<LlmMessage> messages, Double temperature, Integer maxTokens) {
-        double resolvedTemperature = temperature == null ? llmProperties.getTemperature() : temperature;
-        int resolvedMaxTokens = maxTokens == null ? llmProperties.getMaxTokens() : maxTokens;
-        return Map.of(
-                "model", llmProperties.getModel(),
-                "messages", messages.stream()
-                        .filter(message -> "user".equalsIgnoreCase(message.role()) || "assistant".equalsIgnoreCase(message.role()))
-                        .map(message -> Map.of("role", message.role().toLowerCase(), "content", message.content()))
-                        .toList(),
-                "system", buildSystemPrompt(messages),
-                "temperature", resolvedTemperature,
-                "max_tokens", resolvedMaxTokens
-        );
-    }
-
-    private String buildSystemPrompt(List<LlmMessage> messages) {
-        return messages.stream()
-                .filter(message -> "system".equalsIgnoreCase(message.role()))
-                .map(LlmMessage::content)
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .reduce((left, right) -> left + "\n\n" + right)
-                .orElse("");
-    }
-
     @SuppressWarnings("unchecked")
     private String extractContent(String provider, Map<String, Object> response) {
-        return switch (provider) {
-            case LlmProviderSupport.ANTHROPIC -> extractAnthropicContent(response);
-            default -> extractOpenAiCompatibleContent(response);
-        };
+        return extractOpenAiCompatibleContent(response);
     }
 
     @SuppressWarnings("unchecked")
@@ -350,35 +339,6 @@ public class OpenAiLlmClient implements LlmClient {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
-    private String extractAnthropicContent(Map<String, Object> response) {
-        if (response == null) {
-            return "";
-        }
-        Object contentObj = response.get("content");
-        if (!(contentObj instanceof List<?> contentItems) || contentItems.isEmpty()) {
-            return "";
-        }
-        Object first = contentItems.getFirst();
-        if (!(first instanceof Map<?, ?> firstMap)) {
-            return "";
-        }
-        Object text = firstMap.get("text");
-        if (text instanceof String contentText && StringUtils.hasText(contentText)) {
-            return contentText.trim();
-        }
-        return contentItems.stream()
-                .filter(Map.class::isInstance)
-                .map(Map.class::cast)
-                .map(item -> item.get("text"))
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .reduce((left, right) -> left + "\n" + right)
-                .orElse("");
-    }
-
     private String resolveOpenAiCompatibleUrl(String provider) {
         return urlResolver.resolve(provider, llmProperties.getBaseUrl());
     }
@@ -394,10 +354,6 @@ public class OpenAiLlmClient implements LlmClient {
         return finalPath.contains("/responses") ? "responses" : "chat_completions";
     }
 
-    private String resolveAnthropicUrl() {
-        return urlResolver.resolve(LlmProviderSupport.ANTHROPIC, llmProperties.getBaseUrl());
-    }
-
     private void applyOpenRouterOptionalHeaders(RestClient.RequestBodySpec requestSpec) {
         String referer = llmProperties.getOpenrouterHttpReferer();
         if (StringUtils.hasText(referer)) {
@@ -409,10 +365,17 @@ public class OpenAiLlmClient implements LlmClient {
         }
     }
 
-    private String buildHttpErrorMessage(RestClientResponseException responseException, String requestPath) {
+    private String buildHttpErrorMessage(String provider, RestClientResponseException responseException, String requestPath) {
         int status = responseException.getStatusCode().value();
         String body = responseException.getResponseBodyAsString();
         String bodyLower = body == null ? "" : body.toLowerCase();
+
+        if (LlmProviderSupport.OPENROUTER.equals(provider)
+                && bodyLower.contains("no endpoints found")) {
+            return "OpenRouter no tiene endpoints disponibles para el modelo/provider configurado en este momento. "
+                    + "Verifique disponibilidad/routing en OpenRouter o cambie de modelo."
+                    + (StringUtils.hasText(sanitizeProviderBody(body)) ? " detail=" + sanitizeProviderBody(body) : "");
+        }
 
         String category;
         if (status == 400 && bodyLower.contains("model") && (bodyLower.contains("invalid") || bodyLower.contains("does not exist") || bodyLower.contains("not found"))) {

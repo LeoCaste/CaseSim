@@ -6,6 +6,8 @@ export type LlmModel =
   | 'gpt-4.1'
   | 'claude-3-5-haiku-latest'
   | 'claude-3-5-sonnet-latest'
+  | 'claude-3-7-sonnet-latest'
+  | 'claude-sonnet-4-20250514'
   | 'gemini-1.5-flash'
   | 'gemini-1.5-pro'
   | 'gemini-2.5-flash-lite'
@@ -16,6 +18,8 @@ export type LlmModel =
   | 'openai/gpt-4.1-mini'
   | 'google/gemini-2.0-flash-001'
   | 'anthropic/claude-3.5-sonnet'
+  | 'anthropic/claude-3.7-sonnet'
+  | 'anthropic/claude-sonnet-4'
   | 'meta-llama/llama-3.1-8b-instruct';
 
 export type PatientRevealStrategy = 'PROGRESSIVE' | 'DIRECT' | 'RESTRICTIVE';
