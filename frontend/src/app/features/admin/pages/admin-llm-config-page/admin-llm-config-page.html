@@ -198,12 +198,6 @@
       {{ testFeedback }}
     </p>
 
-    <section *ngIf="hasTestFeedbackTraceability" class="admin-llm-config__field-note" aria-live="polite">
-      <p *ngIf="testFeedbackStatusCode"><strong>HTTP:</strong> {{ testFeedbackStatusCode }}</p>
-      <p *ngIf="testFeedbackErrorCode"><strong>Código:</strong> {{ testFeedbackErrorCode }}</p>
-      <p *ngIf="testFeedbackTraceId"><strong>Trace ID:</strong> {{ testFeedbackTraceId }}</p>
-      <p *ngIf="testFeedbackRetryable">Puedes reintentar cuando se normalice la cuota o disponibilidad del proveedor.</p>
-    </section>
   </section>
 
   <p *ngIf="isLoading" class="admin-llm-config__loading">Cargando configuración...</p>

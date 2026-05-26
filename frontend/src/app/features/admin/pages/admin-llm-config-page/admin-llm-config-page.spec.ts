@@ -163,7 +163,7 @@ describe('AdminLlmConfigPage', () => {
     expect(component.saveError).toBe('Debes ingresar una API key para este proveedor.');
   });
 
-  it('debe mostrar trazabilidad de error al fallar test de conexión', () => {
+  it('debe mostrar mensaje de error simple al fallar test de conexión', () => {
     adminLlmServiceMock.testConnection.and.returnValue(
       of({
         success: false,
@@ -179,9 +179,6 @@ describe('AdminLlmConfigPage', () => {
 
     expect(component.testFeedbackStatus).toBe('error');
     expect(component.testFeedback).toContain('Credenciales inválidas');
-    expect(component.testFeedbackStatusCode).toBe(401);
-    expect(component.testFeedbackErrorCode).toBe('AUTH_INVALID');
-    expect(component.testFeedbackTraceId).toBe('trace-123');
     expect(component.isTestingConnection).toBeFalsy();
   });
 

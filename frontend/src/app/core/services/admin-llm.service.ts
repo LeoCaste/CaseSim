@@ -575,7 +575,7 @@ export class AdminLlmService {
         return 'OpenRouter no tiene endpoint disponible para ese modelo. Prueba otro modelo Claude o revisa tu cuenta.';
       }
 
-      return this.sanitizeSensitiveText(backendMessage);
+      return this.sanitizeSensitiveText(this.stripHttpDiagnosticPrefix(backendMessage));
     }
 
     if (statusCode === 401) {
@@ -623,7 +623,7 @@ export class AdminLlmService {
       return 'OpenRouter no tiene endpoint disponible para ese modelo. Prueba otro modelo Claude o revisa tu cuenta.';
     }
 
-    return this.sanitizeSensitiveText(resolvedMessage);
+    return this.sanitizeSensitiveText(this.stripHttpDiagnosticPrefix(resolvedMessage));
   }
 
   private isOpenRouterNoEndpointsFoundMessage(message: string): boolean {
@@ -745,6 +745,20 @@ export class AdminLlmService {
       .replace(/sk-[A-Za-z0-9_-]{10,}/g, '***')
       .replace(/AIza[0-9A-Za-z\-_]{20,}/g, '***')
       .replace(/(api[_-]?key|token|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=***');
+  }
+
+  private stripHttpDiagnosticPrefix(message: string): string {
+    if (!message.trim()) {
+      return message;
+    }
+
+    const normalizedMessage = message
+      .replace(/^\s*(?:HTTP\s*)?\d{3}\s*[:\-–]\s*/i, '')
+      .replace(/^\s*[245]xx\s*[:\-–]\s*/i, '')
+      .replace(/^\s*\d{3}\s*\([^)]+\)\s*[:\-–]\s*/i, '')
+      .trim();
+
+    return normalizedMessage || message.trim();
   }
 
   private buildDefaultConfig(): LlmConfig {

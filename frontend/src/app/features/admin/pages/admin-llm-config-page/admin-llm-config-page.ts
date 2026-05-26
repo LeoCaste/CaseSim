@@ -47,10 +47,6 @@ export class AdminLlmConfigPage implements OnInit {
   saveError = '';
   testFeedback = '';
   testFeedbackStatus: 'success' | 'error' | null = null;
-  testFeedbackStatusCode: number | null = null;
-  testFeedbackErrorCode = '';
-  testFeedbackTraceId = '';
-  testFeedbackRetryable = false;
   readonly providers: LlmProvider[] = ADMIN_LLM_ACTIVE_PROVIDERS;
   readonly revealStrategies: PatientRevealStrategy[] = ['PROGRESSIVE', 'DIRECT', 'RESTRICTIVE'];
   readonly basePromptMaxLength = 4000;
@@ -159,10 +155,6 @@ export class AdminLlmConfigPage implements OnInit {
 
     this.testFeedback = '';
     this.testFeedbackStatus = null;
-    this.testFeedbackStatusCode = null;
-    this.testFeedbackErrorCode = '';
-    this.testFeedbackTraceId = '';
-    this.testFeedbackRetryable = false;
 
     const providerModelValidationError = this.validateProviderModelPair(this.form.provider, this.form.model);
     if (providerModelValidationError) {
@@ -191,10 +183,6 @@ export class AdminLlmConfigPage implements OnInit {
         error: () => {
           this.testFeedback = 'No se pudo conectar con el proveedor';
           this.testFeedbackStatus = 'error';
-          this.testFeedbackStatusCode = null;
-          this.testFeedbackErrorCode = '';
-          this.testFeedbackTraceId = '';
-          this.testFeedbackRetryable = false;
           this.triggerViewUpdate();
         }
       });
@@ -334,10 +322,6 @@ export class AdminLlmConfigPage implements OnInit {
     return Boolean(this.config?.maskedApiKey?.trim());
   }
 
-  get hasTestFeedbackTraceability(): boolean {
-    return !!this.testFeedbackStatusCode || !!this.testFeedbackErrorCode || !!this.testFeedbackTraceId;
-  }
-
   private loadConfig(): void {
     this.isLoading = true;
     this.loadError = '';
@@ -345,10 +329,6 @@ export class AdminLlmConfigPage implements OnInit {
     this.saveError = '';
     this.testFeedback = '';
     this.testFeedbackStatus = null;
-    this.testFeedbackStatusCode = null;
-    this.testFeedbackErrorCode = '';
-    this.testFeedbackTraceId = '';
-    this.testFeedbackRetryable = false;
     this.triggerViewUpdate();
 
     this.adminLlmService
@@ -558,9 +538,5 @@ export class AdminLlmConfigPage implements OnInit {
   private applyTestConnectionFeedback(response: LlmTestConnectionResult): void {
     this.testFeedback = response.message || (response.success ? 'Conexión exitosa' : 'No se pudo conectar con el proveedor');
     this.testFeedbackStatus = response.success ? 'success' : 'error';
-    this.testFeedbackStatusCode = response.statusCode ?? null;
-    this.testFeedbackErrorCode = response.errorCode?.trim() ?? '';
-    this.testFeedbackTraceId = response.traceId?.trim() ?? '';
-    this.testFeedbackRetryable = !!response.retryable;
   }
 }
