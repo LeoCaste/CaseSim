@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { LlmConfig, RECOMMENDED_PATIENT_BEHAVIOR_CONFIG } from '../../../../core/models/admin-llm.model';
 import { AdminLlmService } from '../../../../core/services/admin-llm.service';
@@ -93,8 +93,23 @@ describe('AdminLlmConfigPage', () => {
       'openai/gpt-4.1-mini',
       'google/gemini-2.0-flash-001',
       'anthropic/claude-3.5-sonnet',
+      'anthropic/claude-3.7-sonnet',
+      'anthropic/claude-sonnet-4',
       'meta-llama/llama-3.1-8b-instruct'
     ]);
+  });
+
+  it('debe bloquear test de conexión para Anthropic directo con modelo prefijado', () => {
+    component.form.provider = 'anthropic';
+    component.form.model = 'anthropic/claude-3.7-sonnet';
+
+    component.onTestConnection();
+
+    expect(component.testFeedbackStatus).toBe('error');
+    expect(component.testFeedback).toBe(
+      'Este modelo parece ser de OpenRouter. Para Anthropic directo usa un modelo sin prefijo.'
+    );
+    expect(adminLlmServiceMock.testConnection).not.toHaveBeenCalled();
   });
 
   it('no debe permitir guardar cuando modelo no está en catálogo conocido', () => {
@@ -146,5 +161,37 @@ describe('AdminLlmConfigPage', () => {
     component.onSave();
 
     expect(component.saveError).toBe('Debes ingresar una API key para este proveedor.');
+  });
+
+  it('debe mostrar trazabilidad de error al fallar test de conexión', () => {
+    adminLlmServiceMock.testConnection.and.returnValue(
+      of({
+        success: false,
+        message: 'Credenciales inválidas para el proveedor.',
+        statusCode: 401,
+        errorCode: 'AUTH_INVALID',
+        traceId: 'trace-123',
+        retryable: false
+      })
+    );
+
+    component.onTestConnection();
+
+    expect(component.testFeedbackStatus).toBe('error');
+    expect(component.testFeedback).toContain('Credenciales inválidas');
+    expect(component.testFeedbackStatusCode).toBe(401);
+    expect(component.testFeedbackErrorCode).toBe('AUTH_INVALID');
+    expect(component.testFeedbackTraceId).toBe('trace-123');
+    expect(component.isTestingConnection).toBeFalsy();
+  });
+
+  it('debe apagar loading de test cuando servicio lanza error', () => {
+    adminLlmServiceMock.testConnection.and.returnValue(throwError(() => new Error('network')));
+
+    component.onTestConnection();
+
+    expect(component.testFeedbackStatus).toBe('error');
+    expect(component.testFeedback).toBe('No se pudo conectar con el proveedor');
+    expect(component.isTestingConnection).toBeFalsy();
   });
 });
