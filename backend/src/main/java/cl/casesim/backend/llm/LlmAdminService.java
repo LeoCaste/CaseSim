@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -33,6 +34,10 @@ public class LlmAdminService {
     private static final int MAX_DIAGNOSTIC_DETAIL_LENGTH = 240;
     private static final Pattern GENERIC_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:-]{1,119}$");
     private static final Pattern OPENROUTER_MODEL_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:/-]{1,119}$");
+    private static final Set<String> OPENROUTER_BLOCKED_MODELS = Set.of(
+            "anthropic/claude-3.5-sonnet",
+            "anthropic/claude-3.7-sonnet"
+    );
     private static final Pattern TRACE_ID_PATTERN = Pattern.compile("(?i)(trace[_-]?id|request[_-]?id|x-request-id)\\s*[:=]\\s*([A-Za-z0-9._:-]{6,128})");
 
     private final LlmConfigRepository llmConfigRepository;
@@ -680,6 +685,11 @@ public class LlmAdminService {
                 throw new BadRequestException("Modelo inválido para OpenRouter. Use formato provider/model sin espacios (ej: openai/gpt-4.1-mini).");
             }
             throw new BadRequestException("Modelo inválido. Use un identificador sin espacios (ej: gpt-4.1-mini).");
+        }
+
+        if (LlmProviderSupport.OPENROUTER.equals(provider)
+                && OPENROUTER_BLOCKED_MODELS.contains(normalized.toLowerCase(Locale.ROOT))) {
+            throw new BadRequestException("Modelo no disponible para OpenRouter en CaseSim. Seleccione otro modelo del catálogo.");
         }
 
         return normalized;

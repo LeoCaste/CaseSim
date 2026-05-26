@@ -92,8 +92,6 @@ describe('AdminLlmConfigPage', () => {
     expect(component.modelOptions).toEqual([
       'openai/gpt-4.1-mini',
       'google/gemini-2.0-flash-001',
-      'anthropic/claude-3.5-sonnet',
-      'anthropic/claude-3.7-sonnet',
       'anthropic/claude-sonnet-4',
       'meta-llama/llama-3.1-8b-instruct'
     ]);
