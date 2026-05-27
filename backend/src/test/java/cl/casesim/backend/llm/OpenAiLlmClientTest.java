@@ -54,7 +54,7 @@ class OpenAiLlmClientTest {
         assertTrue(payload.containsKey("max_tokens"));
         assertTrue(payload.containsKey("max_completion_tokens"));
         assertEquals(payload.get("max_tokens"), payload.get("max_completion_tokens"));
-        assertEquals("anthropic/claude-sonnet-4.5", payload.get("model"));
+        assertEquals(OpenRouterModelNormalizer.normalize("anthropic/claude-3.5-sonnet"), payload.get("model"));
     }
 
     @Test
@@ -65,7 +65,7 @@ class OpenAiLlmClientTest {
 
         Map<String, Object> payload = client.buildOpenRouterPayload(List.of(new LlmMessage("user", "ping")), null, null);
 
-        assertEquals("anthropic/claude-sonnet-4.5", payload.get("model"));
+        assertEquals(OpenRouterModelNormalizer.normalize("claude-3.5-sonnet"), payload.get("model"));
     }
 
     @Test

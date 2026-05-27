@@ -95,17 +95,20 @@ public class LlmPatientResponseService implements PatientResponseService {
         NoInfoResolution noInfoResolution = resolveNoInfoResponse(resolveCaseNoInfoResponse(session));
 
         if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
-            safeRegisterUsage(
-                    session.getId(),
+            return registerAndReturnTechnicalFallback(
+                    session,
+                    startedAt,
+                    estimatedPromptTokens,
                     resolvedProvider,
                     resolvedModel,
-                    estimatedPromptTokens,
+                    noInfoResolution,
+                    "LLM_DISABLED_OR_MISSING_API_KEY",
+                    new LlmUnavailableException("Servicio de simulación IA no disponible: configuración LLM incompleta."),
+                    requestId,
+                    null,
                     0,
-                    (int) (System.currentTimeMillis() - startedAt),
-                    true,
-                    "LLM_DISABLED_OR_MISSING_API_KEY"
+                    estimatedPromptTokens
             );
-            throw new LlmUnavailableException("Servicio de simulación IA no disponible: configuración LLM incompleta.");
         }
 
         try {

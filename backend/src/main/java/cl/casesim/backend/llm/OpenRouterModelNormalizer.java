@@ -9,12 +9,9 @@ public final class OpenRouterModelNormalizer {
 
     private static final Map<String, String> CLAUDE_ALIASES = Map.of(
             "claude-3.5-haiku", "anthropic/claude-3.5-haiku-20241022",
-            "claude-3.5-sonnet", "anthropic/claude-sonnet-4.5",
             "claude-sonnet-4.5", "anthropic/claude-sonnet-4.5",
             "claude-sonnet-4", "anthropic/claude-sonnet-4",
-            "claude-3.7-sonnet", "anthropic/claude-3.7-sonnet",
-            "anthropic/claude-3.5-haiku", "anthropic/claude-3.5-haiku-20241022",
-            "anthropic/claude-3.5-sonnet", "anthropic/claude-sonnet-4.5"
+            "anthropic/claude-3.5-haiku", "anthropic/claude-3.5-haiku-20241022"
     );
 
     private OpenRouterModelNormalizer() {

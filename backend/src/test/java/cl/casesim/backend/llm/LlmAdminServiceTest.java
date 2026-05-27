@@ -334,7 +334,7 @@ class LlmAdminServiceTest {
     }
 
     @Test
-    void updateConfigShouldNormalizeClaudeAliasForOpenRouter() {
+    void updateConfigShouldRejectBlockedClaudeModelForOpenRouter() {
         UpdateLlmConfigRequest request = new UpdateLlmConfigRequest(
                 "openrouter",
                 "claude-3.5-sonnet",
@@ -352,12 +352,10 @@ class LlmAdminServiceTest {
                 null
         );
         when(llmConfigRepository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
-        when(llmConfigRepository.save(any(LlmConfig.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LlmConfigResponse response = service.updateConfig(request);
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> service.updateConfig(request));
 
-        assertEquals("anthropic/claude-sonnet-4.5", response.model());
-        assertEquals("anthropic/claude-sonnet-4.5", llmProperties.getModel());
+        assertTrue(exception.getMessage().contains("Modelo no disponible para OpenRouter"));
     }
 
     @Test

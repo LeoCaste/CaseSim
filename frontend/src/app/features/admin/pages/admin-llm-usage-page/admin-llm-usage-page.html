@@ -20,13 +20,19 @@
 
       <div class="admin-llm-usage__filter-field">
         <label for="provider">Proveedor</label>
-        <select id="provider" name="provider" [(ngModel)]="filterForm.provider" [disabled]="isLoading">
+        <select
+          id="provider"
+          name="provider"
+          [(ngModel)]="filterForm.provider"
+          (ngModelChange)="onProviderFilterChange()"
+          [disabled]="isLoading"
+        >
           <option value="">{{ getProviderFilterPlaceholder() }}</option>
           <option *ngFor="let provider of providerOptions" [value]="provider">{{ provider }}</option>
         </select>
       </div>
 
-      <div class="admin-llm-usage__filter-field">
+      <div class="admin-llm-usage__filter-field" *ngIf="shouldShowModelFilter()">
         <label for="model">Modelo</label>
         <select id="model" name="model" [(ngModel)]="filterForm.model" [disabled]="isLoading">
           <option value="">{{ getModelFilterPlaceholder() }}</option>
