@@ -5,6 +5,7 @@ import cl.casesim.backend.clinicalcases.ClinicalCaseFact;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
+import cl.casesim.backend.clinicalcases.ClinicalCaseSafetySanitizer;
 import cl.casesim.backend.sessions.ChatMessage;
 import cl.casesim.backend.sessions.ChatMessageRepository;
 import cl.casesim.backend.sessions.PatientResponseService;
@@ -799,12 +800,12 @@ public class LlmPatientResponseService implements PatientResponseService {
         return new PromptBuilderService.ClinicalPromptContext(
                 session.getId(),
                 clinicalCase.getId(),
-                clinicalCase.getTitulo(),
+                ClinicalCaseSafetySanitizer.safeCaseTitle(),
                 clinicalCase.getPacienteNombre(),
                 clinicalCase.getPacienteEdad() == null ? null : String.valueOf(clinicalCase.getPacienteEdad()),
                 clinicalCase.getPacienteSexo(),
                 clinicalCase.getMotivoConsulta(),
-                clinicalCase.getDescripcion(),
+                ClinicalCaseSafetySanitizer.sanitizeCaseHistory(clinicalCase.getDescripcion()),
                 clinicalCase.getFraseSinInformacion(),
                 personalityTraits,
                 facts

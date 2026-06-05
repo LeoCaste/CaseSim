@@ -415,8 +415,9 @@ class LlmPatientResponseServiceTest {
         service.generateResponse(session2, "hola caso 2");
         String promptCase2 = getLastContextualPrompt();
 
-        assertTrue(promptCase1.contains("Caso"));
-        assertTrue(promptCase2.contains("Caso 2"));
+        assertTrue(promptCase1.contains("Caso clínico asignado"));
+        assertTrue(promptCase2.contains("Caso clínico asignado"));
+        assertTrue(!promptCase2.contains("Caso 2"));
         assertTrue(promptCase1.contains("motivo: Dolor abdominal"));
         assertTrue(promptCase2.contains("dolor_toracico: Siento una presión en el pecho desde anoche"));
         assertNotEquals(promptCase1, promptCase2);

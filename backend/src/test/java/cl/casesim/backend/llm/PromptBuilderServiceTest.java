@@ -93,6 +93,40 @@ class PromptBuilderServiceTest {
         assertEquals("¿Tiene fiebre?", messages.get(6).content());
     }
 
+    @Test
+    void noIncluyeMetadataNiDiagnosticoEsperadoEnPrompt() {
+        PromptBuilderService.ClinicalPromptContext context = new PromptBuilderService.ClinicalPromptContext(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Caso clínico asignado",
+                "Paciente Demo",
+                "24",
+                "F",
+                "Dolor abdominal",
+                "Historia visible\n[CASESIM_META]\nexpectedDiagnosis: Apendicitis\n",
+                "No tengo información asociada a eso.",
+                List.of(),
+                List.of("síntoma: dolor abdominal")
+        );
+
+        PromptBuilderService.PatientBehaviorConfig behaviorConfig = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String systemPrompt = promptBuilderService.buildMessages(context, List.of(), "¿Qué tiene?", behaviorConfig)
+                .getFirst()
+                .content();
+
+        assertTrue(systemPrompt.contains("Nombre del caso: Caso clínico asignado"));
+        assertTrue(systemPrompt.contains("Historia visible"));
+        assertTrue(!systemPrompt.contains("[CASESIM_META]"));
+        assertTrue(!systemPrompt.contains("expectedDiagnosis"));
+        assertTrue(!systemPrompt.contains("Apendicitis"));
+    }
+
     private PromptBuilderService.ClinicalPromptContext buildContext() {
         return new PromptBuilderService.ClinicalPromptContext(
                 UUID.randomUUID(),

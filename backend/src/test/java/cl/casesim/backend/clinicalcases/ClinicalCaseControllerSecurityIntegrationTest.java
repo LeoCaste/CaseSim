@@ -34,6 +34,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -153,6 +154,14 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                 .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
                 .andExpect(jsonPath("$.message").value("Acceso denegado."))
                 .andExpect(jsonPath("$.details[0].field").value("auth"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"ESTUDIANTE"})
+    void getClinicalCase_estudianteRole_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/clinical-cases/{id}", caseId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }
 
     @Test

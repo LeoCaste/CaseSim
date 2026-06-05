@@ -1,5 +1,6 @@
 package cl.casesim.backend.llm;
 
+import cl.casesim.backend.clinicalcases.ClinicalCaseSafetySanitizer;
 import cl.casesim.backend.sessions.ChatMessage;
 
 import java.util.ArrayList;
@@ -68,12 +69,12 @@ public class PromptBuilderService {
                 """.formatted(
                 context.sessionId(),
                 defaultText(context.clinicalCaseId() == null ? null : context.clinicalCaseId().toString()),
-                defaultText(context.caseName()),
+                defaultText(ClinicalCaseSafetySanitizer.safeCaseTitle()),
                 defaultText(context.patientName()),
                 defaultText(context.patientAge()),
                 defaultText(context.patientSex()),
                 defaultText(context.chiefComplaint()),
-                defaultText(context.caseHistory()),
+                defaultText(ClinicalCaseSafetySanitizer.sanitizeCaseHistory(context.caseHistory())),
                 personalitySection,
                 factsSection
         );
