@@ -551,7 +551,7 @@ class ClinicalCaseServiceTest {
                 "Caso",
                 "desc",
                 "Paciente",
-                null,
+                40,
                 "F",
                 "Dolor",
                 "No sé",
@@ -565,6 +565,118 @@ class ClinicalCaseServiceTest {
         var captor = forClass(ClinicalCaseFact.class);
         verify(clinicalCaseFactRepository).save(captor.capture());
         assertEquals(2, captor.getValue().getNivelRevelacion());
+    }
+
+    @Test
+    void createClinicalCaseShouldAllowIncompleteDraftAndExposeStatus() {
+        UUID userId = UUID.randomUUID();
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(any(UUID.class))).thenReturn(List.of());
+        when(clinicalCasePersonalityRepository.findByCasoId(any(UUID.class))).thenReturn(List.of());
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                ClinicalCaseStatus.DRAFT,
+                List.of(),
+                List.of()
+        );
+
+        var response = clinicalCaseService.createClinicalCase(request, userId);
+
+        assertEquals(ClinicalCaseStatus.DRAFT, response.status());
+        assertTrue(response.active());
+        verify(clinicalCaseRepository).save(any(ClinicalCase.class));
+    }
+
+    @Test
+    void updateClinicalCaseShouldAllowChangingDraftToReadyWhenMinimumsExist() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = new ClinicalCase(
+                caseId,
+                "Borrador",
+                null,
+                null,
+                null,
+                null,
+                "Motivo pendiente",
+                "No tengo información asociada a eso.",
+                true,
+                ClinicalCaseStatus.DRAFT,
+                creatorId,
+                LocalDateTime.now()
+        );
+
+        when(clinicalCaseRepository.findByIdAndActivoTrue(caseId)).thenReturn(Optional.of(clinicalCase));
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of());
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+
+        var response = clinicalCaseService.updateClinicalCase(caseId, new ClinicalCaseRequest(
+                "Caso listo",
+                "desc",
+                "Paciente",
+                45,
+                "F",
+                "Dolor",
+                null,
+                null,
+                ClinicalCaseStatus.READY,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "dato", "Contenido", null, 1, null)),
+                List.of()
+        ));
+
+        assertEquals(ClinicalCaseStatus.READY, response.status());
+        assertTrue(response.active());
+    }
+
+    @Test
+    void createClinicalCaseShouldRejectReadyWhenMinimumsAreMissing() {
+        UUID userId = UUID.randomUUID();
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso incompleto",
+                null,
+                null,
+                null,
+                "F",
+                "Dolor",
+                null,
+                null,
+                ClinicalCaseStatus.READY,
+                List.of(),
+                List.of()
+        );
+
+        assertThrows(BadRequestException.class, () -> clinicalCaseService.createClinicalCase(request, userId));
+        verify(clinicalCaseRepository, never()).save(any(ClinicalCase.class));
+    }
+
+    @Test
+    void clinicalCaseShouldMapLegacyActiveWhenStatusIsMissing() {
+        UUID caseId = UUID.randomUUID();
+        ClinicalCase legacyInactive = new ClinicalCase(
+                caseId,
+                "Legacy",
+                null,
+                "Paciente",
+                50,
+                "M",
+                "Dolor",
+                "No tengo información asociada a eso.",
+                false,
+                UUID.randomUUID(),
+                LocalDateTime.now()
+        );
+
+        assertEquals(ClinicalCaseStatus.ARCHIVED, legacyInactive.getStatus());
     }
 
     private ClinicalCase buildCase(UUID caseId, UUID creatorId) {
@@ -593,7 +705,7 @@ class ClinicalCaseServiceTest {
                 "Dolor torácico",
                 "No recuerdo más detalles",
                 true,
-                List.of(),
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "general", "Dato clínico", null, 1, null)),
                 List.of()
         );
     }

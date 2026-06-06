@@ -4,7 +4,7 @@
       <p class="assign-header__eyebrow">Asignar simulación</p>
       <h1>{{ clinicalCase.title }}</h1>
       <p>
-        Paciente simulado: {{ clinicalCase.patientName }} · Motivo de consulta: {{ clinicalCase.reason }}
+        Paciente simulado: {{ clinicalCase.patientName }} · Motivo de consulta: {{ clinicalCase.reason }} · Estado: {{ statusLabel }}
       </p>
     </div>
 
@@ -17,6 +17,7 @@
         class="cs-button primary"
         type="button"
         (click)="createSimulation()"
+        [disabled]="isLoading || isSubmitting || !canAssignCase"
       >
         Crear simulación
       </button>
@@ -75,6 +76,9 @@
         </header>
 
         <p *ngIf="isLoading" class="assign-feedback">Cargando estudiantes…</p>
+        <p *ngIf="!isLoading && !canAssignCase" class="assign-feedback assign-feedback--error">
+          Este caso aún no está listo para ser asignado.
+        </p>
         <p *ngIf="!isLoading && loadError" class="assign-feedback assign-feedback--error">{{ loadError }}</p>
         <p *ngIf="!isLoading && !loadError && students.length === 0" class="assign-feedback">
           No hay estudiantes disponibles para asignar.

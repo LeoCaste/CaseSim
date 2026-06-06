@@ -1,5 +1,6 @@
 package cl.casesim.backend.clinicalcases.dto;
 
+import cl.casesim.backend.clinicalcases.ClinicalCaseStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDateTime;
@@ -16,10 +17,29 @@ public record ClinicalCaseResponse(
         String chiefComplaint,
         String noInformationPhrase,
         boolean active,
+        ClinicalCaseStatus status,
         LocalDateTime createdAt,
         List<ClinicalCaseFactResponse> facts,
         List<String> personality
 ) {
+
+    public ClinicalCaseResponse(
+            UUID id,
+            String title,
+            String description,
+            String patientName,
+            Integer patientAge,
+            String patientSex,
+            String chiefComplaint,
+            String noInformationPhrase,
+            boolean active,
+            LocalDateTime createdAt,
+            List<ClinicalCaseFactResponse> facts,
+            List<String> personality
+    ) {
+        this(id, title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase,
+                active, ClinicalCaseStatus.fromLegacyActive(active), createdAt, facts, personality);
+    }
 
     public record ClinicalCaseFactResponse(
             String category,

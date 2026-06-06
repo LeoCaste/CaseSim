@@ -387,6 +387,14 @@ export class ClinicalCaseFormPage implements OnInit {
       pending.push('Motivo principal de consulta');
     }
 
+    if (!this.caseFormState.sex) {
+      pending.push('Sexo del paciente');
+    }
+
+    if (!this.caseFormState.fallbackResponse?.trim()) {
+      pending.push('Respuesta cuando no sabe algo');
+    }
+
     if (this.clinicalFacts.length === 0) {
       pending.push('Al menos un antecedente clínico');
       return pending;
@@ -413,7 +421,7 @@ export class ClinicalCaseFormPage implements OnInit {
   }
 
   get shouldShowPendingRequiredSummary(): boolean {
-    return this.saveAttempted && this.pendingRequiredItems.length > 0;
+    return this.saveAttempted && this.caseFormState.status === 'READY' && this.pendingRequiredItems.length > 0;
   }
 
   private syncFromFormState(): void {
@@ -436,6 +444,11 @@ export class ClinicalCaseFormPage implements OnInit {
 
   private validateFacts(): boolean {
     this.fieldErrors = {};
+
+    if (this.caseFormState.status !== 'READY') {
+      this.factsValidationError = '';
+      return true;
+    }
 
     if (!this.validateCaseRequiredFields()) {
       return false;
@@ -495,6 +508,18 @@ export class ClinicalCaseFormPage implements OnInit {
     if (!this.caseFormState.reason.trim()) {
       this.factsValidationError = 'Ingresa el motivo principal de consulta antes de guardar.';
       this.fieldErrors['reason'] = 'Campo obligatorio';
+      return false;
+    }
+
+    if (!this.caseFormState.sex) {
+      this.factsValidationError = 'Selecciona el sexo del paciente antes de marcar el caso como listo.';
+      this.fieldErrors['sex'] = 'Campo obligatorio';
+      return false;
+    }
+
+    if (!this.caseFormState.fallbackResponse?.trim()) {
+      this.factsValidationError = 'Ingresa cómo responde el paciente cuando no sabe algo antes de marcar el caso como listo.';
+      this.fieldErrors['fallbackResponse'] = 'Campo obligatorio';
       return false;
     }
 

@@ -2,6 +2,8 @@ package cl.casesim.backend.clinicalcases;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -27,7 +29,25 @@ public class ClinicalCase {
             String pacienteSexo,
             String motivoConsulta,
             String fraseSinInformacion,
+             boolean activo,
+             UUID creadoPor,
+             LocalDateTime creadoEn
+    ) {
+        this(id, titulo, descripcion, pacienteNombre, pacienteEdad, pacienteSexo, motivoConsulta,
+                fraseSinInformacion, activo, null, creadoPor, creadoEn);
+    }
+
+    public ClinicalCase(
+            UUID id,
+            String titulo,
+            String descripcion,
+            String pacienteNombre,
+            Integer pacienteEdad,
+            String pacienteSexo,
+            String motivoConsulta,
+            String fraseSinInformacion,
             boolean activo,
+            ClinicalCaseStatus status,
             UUID creadoPor,
             LocalDateTime creadoEn
     ) {
@@ -40,6 +60,7 @@ public class ClinicalCase {
         this.motivoConsulta = motivoConsulta;
         this.fraseSinInformacion = fraseSinInformacion;
         this.activo = activo;
+        this.status = status;
         this.creadoPor = creadoPor;
         this.creadoEn = creadoEn;
     }
@@ -71,6 +92,10 @@ public class ClinicalCase {
 
     @Column(name = "activo", nullable = false)
     private boolean activo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private ClinicalCaseStatus status;
 
     @Column(name = "creado_por")
     private UUID creadoPor;
@@ -114,6 +139,13 @@ public class ClinicalCase {
         return activo;
     }
 
+    public ClinicalCaseStatus getStatus() {
+        if (status == null) {
+            return ClinicalCaseStatus.fromLegacyActive(activo);
+        }
+        return status;
+    }
+
     public UUID getCreadoPor() {
         return creadoPor;
     }
@@ -130,7 +162,8 @@ public class ClinicalCase {
             String pacienteSexo,
             String motivoConsulta,
             String fraseSinInformacion,
-            boolean activo
+            boolean activo,
+            ClinicalCaseStatus status
     ) {
         this.titulo = titulo;
         this.descripcion = descripcion;
@@ -140,10 +173,12 @@ public class ClinicalCase {
         this.motivoConsulta = motivoConsulta;
         this.fraseSinInformacion = fraseSinInformacion;
         this.activo = activo;
+        this.status = status;
     }
 
     public void desactivar() {
         this.activo = false;
+        this.status = ClinicalCaseStatus.ARCHIVED;
         if (this.fraseSinInformacion == null || this.fraseSinInformacion.trim().isEmpty()) {
             this.fraseSinInformacion = DEFAULT_NO_INFORMATION_PHRASE;
         }

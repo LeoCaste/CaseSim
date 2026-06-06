@@ -71,6 +71,44 @@ describe('ClinicalCaseService fact mapping', () => {
     });
   });
 
+  it('should preserve backend clinical case status when present', () => {
+    const response = {
+      ...buildBackendResponse(null),
+      status: 'DRAFT',
+      active: true
+    };
+
+    const summary = (service as unknown as { mapBackendCaseToSummary: (response: unknown) => Record<string, unknown> })
+      .mapBackendCaseToSummary(response);
+
+    expect(summary['status']).toBe('DRAFT');
+  });
+
+  it('should fallback legacy active true to READY and active false to ARCHIVED', () => {
+    const mapSummary = (service as unknown as { mapBackendCaseToSummary: (response: unknown) => Record<string, unknown> })
+      .mapBackendCaseToSummary.bind(service);
+
+    expect(mapSummary({ ...buildBackendResponse(null), active: true })['status']).toBe('READY');
+    expect(mapSummary({ ...buildBackendResponse(null), active: false })['status']).toBe('ARCHIVED');
+  });
+
+  it('should send status and legacy active compatibility in upsert requests', () => {
+    const payload = buildPayload({
+      category: 'Historia actual',
+      title: 'Inicio de dolor',
+      content: 'El dolor inició ayer.',
+      trigger: 'dolor',
+      visibility: 'ON_QUESTION'
+    });
+    payload.status = 'ARCHIVED';
+
+    const request = (service as unknown as { mapUpsertPayloadToBackendRequest: (payload: ClinicalCaseUpsertPayload) => Record<string, unknown> })
+      .mapUpsertPayloadToBackendRequest(payload);
+
+    expect(request['status']).toBe('ARCHIVED');
+    expect(request['active']).toBe(false);
+  });
+
   it('should not send completely empty fact content', () => {
     const payload = buildPayload({
       category: 'Historia actual',

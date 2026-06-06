@@ -108,6 +108,14 @@ export class ClinicalCaseDetailPage implements OnInit {
     return this.clinicalCase?.personality.behaviorNotes || this.clinicalCase?.behaviorGuidelines || '';
   }
 
+  get statusLabel(): 'Listo' | 'Borrador' | 'Archivado' {
+    return this.clinicalCase ? this.clinicalCaseService.getStatusLabel(this.clinicalCase.status) : 'Borrador';
+  }
+
+  get canAssign(): boolean {
+    return this.clinicalCase?.status === 'READY';
+  }
+
   private mapStudent(student: SimulationStudent): { name: string; status: string; canReview: boolean } {
     return {
       name: student.name,

@@ -3,12 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, throwError, timeout } from 'rxjs';
 
-import { ClinicalCase } from '../models/clinical-case.model';
+import { ClinicalCase, ClinicalCaseStatus } from '../models/clinical-case.model';
 import { Simulation, SimulationStudent } from '../models/simulation.model';
 import { environment } from '../../../environments/environment';
 
 export interface SimulationAssignmentContext {
-  clinicalCase: Pick<ClinicalCase, 'id' | 'title' | 'patientName' | 'reason'>;
+  clinicalCase: Pick<ClinicalCase, 'id' | 'title' | 'patientName' | 'reason' | 'status'>;
   students: SimulationStudent[];
 }
 
@@ -38,7 +38,8 @@ export class SimulationAssignmentService {
           id: caseId,
           title: 'Caso clínico',
           patientName: 'Paciente simulado',
-          reason: 'Motivo no disponible'
+          reason: 'Motivo no disponible',
+          status: 'READY'
         },
         students: []
       });
@@ -47,17 +48,7 @@ export class SimulationAssignmentService {
     return forkJoin({
       clinicalCase: this.http
         .get<BackendClinicalCaseResponse>(`${this.apiBaseUrl}/clinical-cases/${caseId}`)
-        .pipe(
-          timeout(this.assignmentContextTimeoutMs),
-          catchError(() =>
-            of({
-              id: caseId,
-              title: 'Caso clínico',
-              patientName: 'Paciente simulado',
-              chiefComplaint: 'Motivo no disponible'
-            })
-          )
-        ),
+        .pipe(timeout(this.assignmentContextTimeoutMs)),
       students: this.http
         .get<BackendProfessorStudentResponse[]>(`${this.apiBaseUrl}/professor/students`)
         .pipe(timeout(this.assignmentContextTimeoutMs))
@@ -67,7 +58,8 @@ export class SimulationAssignmentService {
           id: clinicalCase.id,
           title: clinicalCase.title,
           patientName: clinicalCase.patientName,
-          reason: clinicalCase.chiefComplaint
+          reason: clinicalCase.chiefComplaint,
+          status: this.mapBackendStatus(clinicalCase)
         },
         students: students
           .map((student) => ({
@@ -78,8 +70,12 @@ export class SimulationAssignmentService {
             canReview: false
           }))
       })),
-      catchError(() => throwError(() => new Error('No fue posible cargar la lista de estudiantes.')))
+      catchError(() => throwError(() => new Error('No fue posible cargar los datos para asignar la simulación.')))
     );
+  }
+
+  isAssignable(clinicalCase: Pick<ClinicalCase, 'status'>): boolean {
+    return clinicalCase.status === 'READY';
   }
 
   createSimulation(payload: CreateSimulationPayload): Observable<Simulation> {
@@ -132,6 +128,14 @@ export class SimulationAssignmentService {
       availableAt: payload.availableAt
     });
   }
+
+  private mapBackendStatus(response: BackendClinicalCaseResponse): ClinicalCaseStatus {
+    if (response.status === 'DRAFT' || response.status === 'READY' || response.status === 'ARCHIVED') {
+      return response.status;
+    }
+
+    return response.active ? 'READY' : 'ARCHIVED';
+  }
 }
 
 interface BackendSimulationResponse {
@@ -145,6 +149,8 @@ interface BackendClinicalCaseResponse {
   title: string;
   patientName: string;
   chiefComplaint: string;
+  status?: ClinicalCaseStatus;
+  active: boolean;
 }
 
 interface BackendProfessorStudentResponse {

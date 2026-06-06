@@ -1,5 +1,6 @@
 package cl.casesim.backend.clinicalcases.dto;
 
+import cl.casesim.backend.clinicalcases.ClinicalCaseStatus;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -9,7 +10,6 @@ import jakarta.validation.constraints.Positive;
 import java.util.List;
 
 public record ClinicalCaseRequest(
-        @NotBlank(message = "El título es obligatorio.")
         String title,
         String description,
         String patientName,
@@ -18,13 +18,28 @@ public record ClinicalCaseRequest(
         Integer patientAge,
         String patientSex,
         @JsonAlias({"reason", "motivoConsulta", "motivo_consulta"})
-        @NotBlank(message = "El motivo de consulta es obligatorio.")
         String chiefComplaint,
         String noInformationPhrase,
         Boolean active,
+        ClinicalCaseStatus status,
         List<@Valid ClinicalCaseFactRequest> facts,
         List<String> personality
 ) {
+
+    public ClinicalCaseRequest(
+            String title,
+            String description,
+            String patientName,
+            Integer patientAge,
+            String patientSex,
+            String chiefComplaint,
+            String noInformationPhrase,
+            Boolean active,
+            List<@Valid ClinicalCaseFactRequest> facts,
+            List<String> personality
+    ) {
+        this(title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase, active, null, facts, personality);
+    }
 
     public record ClinicalCaseFactRequest(
             @JsonAlias({"categoria"})

@@ -18,6 +18,8 @@ import java.util.UUID;
 public class ClinicalCaseService {
 
     private static final String DEFAULT_NO_INFORMATION_PHRASE = "No tengo información asociada a eso.";
+    private static final String DRAFT_TITLE_PLACEHOLDER = "Borrador sin título";
+    private static final String DRAFT_CHIEF_COMPLAINT_PLACEHOLDER = "Motivo de consulta pendiente.";
     private static final String DEFAULT_FACT_KEY = "general";
     private static final String DEFAULT_FACT_CATEGORY = "GENERAL";
     private static final int MIN_REVEAL_LEVEL = 1;
@@ -42,7 +44,7 @@ public class ClinicalCaseService {
     }
 
     public List<ClinicalCaseResponse> getActiveClinicalCases() {
-        return clinicalCaseRepository.findByActivoTrueOrderByCreadoEnDesc()
+        return clinicalCaseRepository.findByStatusNotOrderByCreadoEnDesc(ClinicalCaseStatus.ARCHIVED)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -75,17 +77,20 @@ public class ClinicalCaseService {
     @Transactional
     public ClinicalCaseResponse createClinicalCase(ClinicalCaseRequest request, UUID authenticatedUserId) {
         LocalDateTime now = LocalDateTime.now();
+        ClinicalCaseStatus status = resolveRequestedStatus(request);
+        validateReadyMinimums(request, status);
 
         ClinicalCase clinicalCase = new ClinicalCase(
                 UUID.randomUUID(),
-                request.title().trim(),
+                resolveRequiredStorageText(request.title(), DRAFT_TITLE_PLACEHOLDER),
                 normalizeOptionalText(request.description()),
                 normalizeOptionalText(request.patientName()),
                 request.patientAge(),
                 normalizeOptionalText(request.patientSex()),
-                request.chiefComplaint().trim(),
+                resolveRequiredStorageText(request.chiefComplaint(), DRAFT_CHIEF_COMPLAINT_PLACEHOLDER),
                 resolveNoInformationPhrase(request.noInformationPhrase()),
-                request.active() == null || request.active(),
+                status.isLegacyActive(),
+                status,
                 authenticatedUserId,
                 now
         );
@@ -100,16 +105,19 @@ public class ClinicalCaseService {
     @Transactional
     public ClinicalCaseResponse updateClinicalCase(UUID id, ClinicalCaseRequest request) {
         ClinicalCase clinicalCase = findActiveClinicalCaseByCaseOrActivityId(id);
+        ClinicalCaseStatus status = resolveRequestedStatus(request);
+        validateReadyMinimums(request, status);
 
         clinicalCase.actualizarDatos(
-                request.title().trim(),
+                resolveRequiredStorageText(request.title(), DRAFT_TITLE_PLACEHOLDER),
                 normalizeOptionalText(request.description()),
                 normalizeOptionalText(request.patientName()),
                 request.patientAge(),
                 normalizeOptionalText(request.patientSex()),
-                request.chiefComplaint().trim(),
+                resolveRequiredStorageText(request.chiefComplaint(), DRAFT_CHIEF_COMPLAINT_PLACEHOLDER),
                 resolveNoInformationPhrase(request.noInformationPhrase()),
-                request.active() == null || request.active()
+                status.isLegacyActive(),
+                status
         );
 
         ClinicalCase updatedClinicalCase = clinicalCaseRepository.save(clinicalCase);
@@ -136,6 +144,55 @@ public class ClinicalCaseService {
             return DEFAULT_NO_INFORMATION_PHRASE;
         }
         return normalizedPhrase;
+    }
+
+    private ClinicalCaseStatus resolveRequestedStatus(ClinicalCaseRequest request) {
+        if (request.status() != null) {
+            return request.status();
+        }
+        if (request.active() != null) {
+            return ClinicalCaseStatus.fromLegacyActive(request.active());
+        }
+        return ClinicalCaseStatus.READY;
+    }
+
+    private String resolveRequiredStorageText(String value, String placeholder) {
+        String normalized = normalizeOptionalText(value);
+        return normalized == null ? placeholder : normalized;
+    }
+
+    private void validateReadyMinimums(ClinicalCaseRequest request, ClinicalCaseStatus status) {
+        if (status != ClinicalCaseStatus.READY) {
+            return;
+        }
+
+        List<String> missingFields = new ArrayList<>();
+        if (normalizeOptionalText(request.patientName()) == null) {
+            missingFields.add("patientName");
+        }
+        if (request.patientAge() == null) {
+            missingFields.add("patientAge");
+        }
+        if (normalizeOptionalText(request.patientSex()) == null) {
+            missingFields.add("patientSex");
+        }
+        if (normalizeOptionalText(request.chiefComplaint()) == null) {
+            missingFields.add("chiefComplaint");
+        }
+        if (request.facts() == null || request.facts().stream().noneMatch(this::hasValidFactContent)) {
+            missingFields.add("facts");
+        }
+        if (resolveNoInformationPhrase(request.noInformationPhrase()) == null) {
+            missingFields.add("noInformationPhrase");
+        }
+
+        if (!missingFields.isEmpty()) {
+            throw new BadRequestException("El caso debe estar completo para quedar READY. Campos mínimos faltantes: " + missingFields);
+        }
+    }
+
+    private boolean hasValidFactContent(ClinicalCaseRequest.ClinicalCaseFactRequest fact) {
+        return fact != null && normalizeOptionalText(fact.content()) != null;
     }
 
     private String normalizeOptionalText(String value) {
@@ -180,6 +237,7 @@ public class ClinicalCaseService {
                 clinicalCase.getMotivoConsulta(),
                 clinicalCase.getFraseSinInformacion(),
                 clinicalCase.isActivo(),
+                clinicalCase.getStatus(),
                 clinicalCase.getCreadoEn(),
                 facts,
                 personality

@@ -22,10 +22,15 @@
       </button>
 
       <button
+        *ngIf="canAssign"
         [routerLink]="['/clinical-cases', clinicalCase.id, 'assign']"
         class="cs-button primary"
         type="button"
       >
+        Asignar a simulación
+      </button>
+
+      <button *ngIf="!canAssign" class="cs-button primary" type="button" disabled>
         Asignar a simulación
       </button>
     </div>
@@ -43,6 +48,11 @@
         </header>
 
         <dl class="detail-grid">
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ statusLabel }}</dd>
+          </div>
+
           <div>
             <dt>Nombre</dt>
             <dd>{{ clinicalCase.patientName }}</dd>

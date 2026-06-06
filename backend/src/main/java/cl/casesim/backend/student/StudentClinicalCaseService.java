@@ -39,8 +39,8 @@ public class StudentClinicalCaseService {
         SimulationActivity activity = simulationActivityRepository.findById(session.getActividadId())
                 .orElseThrow(() -> new ResourceNotFoundException("Actividad clínica no encontrada."));
 
-        ClinicalCase clinicalCase = clinicalCaseRepository.findByIdAndActivoTrue(activity.getCasoId())
-                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado o inactivo."));
+        ClinicalCase clinicalCase = clinicalCaseRepository.findById(activity.getCasoId())
+                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado."));
 
         return new StudentClinicalCaseResponse(
                 activity.getId(),

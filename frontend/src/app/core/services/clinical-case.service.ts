@@ -332,7 +332,7 @@ export class ClinicalCaseService {
       id: response.id,
       title: response.title,
       patientName: response.patientName,
-      status: 'READY',
+      status: this.mapBackendStatus(response),
       estimatedTimeMinutes: undefined,
       factsCount: response.factsCount ?? facts.length,
       age: response.patientAge,
@@ -381,6 +381,7 @@ export class ClinicalCaseService {
       patientSex: payload.sex,
       chiefComplaint: normalizedReason ?? normalizedInitialMessage ?? '',
       noInformationPhrase: normalizedFallbackResponse ?? 'No tengo información asociada a eso.',
+      status: payload.status,
       active: payload.status !== 'ARCHIVED',
       facts: payload.facts
         .filter((fact) => this.normalizeOptionalText(fact.content))
@@ -576,6 +577,14 @@ export class ClinicalCaseService {
     if (normalized.startsWith('M')) return 'M';
     return 'X';
   }
+
+  private mapBackendStatus(response: BackendClinicalCaseResponse): ClinicalCaseStatus {
+    if (response.status === 'DRAFT' || response.status === 'READY' || response.status === 'ARCHIVED') {
+      return response.status;
+    }
+
+    return response.active ? 'READY' : 'ARCHIVED';
+  }
 }
 
 interface BackendClinicalCaseResponse {
@@ -587,6 +596,7 @@ interface BackendClinicalCaseResponse {
   patientSex: string;
   chiefComplaint: string;
   noInformationPhrase: string;
+  status?: ClinicalCaseStatus;
   active: boolean;
   createdAt: string;
   context?: string;
@@ -606,6 +616,7 @@ interface BackendClinicalCaseRequest {
   patientSex: string;
   chiefComplaint: string;
   noInformationPhrase: string;
+  status: ClinicalCaseStatus;
   active: boolean;
   facts: BackendClinicalFactRequest[];
   personality: string[];

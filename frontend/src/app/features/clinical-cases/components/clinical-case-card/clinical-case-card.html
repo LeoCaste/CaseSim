@@ -55,11 +55,16 @@
     </a>
 
     <a
+      *ngIf="canAssign"
       [routerLink]="['/clinical-cases', clinicalCase.id, 'assign']"
       class="case-button primary"
     >
       Asignar a simulación
     </a>
+
+    <button *ngIf="!canAssign" class="case-button primary" type="button" disabled>
+      Asignar a simulación
+    </button>
 
     <button class="case-button danger" type="button" (click)="onDeleteCase()" [disabled]="deleting">
       {{ deleting ? 'Eliminando...' : 'Eliminar' }}

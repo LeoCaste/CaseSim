@@ -10,6 +10,7 @@ import {
   SimulationAssignmentService
 } from '../../../../core/services/simulation-assignment.service';
 import { SimulationStudent } from '../../../../core/models/simulation.model';
+import { ClinicalCaseStatus } from '../../../../core/models/clinical-case.model';
 
 @Component({
   selector: 'app-assign-simulation-page',
@@ -22,7 +23,8 @@ export class AssignSimulationPage implements OnInit {
     id: '1',
     title: 'Caso Catalina Paz Soto',
     patientName: 'Catalina Paz Soto',
-    reason: 'tos seca y fatiga'
+    reason: 'tos seca y fatiga',
+    status: 'READY' as ClinicalCaseStatus
   };
 
   showCreateConfirmation = false;
@@ -95,6 +97,15 @@ export class AssignSimulationPage implements OnInit {
   }
 
   createSimulation(): void {
+    this.loadError = '';
+    if (!this.canAssignCase) {
+      this.loadError = 'Este caso aún no está listo para ser asignado.';
+      this.showCreateConfirmation = false;
+      this.isCreateSuccess = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
     this.showCreateConfirmation = true;
     this.isCreateSuccess = false;
   }
@@ -106,6 +117,14 @@ export class AssignSimulationPage implements OnInit {
 
   confirmCreateSimulation(): void {
     this.loadError = '';
+    if (!this.canAssignCase) {
+      this.loadError = 'Este caso aún no está listo para ser asignado.';
+      this.showCreateConfirmation = false;
+      this.isCreateSuccess = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
     this.createSimulationPayload = {
       clinicalCaseId: this.clinicalCase.id,
       studentIds: this.students.filter((student) => student.selected).map((student) => student.id),
@@ -153,5 +172,15 @@ export class AssignSimulationPage implements OnInit {
     if (value === '20 minutos') return 20;
     if (value === '30 minutos') return 30;
     return undefined;
+  }
+
+  get canAssignCase(): boolean {
+    return this.clinicalCase.status === 'READY';
+  }
+
+  get statusLabel(): 'Listo' | 'Borrador' | 'Archivado' {
+    if (this.clinicalCase.status === 'READY') return 'Listo';
+    if (this.clinicalCase.status === 'DRAFT') return 'Borrador';
+    return 'Archivado';
   }
 }

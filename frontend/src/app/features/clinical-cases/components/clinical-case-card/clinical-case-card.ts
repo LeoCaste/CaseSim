@@ -32,6 +32,10 @@ export class ClinicalCaseCard {
     return this.clinicalCaseService.getStatusLabel(this.clinicalCase.status);
   }
 
+  get canAssign(): boolean {
+    return this.clinicalCase.status === 'READY';
+  }
+
   onDeleteCase(): void {
     this.deleteError = '';
     this.deleteSuccess = '';

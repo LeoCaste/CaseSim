@@ -56,9 +56,23 @@ CREATE TABLE caso_clinico (
     motivo_consulta TEXT NOT NULL,
     frase_sin_informacion TEXT NOT NULL DEFAULT 'No tengo información asociada a eso.',
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'READY'
+        CHECK (status IN ('DRAFT', 'READY', 'ARCHIVED')),
     creado_por UUID REFERENCES usuario(id),
     creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Compatibilidad no destructiva para entornos existentes: active=true -> READY, active=false -> ARCHIVED.
+ALTER TABLE caso_clinico
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'READY';
+
+UPDATE caso_clinico
+SET status = CASE WHEN activo THEN 'READY' ELSE 'ARCHIVED' END
+WHERE status IS NULL OR status NOT IN ('DRAFT', 'READY', 'ARCHIVED') OR (activo = FALSE AND status = 'READY');
+
+ALTER TABLE caso_clinico DROP CONSTRAINT IF EXISTS caso_clinico_status_check;
+ALTER TABLE caso_clinico ADD CONSTRAINT caso_clinico_status_check
+    CHECK (status IN ('DRAFT', 'READY', 'ARCHIVED'));
 
 CREATE TABLE caso_hecho_clinico (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

@@ -5,6 +5,7 @@ import cl.casesim.backend.auth.UserRepository;
 import cl.casesim.backend.auth.UserRole;
 import cl.casesim.backend.clinicalcases.ClinicalCase;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
+import cl.casesim.backend.clinicalcases.ClinicalCaseStatus;
 import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ConflictException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
@@ -51,8 +52,11 @@ public class SimulationAssignmentService {
 
     @Transactional
     public CreateSimulationResponse createSimulation(CreateSimulationRequest request, UUID assignedBy) {
-        ClinicalCase clinicalCase = clinicalCaseRepository.findByIdAndActivoTrue(request.clinicalCaseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado o inactivo."));
+        ClinicalCase clinicalCase = clinicalCaseRepository.findById(request.clinicalCaseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Caso clínico no encontrado."));
+        if (clinicalCase.getStatus() != ClinicalCaseStatus.READY) {
+            throw new BadRequestException("Este caso aún no está listo para ser asignado.");
+        }
 
         List<UUID> normalizedStudentIds = normalizeStudentIds(request.studentIds());
         List<AppUser> students = userRepository.findAllById(normalizedStudentIds);

@@ -40,6 +40,16 @@
       </header>
 
       <div class="form-grid two">
+        <label for="caseStatus">
+          Estado del caso
+          <select id="caseStatus" [(ngModel)]="caseFormState.status" name="caseStatus">
+            <option value="DRAFT">Borrador</option>
+            <option value="READY">Listo</option>
+            <option value="ARCHIVED">Archivado</option>
+          </select>
+          <small class="field-hint">Solo los casos listos se pueden asignar a simulaciones.</small>
+        </label>
+
         <label for="patientName">
           Nombre del paciente <span class="required-mark">*</span>
           <input
