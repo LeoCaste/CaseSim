@@ -244,6 +244,63 @@ class ClinicalCaseServiceTest {
         assertEquals("HTA", response.facts().getFirst().content());
     }
 
+
+    @Test
+    void updateClinicalCaseShouldPersistCompleteFactsAndReturnProfessorResponse() {
+        UUID caseId = UUID.randomUUID();
+        UUID creatorId = UUID.randomUUID();
+        ClinicalCase clinicalCase = buildCase(caseId, creatorId);
+
+        when(clinicalCaseRepository.findByIdAndActivoTrue(caseId)).thenReturn(Optional.of(clinicalCase));
+        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of(new ClinicalCaseFact(
+                UUID.randomUUID(),
+                caseId,
+                "HISTORIA_ACTUAL",
+                "inicio_dolor",
+                "El dolor inició ayer.",
+                3,
+                "[\"dolor\",\"inicio\"]",
+                false,
+                0
+        )));
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso actualizado",
+                "Descripción actualizada",
+                "Paciente actualizado",
+                35,
+                "F",
+                "Dolor torácico",
+                "No recuerdo más detalles",
+                true,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest(
+                        "HISTORIA_ACTUAL",
+                        "inicio_dolor",
+                        "El dolor inició ayer.",
+                        List.of("dolor", "inicio"),
+                        3,
+                        null
+                )),
+                List.of()
+        );
+
+        var response = clinicalCaseService.updateClinicalCase(caseId, request);
+
+        var captor = forClass(ClinicalCaseFact.class);
+        verify(clinicalCaseFactRepository).save(captor.capture());
+        ClinicalCaseFact persisted = captor.getValue();
+        assertEquals("HISTORIA_ACTUAL", persisted.getCategoria());
+        assertEquals("inicio_dolor", persisted.getNombre());
+        assertEquals("El dolor inició ayer.", persisted.getContenidoPaciente());
+        assertEquals(3, persisted.getNivelRevelacion());
+        assertEquals("[\"dolor\",\"inicio\"]", persisted.getTriggers());
+        assertEquals("HISTORIA_ACTUAL", response.facts().getFirst().category());
+        assertEquals(List.of("dolor", "inicio"), response.facts().getFirst().triggers());
+        assertEquals(3, response.facts().getFirst().revealLevel());
+    }
+
     @Test
     void createClinicalCaseShouldRejectFactWithoutContent() {
         UUID userId = UUID.randomUUID();

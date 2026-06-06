@@ -12,6 +12,8 @@ export interface ClinicalFact {
   content: string;
   trigger: string;
   visibility: ClinicalFactVisibility;
+  /** Preserva niveles backend 1..4 aunque la UI actual solo muestre Inicial/Bajo pregunta. */
+  revealLevel?: number;
 }
 
 export interface ClinicalCasePersonality {

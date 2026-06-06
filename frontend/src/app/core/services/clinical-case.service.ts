@@ -381,11 +381,15 @@ export class ClinicalCaseService {
       chiefComplaint: normalizedReason ?? normalizedInitialMessage ?? '',
       noInformationPhrase: normalizedFallbackResponse ?? 'No tengo información asociada a eso.',
       active: payload.status !== 'ARCHIVED',
-      facts: payload.facts.map((fact) => ({
-        key: (this.normalizeOptionalText(fact.title) ?? this.normalizeFactKey(fact.title)).trim(),
-        content: (this.normalizeOptionalText(fact.content) ?? this.normalizeOptionalText(fact.title) ?? '').trim(),
-        revealLevel: fact.visibility === 'INITIAL' ? 1 : 2
-      })),
+      facts: payload.facts
+        .filter((fact) => this.normalizeOptionalText(fact.content))
+        .map((fact) => ({
+          category: this.normalizeOptionalText(fact.category) ?? 'GENERAL',
+          key: (this.normalizeOptionalText(fact.title) ?? this.normalizeFactKey(fact.title)).trim(),
+          content: (this.normalizeOptionalText(fact.content) ?? '').trim(),
+          triggers: this.parseTriggerText(fact.trigger),
+          revealLevel: this.resolveFactRevealLevel(fact.revealLevel, fact.visibility)
+        })),
       personality: [payload.personality.tone, payload.personality.detailLevel, payload.personality.behaviorNotes]
     };
   }
@@ -445,7 +449,8 @@ export class ClinicalCaseService {
       title: fact.key ?? fact.nombre ?? fact.title ?? `Hecho ${index + 1}`,
       content: fact.content ?? fact.contenidoPaciente ?? fact.trigger ?? this.mapTriggersToString(fact.triggers) ?? '',
       trigger: fact.trigger ?? fact.disparador ?? this.mapTriggersToString(fact.triggers) ?? fact.content ?? '',
-      visibility: this.mapFactVisibility(fact.revealLevel ?? fact.nivelRevelacion ?? fact.visibility)
+      visibility: this.mapFactVisibility(fact.revealLevel ?? fact.nivelRevelacion ?? fact.visibility),
+      revealLevel: this.normalizeRevealLevel(fact.revealLevel ?? fact.nivelRevelacion ?? fact.visibility)
     }));
   }
 
@@ -481,6 +486,44 @@ export class ClinicalCaseService {
   private normalizeFactKey(value: string): string {
     const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
     return normalized || 'fact';
+  }
+
+  private parseTriggerText(trigger: string | null | undefined): string[] {
+    const normalized = this.normalizeOptionalText(trigger);
+    if (!normalized) {
+      return [];
+    }
+
+    return normalized
+      .split(',')
+      .map((item) => this.normalizeOptionalText(item))
+      .filter((item): item is string => Boolean(item));
+  }
+
+  private resolveFactRevealLevel(revealLevel: number | null | undefined, visibility: ClinicalFactVisibility): number {
+    if (typeof revealLevel === 'number' && Number.isFinite(revealLevel) && revealLevel >= 1 && revealLevel <= 4) {
+      return Math.trunc(revealLevel);
+    }
+
+    return visibility === 'INITIAL' ? 1 : 2;
+  }
+
+  private normalizeRevealLevel(value: string | number | null | undefined): number {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 1 && value <= 4) {
+      return Math.trunc(value);
+    }
+
+    const normalized = (value ?? '').toString().trim().toUpperCase();
+    if (normalized === 'INITIAL' || normalized === 'INICIAL' || normalized === '1') {
+      return 1;
+    }
+
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 4) {
+      return Math.trunc(parsed);
+    }
+
+    return 2;
   }
 
   private mapTriggersToString(triggers: string[] | null | undefined): string | undefined {
@@ -552,11 +595,14 @@ interface BackendClinicalFact {
   content: string;
   trigger: string;
   visibility: ClinicalFactVisibility;
+  revealLevel?: number;
 }
 
 interface BackendClinicalFactRequest {
+  category: string;
   key: string;
   content: string;
+  triggers: string[];
   revealLevel: number;
 }
 

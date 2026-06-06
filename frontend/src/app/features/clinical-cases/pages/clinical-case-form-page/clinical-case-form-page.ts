@@ -221,7 +221,8 @@ export class ClinicalCaseFormPage implements OnInit {
       title: fact.title.trim(),
       content: fact.content.trim(),
       trigger: fact.trigger.trim(),
-      visibility: this.mapLabelToVisibility(fact.visibilityLabel ?? this.mapVisibilityToLabel(fact.visibility))
+      visibility: this.mapLabelToVisibility(fact.visibilityLabel ?? this.mapVisibilityToLabel(fact.visibility)),
+      revealLevel: fact.revealLevel ?? (fact.visibility === 'INITIAL' ? 1 : 2)
     }));
 
     const payload: ClinicalCaseUpsertPayload = {
@@ -322,6 +323,7 @@ export class ClinicalCaseFormPage implements OnInit {
         content: '',
         trigger: '',
         visibility: 'ON_QUESTION',
+        revealLevel: 2,
         visibilityLabel: 'Bajo pregunta'
       }
     ];
@@ -348,7 +350,11 @@ export class ClinicalCaseFormPage implements OnInit {
     const updatedFact: FactDraft = {
       ...fact,
       visibilityLabel: normalizedLabel,
-      visibility: this.mapLabelToVisibility(normalizedLabel)
+      visibility: this.mapLabelToVisibility(normalizedLabel),
+      revealLevel:
+        normalizedLabel === this.mapVisibilityToLabel(fact.visibility)
+          ? fact.revealLevel ?? (normalizedLabel === 'Inicial' ? 1 : 2)
+          : normalizedLabel === 'Inicial' ? 1 : 2
     };
 
     this.clinicalFacts = this.clinicalFacts.map((currentFact, currentIndex) =>
@@ -420,6 +426,7 @@ export class ClinicalCaseFormPage implements OnInit {
       ...fact,
       content: fact.content ?? '',
       visibility: fact.visibility ?? 'ON_QUESTION',
+      revealLevel: fact.revealLevel ?? (fact.visibility === 'INITIAL' ? 1 : 2),
       visibilityLabel: this.mapVisibilityToLabel(fact.visibility ?? 'ON_QUESTION')
     }));
 
