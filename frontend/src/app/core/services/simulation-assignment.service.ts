@@ -8,18 +8,13 @@ import { Simulation, SimulationStudent } from '../models/simulation.model';
 import { environment } from '../../../environments/environment';
 
 export interface SimulationAssignmentContext {
-  clinicalCase: Pick<ClinicalCase, 'id' | 'title' | 'patientName' | 'reason' | 'status'>;
+  clinicalCase: Pick<ClinicalCase, 'id' | 'title' | 'patientName' | 'reason' | 'status' | 'estimatedTimeMinutes'>;
   students: SimulationStudent[];
 }
 
 export interface CreateSimulationPayload {
   clinicalCaseId: string;
-  courseId?: string;
   studentIds: string[];
-  mode: 'TIME_LIMITED' | 'UNLIMITED';
-  durationMinutes?: number;
-  availability: 'IMMEDIATE' | 'SCHEDULED';
-  availableAt?: string;
 }
 
 @Injectable({
@@ -39,7 +34,8 @@ export class SimulationAssignmentService {
           title: 'Caso clínico',
           patientName: 'Paciente simulado',
           reason: 'Motivo no disponible',
-          status: 'READY'
+          status: 'READY',
+          estimatedTimeMinutes: undefined
         },
         students: []
       });
@@ -59,7 +55,8 @@ export class SimulationAssignmentService {
           title: clinicalCase.title,
           patientName: clinicalCase.patientName,
           reason: clinicalCase.chiefComplaint,
-          status: this.mapBackendStatus(clinicalCase)
+          status: this.mapBackendStatus(clinicalCase),
+          estimatedTimeMinutes: clinicalCase.estimatedTimeMinutes
         },
         students: students
           .map((student) => ({
@@ -91,11 +88,7 @@ export class SimulationAssignmentService {
             name: 'Simulación asignada',
             clinicalCaseId: response.clinicalCaseId,
             clinicalCaseName: 'Caso clínico',
-            courseName: 'Curso',
-            mode: payload.mode,
-            durationMinutes: payload.durationMinutes,
-            availability: payload.availability,
-            availableAt: payload.availableAt
+            courseName: 'Curso'
           })),
           catchError((error: HttpErrorResponse) => {
             const backendMessage =
@@ -121,11 +114,7 @@ export class SimulationAssignmentService {
       name: 'Entrevista respiratoria',
       clinicalCaseId: payload.clinicalCaseId,
       clinicalCaseName: 'Caso Catalina Paz Soto',
-      courseName: 'Caso de prueba',
-      mode: payload.mode,
-      durationMinutes: payload.durationMinutes,
-      availability: payload.availability,
-      availableAt: payload.availableAt
+      courseName: 'Caso de prueba'
     });
   }
 
@@ -151,6 +140,7 @@ interface BackendClinicalCaseResponse {
   chiefComplaint: string;
   status?: ClinicalCaseStatus;
   active: boolean;
+  estimatedTimeMinutes?: number;
 }
 
 interface BackendProfessorStudentResponse {

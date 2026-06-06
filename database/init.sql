@@ -74,6 +74,9 @@ ALTER TABLE caso_clinico DROP CONSTRAINT IF EXISTS caso_clinico_status_check;
 ALTER TABLE caso_clinico ADD CONSTRAINT caso_clinico_status_check
     CHECK (status IN ('DRAFT', 'READY', 'ARCHIVED'));
 
+ALTER TABLE caso_clinico
+    ADD COLUMN IF NOT EXISTS duracion_estimada_minutos INT;
+
 CREATE TABLE caso_hecho_clinico (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     caso_id UUID NOT NULL REFERENCES caso_clinico(id) ON DELETE CASCADE,

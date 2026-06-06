@@ -107,6 +107,20 @@
           />
           <small class="field-error-text" *ngIf="hasFieldError('context')">{{ getFieldError('context') }}</small>
         </label>
+
+        <label for="estimatedTime">
+          Duración estimada (minutos)
+          <input
+            id="estimatedTime"
+            type="number"
+            [(ngModel)]="caseFormState.estimatedTimeMinutes"
+            name="estimatedTime"
+            min="5"
+            max="180"
+            placeholder="Ej: 30"
+          />
+          <small class="field-hint">Tiempo sugerido para la simulación. Entre 5 y 180 minutos.</small>
+        </label>
       </div>
     </section>
 

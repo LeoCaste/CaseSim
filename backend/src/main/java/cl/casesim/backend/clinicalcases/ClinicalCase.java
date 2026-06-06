@@ -34,7 +34,7 @@ public class ClinicalCase {
              LocalDateTime creadoEn
     ) {
         this(id, titulo, descripcion, pacienteNombre, pacienteEdad, pacienteSexo, motivoConsulta,
-                fraseSinInformacion, activo, null, creadoPor, creadoEn);
+                fraseSinInformacion, activo, null, null, creadoPor, creadoEn);
     }
 
     public ClinicalCase(
@@ -48,6 +48,7 @@ public class ClinicalCase {
             String fraseSinInformacion,
             boolean activo,
             ClinicalCaseStatus status,
+            Integer duracionEstimadaMinutos,
             UUID creadoPor,
             LocalDateTime creadoEn
     ) {
@@ -61,6 +62,7 @@ public class ClinicalCase {
         this.fraseSinInformacion = fraseSinInformacion;
         this.activo = activo;
         this.status = status;
+        this.duracionEstimadaMinutos = duracionEstimadaMinutos;
         this.creadoPor = creadoPor;
         this.creadoEn = creadoEn;
     }
@@ -96,6 +98,9 @@ public class ClinicalCase {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ClinicalCaseStatus status;
+
+    @Column(name = "duracion_estimada_minutos")
+    private Integer duracionEstimadaMinutos;
 
     @Column(name = "creado_por")
     private UUID creadoPor;
@@ -146,6 +151,10 @@ public class ClinicalCase {
         return status;
     }
 
+    public Integer getDuracionEstimadaMinutos() {
+        return duracionEstimadaMinutos;
+    }
+
     public UUID getCreadoPor() {
         return creadoPor;
     }
@@ -163,7 +172,8 @@ public class ClinicalCase {
             String motivoConsulta,
             String fraseSinInformacion,
             boolean activo,
-            ClinicalCaseStatus status
+            ClinicalCaseStatus status,
+            Integer duracionEstimadaMinutos
     ) {
         this.titulo = titulo;
         this.descripcion = descripcion;
@@ -174,6 +184,7 @@ public class ClinicalCase {
         this.fraseSinInformacion = fraseSinInformacion;
         this.activo = activo;
         this.status = status;
+        this.duracionEstimadaMinutos = duracionEstimadaMinutos;
     }
 
     public void desactivar() {

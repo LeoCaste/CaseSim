@@ -333,7 +333,7 @@ export class ClinicalCaseService {
       title: response.title,
       patientName: response.patientName,
       status: this.mapBackendStatus(response),
-      estimatedTimeMinutes: undefined,
+      estimatedTimeMinutes: response.estimatedTimeMinutes,
       factsCount: response.factsCount ?? facts.length,
       age: response.patientAge,
       sex: this.mapSex(response.patientSex),
@@ -383,6 +383,7 @@ export class ClinicalCaseService {
       noInformationPhrase: normalizedFallbackResponse ?? 'No tengo información asociada a eso.',
       status: payload.status,
       active: payload.status !== 'ARCHIVED',
+      estimatedTimeMinutes: payload.estimatedTimeMinutes,
       facts: payload.facts
         .filter((fact) => this.normalizeOptionalText(fact.content))
         .map((fact) => ({
@@ -606,6 +607,7 @@ interface BackendClinicalCaseResponse {
   facts?: BackendClinicalFactResponse[];
   clinicalFacts?: BackendClinicalFactResponse[];
   personality?: string[] | BackendClinicalCasePersonalityResponse;
+  estimatedTimeMinutes?: number;
 }
 
 interface BackendClinicalCaseRequest {
@@ -620,6 +622,7 @@ interface BackendClinicalCaseRequest {
   active: boolean;
   facts: BackendClinicalFactRequest[];
   personality: string[];
+  estimatedTimeMinutes?: number;
 }
 
 interface BackendClinicalFact {

@@ -71,6 +71,18 @@ describe('ClinicalCaseService fact mapping', () => {
     });
   });
 
+  it('should map estimatedTimeMinutes from backend response', () => {
+    const response = {
+      ...buildBackendResponse(null),
+      estimatedTimeMinutes: 45
+    };
+
+    const summary = (service as unknown as { mapBackendCaseToSummary: (response: unknown) => Record<string, unknown> })
+      .mapBackendCaseToSummary(response);
+
+    expect(summary['estimatedTimeMinutes']).toBe(45);
+  });
+
   it('should preserve backend clinical case status when present', () => {
     const response = {
       ...buildBackendResponse(null),

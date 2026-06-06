@@ -29,7 +29,7 @@ describe('AssignSimulationPage', () => {
         {
           provide: SimulationAssignmentService,
           useValue: {
-            getAssignmentContext: () => of({ clinicalCase: { id: 'case-1', title: 'Caso', patientName: 'Paciente', reason: 'Dolor', status: 'READY' }, students: [] }),
+            getAssignmentContext: () => of({ clinicalCase: { id: 'case-1', title: 'Caso', patientName: 'Paciente', reason: 'Dolor', status: 'READY', estimatedTimeMinutes: undefined }, students: [] }),
             createSimulation: () => of({ id: 'sim-1' })
           }
         },
@@ -55,7 +55,8 @@ describe('AssignSimulationPage', () => {
       title: 'Caso borrador',
       patientName: 'Paciente',
       reason: 'Dolor',
-      status: 'DRAFT'
+      status: 'DRAFT',
+      estimatedTimeMinutes: undefined
     };
 
     component.createSimulation();

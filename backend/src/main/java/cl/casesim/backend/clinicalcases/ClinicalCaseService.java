@@ -91,6 +91,7 @@ public class ClinicalCaseService {
                 resolveNoInformationPhrase(request.noInformationPhrase()),
                 status.isLegacyActive(),
                 status,
+                request.estimatedTimeMinutes(),
                 authenticatedUserId,
                 now
         );
@@ -117,7 +118,8 @@ public class ClinicalCaseService {
                 resolveRequiredStorageText(request.chiefComplaint(), DRAFT_CHIEF_COMPLAINT_PLACEHOLDER),
                 resolveNoInformationPhrase(request.noInformationPhrase()),
                 status.isLegacyActive(),
-                status
+                status,
+                request.estimatedTimeMinutes()
         );
 
         ClinicalCase updatedClinicalCase = clinicalCaseRepository.save(clinicalCase);
@@ -238,6 +240,7 @@ public class ClinicalCaseService {
                 clinicalCase.getFraseSinInformacion(),
                 clinicalCase.isActivo(),
                 clinicalCase.getStatus(),
+                clinicalCase.getDuracionEstimadaMinutos(),
                 clinicalCase.getCreadoEn(),
                 facts,
                 personality

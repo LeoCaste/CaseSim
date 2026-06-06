@@ -19,12 +19,19 @@ import { ClinicalCaseStatus } from '../../../../core/models/clinical-case.model'
   styleUrl: './assign-simulation-page.css'
 })
 export class AssignSimulationPage implements OnInit {
-  clinicalCase = {
+  clinicalCase: {
+    id: string;
+    title: string;
+    patientName: string;
+    reason: string;
+    status: ClinicalCaseStatus;
+    estimatedTimeMinutes?: number;
+  } = {
     id: '1',
     title: 'Caso Catalina Paz Soto',
     patientName: 'Catalina Paz Soto',
     reason: 'tos seca y fatiga',
-    status: 'READY' as ClinicalCaseStatus
+    status: 'READY'
   };
 
   showCreateConfirmation = false;
@@ -32,16 +39,9 @@ export class AssignSimulationPage implements OnInit {
 
   students: Array<SimulationStudent & { selected: boolean }> = [];
 
-  settings = {
-    mode: 'Sin límite de tiempo',
-    duration: 'No aplica',
-    availability: 'Disponible inmediatamente'
-  };
   createSimulationPayload: CreateSimulationPayload = {
     clinicalCaseId: '1',
-    studentIds: [],
-    mode: 'UNLIMITED',
-    availability: 'IMMEDIATE'
+    studentIds: []
   };
   isLoading = false;
   loadError = '';
@@ -87,15 +87,6 @@ export class AssignSimulationPage implements OnInit {
       });
   }
 
-  onModeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    this.settings.mode = value;
-
-    if (value === 'Sin límite de tiempo') {
-      this.settings.duration = 'No aplica';
-    }
-  }
-
   createSimulation(): void {
     this.loadError = '';
     if (!this.canAssignCase) {
@@ -127,12 +118,7 @@ export class AssignSimulationPage implements OnInit {
 
     this.createSimulationPayload = {
       clinicalCaseId: this.clinicalCase.id,
-      studentIds: this.students.filter((student) => student.selected).map((student) => student.id),
-      mode: this.settings.mode === 'Con límite de tiempo' ? 'TIME_LIMITED' : 'UNLIMITED',
-      durationMinutes: this.settings.mode === 'Con límite de tiempo' ? this.parseDuration(this.settings.duration) : undefined,
-      availability:
-        this.settings.availability === 'Programar fecha de inicio' ? 'SCHEDULED' : 'IMMEDIATE',
-      availableAt: undefined
+      studentIds: this.students.filter((student) => student.selected).map((student) => student.id)
     };
 
     if (this.createSimulationPayload.studentIds.length === 0) {
@@ -167,15 +153,13 @@ export class AssignSimulationPage implements OnInit {
       });
   }
 
-  private parseDuration(value: string): number | undefined {
-    if (value === '15 minutos') return 15;
-    if (value === '20 minutos') return 20;
-    if (value === '30 minutos') return 30;
-    return undefined;
-  }
-
   get canAssignCase(): boolean {
     return this.clinicalCase.status === 'READY';
+  }
+
+  get estimatedDurationLabel(): string {
+    if (!this.clinicalCase.estimatedTimeMinutes) return 'No definida';
+    return `${this.clinicalCase.estimatedTimeMinutes} minutos`;
   }
 
   get statusLabel(): 'Listo' | 'Borrador' | 'Archivado' {

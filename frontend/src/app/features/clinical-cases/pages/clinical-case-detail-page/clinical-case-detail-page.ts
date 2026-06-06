@@ -112,6 +112,11 @@ export class ClinicalCaseDetailPage implements OnInit {
     return this.clinicalCase ? this.clinicalCaseService.getStatusLabel(this.clinicalCase.status) : 'Borrador';
   }
 
+  get estimatedDurationLabel(): string {
+    if (!this.clinicalCase?.estimatedTimeMinutes) return 'No definida';
+    return `${this.clinicalCase.estimatedTimeMinutes} minutos`;
+  }
+
   get canAssign(): boolean {
     return this.clinicalCase?.status === 'READY';
   }

@@ -105,6 +105,7 @@ class SimulationAssignmentServiceTest {
                 "No tengo información asociada a eso.",
                 status.isLegacyActive(),
                 status,
+                null,
                 UUID.randomUUID(),
                 LocalDateTime.now()
         );

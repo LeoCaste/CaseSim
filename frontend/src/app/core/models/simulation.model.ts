@@ -4,10 +4,6 @@ export interface Simulation {
   clinicalCaseId: string;
   clinicalCaseName: string;
   courseName: string;
-  mode: 'TIME_LIMITED' | 'UNLIMITED';
-  durationMinutes?: number;
-  availability: 'IMMEDIATE' | 'SCHEDULED';
-  availableAt?: string;
 }
 
 export interface SimulationStudent {
