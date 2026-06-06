@@ -7,9 +7,13 @@ export type PatientSex = ClinicalSex;
 
 export interface ClinicalFact {
   id?: string;
+  /** Backend contract identifier for professor facts. */
+  key?: string;
   category: string;
   title: string;
   content: string;
+  /** Backend contract triggers for professor facts. */
+  triggers?: string[];
   trigger: string;
   visibility: ClinicalFactVisibility;
   /** Preserva niveles backend 1..4 aunque la UI actual solo muestre Inicial/Bajo pregunta. */

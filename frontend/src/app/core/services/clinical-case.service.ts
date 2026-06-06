@@ -385,9 +385,9 @@ export class ClinicalCaseService {
         .filter((fact) => this.normalizeOptionalText(fact.content))
         .map((fact) => ({
           category: this.normalizeOptionalText(fact.category) ?? 'GENERAL',
-          key: (this.normalizeOptionalText(fact.title) ?? this.normalizeFactKey(fact.title)).trim(),
+          key: (this.normalizeOptionalText(fact.key) ?? this.normalizeOptionalText(fact.title) ?? this.normalizeFactKey(fact.title)).trim(),
           content: (this.normalizeOptionalText(fact.content) ?? '').trim(),
-          triggers: this.parseTriggerText(fact.trigger),
+          triggers: this.normalizeTriggers(fact.triggers, fact.trigger),
           revealLevel: this.resolveFactRevealLevel(fact.revealLevel, fact.visibility)
         })),
       personality: [payload.personality.tone, payload.personality.detailLevel, payload.personality.behaviorNotes]
@@ -445,9 +445,11 @@ export class ClinicalCaseService {
     const rawFacts = response.facts ?? response.clinicalFacts ?? [];
 
     return rawFacts.map((fact, index) => ({
+      key: fact.key ?? fact.nombre ?? fact.title ?? `Hecho ${index + 1}`,
       category: fact.category ?? fact.categoria ?? 'Hecho clínico',
       title: fact.key ?? fact.nombre ?? fact.title ?? `Hecho ${index + 1}`,
       content: fact.content ?? fact.contenidoPaciente ?? fact.trigger ?? this.mapTriggersToString(fact.triggers) ?? '',
+      triggers: fact.triggers ?? this.parseTriggerText(fact.trigger ?? fact.disparador),
       trigger: fact.trigger ?? fact.disparador ?? this.mapTriggersToString(fact.triggers) ?? fact.content ?? '',
       visibility: this.mapFactVisibility(fact.revealLevel ?? fact.nivelRevelacion ?? fact.visibility),
       revealLevel: this.normalizeRevealLevel(fact.revealLevel ?? fact.nivelRevelacion ?? fact.visibility)
@@ -498,6 +500,16 @@ export class ClinicalCaseService {
       .split(',')
       .map((item) => this.normalizeOptionalText(item))
       .filter((item): item is string => Boolean(item));
+  }
+
+  private normalizeTriggers(triggers: string[] | null | undefined, triggerText: string | null | undefined): string[] {
+    if (Array.isArray(triggers)) {
+      return triggers
+        .map((item) => this.normalizeOptionalText(item))
+        .filter((item): item is string => Boolean(item));
+    }
+
+    return this.parseTriggerText(triggerText);
   }
 
   private resolveFactRevealLevel(revealLevel: number | null | undefined, visibility: ClinicalFactVisibility): number {
@@ -590,9 +602,11 @@ interface BackendClinicalCaseRequest {
 }
 
 interface BackendClinicalFact {
+  key?: string;
   category: string;
   title: string;
   content: string;
+  triggers?: string[];
   trigger: string;
   visibility: ClinicalFactVisibility;
   revealLevel?: number;

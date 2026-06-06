@@ -63,6 +63,7 @@ class StudentClinicalCaseControllerTest {
                 .andExpect(jsonPath("$.description").doesNotExist())
                 .andExpect(jsonPath("$.facts").doesNotExist())
                 .andExpect(jsonPath("$.personality").doesNotExist())
+                .andExpect(jsonPath("$.metadata").doesNotExist())
                 .andExpect(jsonPath("$.noInformationPhrase").doesNotExist())
                 .andExpect(jsonPath("$.expectedDiagnosis").doesNotExist());
     }

@@ -98,7 +98,7 @@ class PromptBuilderServiceTest {
         PromptBuilderService.ClinicalPromptContext context = new PromptBuilderService.ClinicalPromptContext(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                "Caso clínico asignado",
+                "Apendicitis aguda",
                 "Paciente Demo",
                 "24",
                 "F",

@@ -221,7 +221,7 @@ export class InterviewSessionService {
           patientName: this.readFirstString(activity.patientName, activity.nombrePaciente) ?? '',
           age: this.readFirstNumber(activity.patientAge, activity.edadPaciente) ?? 0,
           sex: this.normalizeSex(this.readFirstString(activity.patientSex, activity.sexoPaciente) ?? 'X'),
-          context: this.readFirstString(activity.context, activity.descripcionContexto) ?? '',
+          context: '',
           reason: this.readFirstString(activity.chiefComplaint, activity.motivoConsulta) ?? ''
         };
 
@@ -230,7 +230,7 @@ export class InterviewSessionService {
         ).pipe(
           map((clinicalCaseContext): ActivityContext => ({
             caseName:
-              this.readFirstString(activityContext.caseName, clinicalCaseContext.title, clinicalCaseContext.titulo) ??
+              this.readFirstString(clinicalCaseContext.title, clinicalCaseContext.titulo, activityContext.caseName) ??
               'Actividad clínica',
             patientName:
               this.readFirstString(
@@ -251,21 +251,12 @@ export class InterviewSessionService {
                 clinicalCaseContext.sexoPaciente
               ) ?? 'X'
             ),
-            context:
-              this.readFirstString(
-                activityContext.context,
-                clinicalCaseContext.contextSummary,
-                clinicalCaseContext.resumenContexto,
-                clinicalCaseContext.encounterContext,
-                clinicalCaseContext.contextoAtencion,
-                clinicalCaseContext.clinicalSetting,
-                clinicalCaseContext.ambitoClinico
-              ) ?? '',
+            context: '',
             reason:
               this.readFirstString(
-                activityContext.reason,
                 clinicalCaseContext.chiefComplaint,
-                clinicalCaseContext.motivoConsulta
+                clinicalCaseContext.motivoConsulta,
+                activityContext.reason
               ) ?? ''
           })),
           catchError(() =>
@@ -439,11 +430,11 @@ interface BackendStudentActivityResponse {
   sexoPaciente?: string;
   chiefComplaint?: string;
   motivoConsulta?: string;
-  context?: string;
-  descripcionContexto?: string;
 }
 
 interface BackendStudentClinicalCaseContextResponse {
+  activityId?: string;
+  clinicalCaseId?: string;
   title?: string;
   titulo?: string;
   patientName?: string;
@@ -454,12 +445,6 @@ interface BackendStudentClinicalCaseContextResponse {
   sexoPaciente?: string;
   chiefComplaint?: string;
   motivoConsulta?: string;
-  contextSummary?: string;
-  resumenContexto?: string;
-  encounterContext?: string;
-  contextoAtencion?: string;
-  clinicalSetting?: string;
-  ambitoClinico?: string;
 }
 
 interface ActivityContext {

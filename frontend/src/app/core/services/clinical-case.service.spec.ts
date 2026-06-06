@@ -60,9 +60,11 @@ describe('ClinicalCaseService fact mapping', () => {
       .mapBackendCaseToDetail(response);
 
     expect(detail.facts[0]).toEqual({
+      key: 'Inicio de dolor',
       category: 'Historia actual',
       title: 'Inicio de dolor',
       content: 'El dolor inició ayer.',
+      triggers: ['dolor', 'inicio'],
       trigger: 'dolor, inicio',
       visibility: 'ON_QUESTION',
       revealLevel: 4

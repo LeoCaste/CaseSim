@@ -35,6 +35,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -128,19 +129,54 @@ class ClinicalCaseControllerSecurityIntegrationTest {
                         .content(validRequestJson))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(caseId.toString()))
+                .andExpect(jsonPath("$.description").value("Descripción"))
+                .andExpect(jsonPath("$.personality[0]").value("ansiosa"))
+                .andExpect(jsonPath("$.noInformationPhrase").value("Sin más info"))
+                .andExpect(jsonPath("$.facts[0].key").value("antecedentes"))
+                .andExpect(jsonPath("$.facts[0].category").value("ANTECEDENTES"))
                 .andExpect(jsonPath("$.facts[0].content").value("HTA"))
                 .andExpect(jsonPath("$.facts[0].contenido").value("HTA"))
-                .andExpect(jsonPath("$.facts[0].contenido_paciente").value("HTA"));
+                .andExpect(jsonPath("$.facts[0].contenido_paciente").value("HTA"))
+                .andExpect(jsonPath("$.facts[0].triggers[0]").value("presión"))
+                .andExpect(jsonPath("$.facts[0].revealLevel").value(1));
     }
 
     @Test
     @WithMockUser(roles = {"ADMIN"})
-    void putClinicalCase_adminRole_allowed() throws Exception {
+    void getClinicalCase_adminRole_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/clinical-cases/{id}", caseId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    void putClinicalCase_adminRole_forbidden() throws Exception {
         mockMvc.perform(put("/api/v1/clinical-cases/{id}", caseId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequestJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(caseId.toString()));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    void patchClinicalCase_adminRole_forbidden() throws Exception {
+        mockMvc.perform(patch("/api/v1/clinical-cases/{id}", caseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    void postClinicalCase_adminRole_forbidden() throws Exception {
+        mockMvc.perform(post("/api/v1/clinical-cases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequestJson))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }
 
     @Test
@@ -471,9 +507,10 @@ class ClinicalCaseControllerSecurityIntegrationTest {
 
     @Test
     @WithMockUser(roles = {"ADMIN"})
-    void deleteClinicalCase_adminRole_allowed() throws Exception {
+    void deleteClinicalCase_adminRole_forbidden() throws Exception {
         mockMvc.perform(delete("/api/v1/clinical-cases/{id}", caseId))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }
 
     @Test

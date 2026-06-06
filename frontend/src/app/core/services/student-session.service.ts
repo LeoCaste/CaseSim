@@ -209,9 +209,7 @@ export class StudentSessionService {
     const durationMinutes = this.readFirstNumber(activity.durationMinutes, activity.tiempoLimiteMinutos);
 
     const title = this.readFirstString(activity.title, activity.titulo) ?? 'Actividad clínica';
-    const description =
-      this.readFirstString(activity.description, activity.descripcion) ??
-      'Realiza una anamnesis clínica y concluye cuando tengas una hipótesis diagnóstica.';
+    const description = 'Realiza una anamnesis clínica y concluye cuando tengas una hipótesis diagnóstica.';
 
     const course = this.readFirstString(activity.courseName, activity.nombreCurso) ?? 'Curso';
     const professor = this.readFirstString(activity.professorName, activity.nombreProfesor) ?? 'Equipo docente';
@@ -326,8 +324,6 @@ interface BackendStudentActivityResponse {
   id?: string;
   title?: string;
   titulo?: string;
-  description?: string;
-  descripcion?: string;
   patientName?: string;
   nombrePaciente?: string;
   courseName?: string;
