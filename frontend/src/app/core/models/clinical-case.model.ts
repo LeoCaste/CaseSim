@@ -45,6 +45,8 @@ export interface ClinicalCase extends ClinicalCaseSummary {
   reason: string;
   initialMessage: string;
   expectedDiagnosis?: string;
+  /** Valor heredado desde [CASESIM_META]; solo se preserva por compatibilidad. */
+  legacyExpectedDiagnosis?: string;
   fallbackResponse?: string;
   behaviorGuidelines?: string;
   personality: ClinicalCasePersonality;
@@ -62,6 +64,8 @@ export interface ClinicalCaseUpsertPayload {
   reason: string;
   initialMessage: string;
   expectedDiagnosis?: string;
+  /** No crear desde UI; permite no perder metadato legacy ya existente. */
+  legacyExpectedDiagnosis?: string;
   fallbackResponse?: string;
   behaviorGuidelines?: string;
   personality: ClinicalCasePersonality;

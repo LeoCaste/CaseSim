@@ -1,6 +1,7 @@
 package cl.casesim.backend.llm;
 
 import cl.casesim.backend.clinicalcases.ClinicalCase;
+import cl.casesim.backend.clinicalcases.ClinicalCaseDescriptionParser;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFact;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
@@ -805,7 +806,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 clinicalCase.getPacienteEdad() == null ? null : String.valueOf(clinicalCase.getPacienteEdad()),
                 clinicalCase.getPacienteSexo(),
                 clinicalCase.getMotivoConsulta(),
-                ClinicalCaseSafetySanitizer.sanitizeCaseHistory(clinicalCase.getDescripcion()),
+                ClinicalCaseDescriptionParser.parse(clinicalCase.getDescripcion()).clinicalContext(),
                 clinicalCase.getFraseSinInformacion(),
                 personalityTraits,
                 facts

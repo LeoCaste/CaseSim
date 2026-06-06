@@ -359,6 +359,7 @@ export class ClinicalCaseService {
       initialMessage:
         descriptionMetadata?.initialMessage ?? this.normalizeOptionalText(response.initialMessage) ?? '',
       expectedDiagnosis: descriptionMetadata?.expectedDiagnosis ?? response.expectedDiagnosis ?? undefined,
+      legacyExpectedDiagnosis: descriptionMetadata?.expectedDiagnosis,
       fallbackResponse: normalizedFallbackPhrase ?? undefined,
       behaviorGuidelines: behaviorGuidelines ?? undefined,
       personality,
@@ -398,7 +399,7 @@ export class ClinicalCaseService {
     const metadata: ClinicalCaseDescriptionMetadata = {
       context: this.normalizeOptionalText(payload.context),
       initialMessage: this.normalizeOptionalText(payload.initialMessage),
-      expectedDiagnosis: this.normalizeOptionalText(payload.expectedDiagnosis),
+      expectedDiagnosis: this.normalizeOptionalText(payload.legacyExpectedDiagnosis),
       behaviorGuidelines: this.normalizeOptionalText(payload.behaviorGuidelines)
     };
 
@@ -458,11 +459,12 @@ export class ClinicalCaseService {
 
   private extractBackendPersonality(response: BackendClinicalCaseResponse): ClinicalCasePersonality {
     const personality = response.personality;
+    const plainLegacyDescription = this.getPlainLegacyDescription(response.description);
     if (Array.isArray(personality)) {
       return {
         tone: this.normalizeOptionalText(personality[0]) ?? '',
         detailLevel: this.normalizeOptionalText(personality[1]) ?? '',
-        behaviorNotes: this.normalizeOptionalText(personality[2]) ?? this.normalizeOptionalText(response.description) ?? ''
+        behaviorNotes: this.normalizeOptionalText(personality[2]) ?? plainLegacyDescription ?? ''
       };
     }
 
@@ -473,7 +475,7 @@ export class ClinicalCaseService {
         behaviorNotes:
           this.normalizeOptionalText(personality.behaviorNotes) ??
           this.normalizeOptionalText(personality.notes) ??
-          this.normalizeOptionalText(response.description) ??
+          plainLegacyDescription ??
           ''
       };
     }
@@ -481,8 +483,16 @@ export class ClinicalCaseService {
     return {
       tone: '',
       detailLevel: '',
-      behaviorNotes: this.normalizeOptionalText(response.description) ?? ''
+      behaviorNotes: plainLegacyDescription ?? ''
     };
+  }
+
+  private getPlainLegacyDescription(description: string | null | undefined): string | undefined {
+    if (this.parseDescriptionMetadata(description)) {
+      return undefined;
+    }
+
+    return this.normalizeOptionalText(description);
   }
 
   private normalizeFactKey(value: string): string {

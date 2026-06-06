@@ -420,8 +420,6 @@ interface BackendStudentActivityResponse {
   casoClinicoId?: string;
   title?: string;
   titulo?: string;
-  description?: string;
-  descripcion?: string;
   patientName?: string;
   nombrePaciente?: string;
   patientAge?: number;

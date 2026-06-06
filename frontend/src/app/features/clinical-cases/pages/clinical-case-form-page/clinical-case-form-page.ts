@@ -236,6 +236,7 @@ export class ClinicalCaseFormPage implements OnInit {
       reason: this.caseFormState.reason.trim(),
       initialMessage: this.caseFormState.initialMessage.trim(),
       expectedDiagnosis: this.caseFormState.expectedDiagnosis?.trim(),
+      legacyExpectedDiagnosis: this.caseFormState.legacyExpectedDiagnosis,
       fallbackResponse: this.caseFormState.fallbackResponse?.trim(),
       behaviorGuidelines: this.caseFormState.behaviorGuidelines?.trim(),
       personality: this.caseFormState.personality,

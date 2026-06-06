@@ -85,7 +85,94 @@ describe('ClinicalCaseService fact mapping', () => {
 
     expect(request.facts).toEqual([]);
   });
+
+  it('should load legacy description metadata without losing expectedDiagnosis', () => {
+    const response = buildBackendResponse(
+      '[CASESIM_META]' +
+        JSON.stringify({
+          context: 'Box de urgencia',
+          initialMessage: 'Me duele el pecho',
+          expectedDiagnosis: 'Síndrome coronario a descartar',
+          behaviorGuidelines: 'Responder breve'
+        })
+    );
+
+    const detail = (service as unknown as { mapBackendCaseToDetail: (response: unknown) => Record<string, unknown> })
+      .mapBackendCaseToDetail(response);
+
+    expect(detail['context']).toBe('Box de urgencia');
+    expect(detail['initialMessage']).toBe('Me duele el pecho');
+    expect(detail['expectedDiagnosis']).toBe('Síndrome coronario a descartar');
+    expect(detail['legacyExpectedDiagnosis']).toBe('Síndrome coronario a descartar');
+    expect(detail['behaviorGuidelines']).toBe('Responder breve');
+    expect((detail['personality'] as Record<string, unknown>)['behaviorNotes']).not.toContain('[CASESIM_META]');
+  });
+
+  it('should support cases without legacy metadata', () => {
+    const response = buildBackendResponse('Indicaciones generales del paciente.');
+
+    const detail = (service as unknown as { mapBackendCaseToDetail: (response: unknown) => Record<string, unknown> })
+      .mapBackendCaseToDetail(response);
+
+    expect(detail['context']).toBe('');
+    expect(detail['behaviorGuidelines']).toBe('Indicaciones generales del paciente.');
+    expect(detail['expectedDiagnosis']).toBeUndefined();
+    expect(detail['legacyExpectedDiagnosis']).toBeUndefined();
+  });
+
+  it('should not create new expectedDiagnosis metadata from form input', () => {
+    const payload = buildPayload({
+      category: 'Historia actual',
+      title: 'Inicio de dolor',
+      content: 'El dolor inició ayer.',
+      trigger: 'dolor',
+      visibility: 'ON_QUESTION'
+    });
+    payload.expectedDiagnosis = 'Diagnóstico docente nuevo';
+
+    const request = (service as unknown as { mapUpsertPayloadToBackendRequest: (payload: ClinicalCaseUpsertPayload) => { description: string | null } })
+      .mapUpsertPayloadToBackendRequest(payload);
+
+    expect(request.description).not.toContain('Diagnóstico docente nuevo');
+    expect(request.description).not.toContain('expectedDiagnosis');
+  });
+
+  it('should preserve existing legacy expectedDiagnosis metadata on update payloads', () => {
+    const payload = buildPayload({
+      category: 'Historia actual',
+      title: 'Inicio de dolor',
+      content: 'El dolor inició ayer.',
+      trigger: 'dolor',
+      visibility: 'ON_QUESTION'
+    });
+    payload.expectedDiagnosis = 'Diagnóstico docente editado';
+    payload.legacyExpectedDiagnosis = 'Diagnóstico docente legacy';
+
+    const request = (service as unknown as { mapUpsertPayloadToBackendRequest: (payload: ClinicalCaseUpsertPayload) => { description: string | null } })
+      .mapUpsertPayloadToBackendRequest(payload);
+
+    expect(request.description).toContain('expectedDiagnosis');
+    expect(request.description).toContain('Diagnóstico docente legacy');
+    expect(request.description).not.toContain('Diagnóstico docente editado');
+  });
 });
+
+function buildBackendResponse(description: string | null): Record<string, unknown> {
+  return {
+    id: 'case-1',
+    title: 'Caso',
+    description,
+    patientName: 'Paciente',
+    patientAge: 40,
+    patientSex: 'F',
+    chiefComplaint: 'Dolor',
+    noInformationPhrase: 'No sé',
+    active: true,
+    createdAt: '2026-06-06T00:00:00',
+    facts: [],
+    personality: []
+  };
+}
 
 function buildPayload(fact: ClinicalCaseUpsertPayload['facts'][number]): ClinicalCaseUpsertPayload {
   return {

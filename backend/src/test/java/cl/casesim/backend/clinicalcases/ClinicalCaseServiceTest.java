@@ -183,6 +183,7 @@ class ClinicalCaseServiceTest {
         var response = clinicalCaseService.updateClinicalCase(caseId, request);
 
         assertEquals("Caso actualizado", response.title());
+        assertEquals("Descripción con [CASESIM_META]{\"foo\":\"bar\"}", response.description());
         assertEquals(List.of("inicio", "evolución"), response.facts().getFirst().triggers());
     }
 

@@ -297,10 +297,11 @@
           type="text"
           [(ngModel)]="caseFormState.expectedDiagnosis"
           name="expectedDiagnosis"
+          readonly
           [class.field-error]="hasFieldError('expectedDiagnosis')"
           (ngModelChange)="clearFieldError('expectedDiagnosis')"
         />
-        <small class="field-hint">Este dato es de referencia para el caso y no debe ser revelado al estudiante durante la entrevista.</small>
+        <small class="field-hint">Dato docente legacy de solo lectura; no se crean nuevas escrituras en description.</small>
         <small class="field-error-text" *ngIf="hasFieldError('expectedDiagnosis')">{{ getFieldError('expectedDiagnosis') }}</small>
       </label>
 
