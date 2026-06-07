@@ -131,9 +131,25 @@ public class LlmConfiguration {
     }
 
     @Bean
+    public LlmErrorSanitizer llmErrorSanitizer(LlmProperties llmProperties) {
+        return new LlmErrorSanitizer(llmProperties);
+    }
+
+    @Bean
+    public LlmProviderGateway llmProviderGateway(
+            LlmClient llmClient,
+            LlmProperties llmProperties,
+            PromptBuilderService promptBuilderService,
+            LlmErrorSanitizer llmErrorSanitizer
+    ) {
+        return new LlmProviderGateway(llmClient, llmProperties, promptBuilderService, llmErrorSanitizer);
+    }
+
+    @Bean
     public LlmPatientResponseService llmPatientResponseService(
             LlmProperties llmProperties,
-            LlmClient llmClient,
+            LlmProviderGateway llmProviderGateway,
+            LlmErrorSanitizer llmErrorSanitizer,
             PromptBuilderService promptBuilderService,
             PatientResponseSafetyService patientResponseSafetyService,
             PatientFallbackResponseService patientFallbackResponseService,
@@ -145,7 +161,8 @@ public class LlmConfiguration {
     ) {
         return new LlmPatientResponseService(
                 llmProperties,
-                llmClient,
+                llmProviderGateway,
+                llmErrorSanitizer,
                 promptBuilderService,
                 patientResponseSafetyService,
                 patientFallbackResponseService,

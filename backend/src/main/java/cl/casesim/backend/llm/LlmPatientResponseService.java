@@ -21,7 +21,8 @@ public class LlmPatientResponseService implements PatientResponseService {
     private static final Logger log = LoggerFactory.getLogger(LlmPatientResponseService.class);
 
     private final LlmProperties llmProperties;
-    private final LlmClient llmClient;
+    private final LlmProviderGateway llmProviderGateway;
+    private final LlmErrorSanitizer llmErrorSanitizer;
     private final PromptBuilderService promptBuilderService;
     private final PatientResponseSafetyService patientResponseSafetyService;
     private final PatientFallbackResponseService patientFallbackResponseService;
@@ -37,7 +38,8 @@ public class LlmPatientResponseService implements PatientResponseService {
 
     public LlmPatientResponseService(
             LlmProperties llmProperties,
-            LlmClient llmClient,
+            LlmProviderGateway llmProviderGateway,
+            LlmErrorSanitizer llmErrorSanitizer,
             PromptBuilderService promptBuilderService,
             PatientResponseSafetyService patientResponseSafetyService,
             PatientFallbackResponseService patientFallbackResponseService,
@@ -48,7 +50,8 @@ public class LlmPatientResponseService implements PatientResponseService {
             RevealableFactSelector revealableFactSelector
     ) {
         this.llmProperties = llmProperties;
-        this.llmClient = llmClient;
+        this.llmProviderGateway = llmProviderGateway;
+        this.llmErrorSanitizer = llmErrorSanitizer;
         this.promptBuilderService = promptBuilderService;
         this.patientResponseSafetyService = patientResponseSafetyService;
         this.patientFallbackResponseService = patientFallbackResponseService;
@@ -150,18 +153,25 @@ public class LlmPatientResponseService implements PatientResponseService {
             String metricModel = resolvedModel;
             Integer providerPromptTokens = null;
             Integer providerCompletionTokens = null;
-            try {
-                providerResponse = llmClient.generate(new LlmRequest(
-                        promptMessages,
-                        llmProperties.getModel(),
-                        llmProperties.getTemperature(),
-                        llmProperties.getMaxTokens()
-                ));
-                llmResponse = providerResponse == null ? "" : providerResponse.content();
+
+            LlmProviderGatewayResult gatewayResult = llmProviderGateway.executeCall(
+                    promptMessages,
+                    context,
+                    userMessage,
+                    noInfoResolution.value(),
+                    resolvedProvider,
+                    resolvedModel
+            );
+
+            if (gatewayResult.success()) {
+                llmResponse = gatewayResult.response();
+                providerResponse = gatewayResult.providerResponse();
                 metricProvider = llmInteractionMetricsService.resolveMetricProvider(providerResponse, resolvedProvider);
                 metricModel = llmInteractionMetricsService.resolveMetricModel(providerResponse, resolvedModel);
                 providerPromptTokens = llmInteractionMetricsService.resolvePromptTokens(providerResponse);
                 providerCompletionTokens = llmInteractionMetricsService.resolveCompletionTokens(providerResponse);
+
+                String origin = gatewayResult.primarySuccess() ? "PROVIDER_PRIMARY" : "PROVIDER_COMPACT_RETRY";
                 log.info(
                         "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
                         requestId,
@@ -169,42 +179,17 @@ public class LlmPatientResponseService implements PatientResponseService {
                         context.clinicalCaseId(),
                         resolvedProvider,
                         resolvedModel,
-                        "PROVIDER_PRIMARY",
+                        origin,
                         promptChars,
                         estimatedPromptTokens,
                         llmResponse == null ? 0 : llmResponse.length(),
                         llmInteractionMetricsService.estimateTokens(llmResponse)
                 );
-            } catch (LlmClientException ex) {
-                llmResponse = tryGenerateFallbackPatientResponse(
-                        context,
-                        userMessage,
-                        noInfoResolution,
-                        resolvedProvider,
-                        resolvedModel,
-                        ex
-                );
-                if (!hasText(llmResponse)) {
-                    String fallbackCause = classifyFallbackCause(ex, this::sanitizeError);
-                    String contextualFallback = patientFallbackResponseService.buildContextualPatientFallback(context, userMessage, noInfoResolution.value());
-                    if (hasText(contextualFallback)) {
-                        return registerAndReturnLocalPatientFallback(
-                                session,
-                                startedAt,
-                                estimatedPromptTokens,
-                                resolvedProvider,
-                                resolvedModel,
-                                noInfoResolution,
-                                "PROVIDER_CALL_ERROR|" + fallbackCause,
-                                ex,
-                                contextualFallback,
-                                requestId,
-                                context.clinicalCaseId(),
-                                promptChars,
-                                estimatedPromptTokens
-                        );
-                    }
-                    return registerAndReturnTechnicalFallback(
+            } else {
+                String fallbackCause = classifyFallbackCause(gatewayResult.originalException(), llmErrorSanitizer::sanitizeError);
+                String contextualFallback = patientFallbackResponseService.buildContextualPatientFallback(context, userMessage, noInfoResolution.value());
+                if (hasText(contextualFallback)) {
+                    return registerAndReturnLocalPatientFallback(
                             session,
                             startedAt,
                             estimatedPromptTokens,
@@ -212,25 +197,27 @@ public class LlmPatientResponseService implements PatientResponseService {
                             resolvedModel,
                             noInfoResolution,
                             "PROVIDER_CALL_ERROR|" + fallbackCause,
-                            ex,
+                            gatewayResult.originalException(),
+                            contextualFallback,
                             requestId,
                             context.clinicalCaseId(),
                             promptChars,
                             estimatedPromptTokens
                     );
                 }
-                log.info(
-                        "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
-                        requestId,
-                        session.getId(),
-                        context.clinicalCaseId(),
+                return registerAndReturnTechnicalFallback(
+                        session,
+                        startedAt,
+                        estimatedPromptTokens,
                         resolvedProvider,
                         resolvedModel,
-                        "PROVIDER_COMPACT_RETRY",
+                        noInfoResolution,
+                        "PROVIDER_CALL_ERROR|" + fallbackCause,
+                        gatewayResult.originalException(),
+                        requestId,
+                        context.clinicalCaseId(),
                         promptChars,
-                        estimatedPromptTokens,
-                        llmResponse.length(),
-                        llmInteractionMetricsService.estimateTokens(llmResponse)
+                        estimatedPromptTokens
                 );
             }
 
@@ -336,7 +323,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 llmProperties.isEnabledSafetyFilter()
         );
         String errorType = ex.getClass().getSimpleName();
-        String sanitizedReason = sanitizeError(ex.getMessage());
+        String sanitizedReason = llmErrorSanitizer.sanitizeError(ex.getMessage());
         String reason = stage + "|" + errorType + "|" + sanitizedReason;
         log.warn(
                 "LLM context failed sessionId={} activityId={} provider={} model={} stage={} errorType={} noInfoSource={} reason={}",
@@ -358,7 +345,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 resolvedModel,
                 "FALLBACK_CONTEXT",
                 stage,
-                classifyFallbackCause(ex, this::sanitizeError),
+                classifyFallbackCause(ex, llmErrorSanitizer::sanitizeError),
                 errorType,
                 sanitizedReason,
                 promptChars,
@@ -396,7 +383,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 llmProperties.isEnabledSafetyFilter()
         );
         String errorType = ex.getClass().getSimpleName();
-        String sanitizedReason = sanitizeError(ex.getMessage());
+        String sanitizedReason = llmErrorSanitizer.sanitizeError(ex.getMessage());
         String reason = stage + "|" + errorType + "|" + sanitizedReason;
         log.warn(
                 "LLM request failed sessionId={} provider={} model={} fallbackUsed=true fallbackType=TECHNICAL stage={} errorType={} noInfoSource={} noInfoResponse={} safetyFilterApplied={} reason={}",
@@ -419,7 +406,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 resolvedModel,
                 "FALLBACK_TECHNICAL",
                 stage,
-                classifyFallbackCause(ex, this::sanitizeError),
+                classifyFallbackCause(ex, llmErrorSanitizer::sanitizeError),
                 errorType,
                 sanitizedReason,
                 promptChars,
@@ -458,9 +445,9 @@ public class LlmPatientResponseService implements PatientResponseService {
                 llmProperties.isEnabledSafetyFilter(),
                 noInfoResolution.value()
         );
-        String fallbackCause = classifyFallbackCause(ex, this::sanitizeError);
+        String fallbackCause = classifyFallbackCause(ex, llmErrorSanitizer::sanitizeError);
         String errorType = ex.getClass().getSimpleName();
-        String sanitizedReason = sanitizeError(ex.getMessage());
+        String sanitizedReason = llmErrorSanitizer.sanitizeError(ex.getMessage());
         String reason = stage + "|" + errorType + "|" + sanitizedReason + "|LOCAL_PATIENT_FALLBACK";
         log.warn(
                 "LLM provider failed; using local patient fallback sessionId={} provider={} model={} stage={} errorType={} reason={}",
@@ -534,95 +521,6 @@ public class LlmPatientResponseService implements PatientResponseService {
         return new NoInfoResolution(DEFAULT_SAFE_NO_INFO_RESPONSE, "DEFAULT");
     }
 
-    private String tryGenerateFallbackPatientResponse(
-            PromptBuilderService.ClinicalPromptContext originalContext,
-            String userMessage,
-            NoInfoResolution noInfoResolution,
-            String resolvedProvider,
-            String resolvedModel,
-            LlmClientException firstError
-    ) {
-        if ("QUOTA_EXCEEDED".equals(classifyFallbackCause(firstError, this::sanitizeError))) {
-            log.warn("LLM compact retry skipped due to quota provider={} model={} clinicalCaseId={}",
-                    resolvedProvider,
-                    resolvedModel,
-                    originalContext.clinicalCaseId());
-            return null;
-        }
-        log.warn(
-                "LLM primary call failed; attempting compact retry provider={} model={} clinicalCaseId={} reason={}",
-                resolvedProvider,
-                resolvedModel,
-                originalContext.clinicalCaseId(),
-                sanitizeError(firstError.getMessage())
-        );
-
-        List<String> compactFacts = new ArrayList<>();
-        if (hasText(originalContext.chiefComplaint())) {
-            compactFacts.add("motivo_consulta: " + originalContext.chiefComplaint().trim());
-        }
-        if (originalContext.facts() != null && !originalContext.facts().isEmpty()) {
-            String firstFact = originalContext.facts().stream().filter(TextNormalizationUtil::hasText).findFirst().orElse(null);
-            if (hasText(firstFact)) {
-                compactFacts.add(firstFact.trim());
-            }
-        }
-
-        PromptBuilderService.ClinicalPromptContext compactContext = new PromptBuilderService.ClinicalPromptContext(
-                originalContext.sessionId(),
-                originalContext.clinicalCaseId(),
-                originalContext.caseName(),
-                originalContext.patientName(),
-                originalContext.patientAge(),
-                originalContext.patientSex(),
-                originalContext.chiefComplaint(),
-                originalContext.caseHistory(),
-                originalContext.noInformationReply(),
-                originalContext.personalityTraits(),
-                compactFacts.isEmpty() ? originalContext.facts() : compactFacts,
-                originalContext.initialMessage(),
-                originalContext.broaderContext(),
-                originalContext.currentIllness(),
-                originalContext.generalBackground(),
-                originalContext.clinicalExamFindings(),
-                originalContext.tone(),
-                originalContext.detailLevel(),
-                originalContext.behaviorGuidelines()
-        );
-
-        List<LlmMessage> compactPrompt = promptBuilderService.buildMessages(
-                compactContext,
-                List.of(),
-                userMessage,
-                new PromptBuilderService.PatientBehaviorConfig(
-                        llmProperties.getSystemPrompt(),
-                        llmProperties.getPatientBehaviorRules(),
-                        noInfoResolution.value(),
-                        llmProperties.getRevealStrategy()
-                )
-        );
-
-        try {
-            LlmResponse retryProviderResponse = llmClient.generate(new LlmRequest(
-                    compactPrompt,
-                    llmProperties.getModel(),
-                    llmProperties.getTemperature(),
-                    llmProperties.getMaxTokens()
-            ));
-            String retryResponse = retryProviderResponse == null ? "" : retryProviderResponse.content();
-            log.info("LLM compact retry succeeded provider={} model={}", resolvedProvider, resolvedModel);
-            return retryResponse;
-        } catch (LlmClientException retryError) {
-            log.warn(
-                    "LLM compact retry failed provider={} model={} reason={}",
-                    resolvedProvider,
-                    resolvedModel,
-                    sanitizeError(retryError.getMessage())
-            );
-            return null;
-        }
-    }
-
     private String buildPromptPreview(List<LlmMessage> promptMessages) {
         if (promptMessages == null || promptMessages.isEmpty()) {
             return "<empty-prompt>";
@@ -632,22 +530,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                 .map(msg -> msg.role() + ":" + maskForLog(msg.content()))
                 .reduce((a, b) -> a + " | " + b)
                 .orElse("<empty-prompt>");
-    }
-
-    private String sanitizeError(String rawError) {
-        if (rawError == null || rawError.isBlank()) {
-            return "Error LLM no especificado.";
-        }
-        String sanitized = rawError.trim();
-        if (llmProperties.getApiKey() != null && !llmProperties.getApiKey().isBlank()) {
-            sanitized = sanitized.replace(llmProperties.getApiKey().trim(), "***");
-        }
-        sanitized = sanitized.replaceAll("(?i)bearer\\s+[a-z0-9_\\-\\.]+", "Bearer ***");
-        sanitized = sanitized.replaceAll("(?i)(api[_-]?key|x-goog-api-key)\\s*[:=]\\s*[^\\s,;]+", "$1=***");
-        if (sanitized.length() > 400) {
-            sanitized = sanitized.substring(0, 400);
-        }
-        return sanitized;
     }
 
     private List<String> buildPromptSectionsIncluded(PromptBuilderService.ClinicalPromptContext context, boolean adminConfigPresent) {
@@ -663,9 +545,6 @@ public class LlmPatientResponseService implements PatientResponseService {
         sections.add("ROLE_AND_NO_DIAGNOSIS_POLICY");
         sections.add("NO_INFO_POLICY");
         return sections;
-    }
-
-    private record NoInfoResolution(String value, String source) {
     }
 
 }
