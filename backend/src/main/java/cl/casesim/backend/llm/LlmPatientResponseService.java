@@ -1,6 +1,7 @@
 package cl.casesim.backend.llm;
 
 import cl.casesim.backend.clinicalcases.ClinicalCase;
+import cl.casesim.backend.clinicalcases.ClinicalCaseDescriptionParts;
 import cl.casesim.backend.clinicalcases.ClinicalCaseDescriptionParser;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFact;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
@@ -28,6 +29,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -790,13 +792,20 @@ public class LlmPatientResponseService implements PatientResponseService {
 
         List<String> facts = selectedFacts
                 .stream()
-                .map(fact -> fact.getNombre() + ": " + fact.getContenidoPaciente())
+                .map(fact -> "[categoria=" + safeFactPart(fact.getCategoria()) + "] " + fact.getNombre() + ": " + fact.getContenidoPaciente())
                 .toList();
 
         List<String> personalityTraits = clinicalCasePersonalityRepository.findByCasoId(clinicalCase.getId())
                 .stream()
                 .map(personality -> personality.getRasgo() + ": " + personality.getDescripcion())
                 .toList();
+
+        var descriptionParts = ClinicalCaseDescriptionParser.parse(clinicalCase.getDescripcion());
+        Map<String, String> safeMetadata = descriptionParts.legacyMetadata();
+        String noInformationReply = firstText(
+                clinicalCase.getFraseSinInformacion(),
+                safeMetadataValue(safeMetadata, "fallbackResponse", "fallback_response", "noInformationPhrase", "no_information_phrase")
+        );
 
         return new PromptBuilderService.ClinicalPromptContext(
                 session.getId(),
@@ -806,10 +815,18 @@ public class LlmPatientResponseService implements PatientResponseService {
                 clinicalCase.getPacienteEdad() == null ? null : String.valueOf(clinicalCase.getPacienteEdad()),
                 clinicalCase.getPacienteSexo(),
                 clinicalCase.getMotivoConsulta(),
-                ClinicalCaseDescriptionParser.parse(clinicalCase.getDescripcion()).clinicalContext(),
-                clinicalCase.getFraseSinInformacion(),
+                descriptionParts.clinicalContext(),
+                noInformationReply,
                 personalityTraits,
-                facts
+                facts,
+                safeMetadataValue(safeMetadata, "initialMessage", "initial_message"),
+                safeMetadataValue(safeMetadata, "context", "caseContext"),
+                safeMetadataValue(safeMetadata, "currentIllness", "current_illness", "enfermedadActual"),
+                safeMetadataValue(safeMetadata, "generalBackground", "general_background", "antecedentesGenerales"),
+                safeMetadataValue(safeMetadata, "clinicalExam.findings", "clinicalExamFindings", "clinical_exam_findings", "findings"),
+                safeMetadataValue(safeMetadata, "tone", "tono"),
+                safeMetadataValue(safeMetadata, "detailLevel", "detail_level"),
+                safeMetadataValue(safeMetadata, "behaviorGuidelines", "behavior_guidelines")
         );
     }
 
@@ -825,7 +842,15 @@ public class LlmPatientResponseService implements PatientResponseService {
                 null,
                 null,
                 List.of(),
-                List.of()
+                List.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 
@@ -838,7 +863,11 @@ public class LlmPatientResponseService implements PatientResponseService {
         if (clinicalCase == null) {
             return null;
         }
-        return clinicalCase.getFraseSinInformacion();
+        ClinicalCaseDescriptionParts parts = ClinicalCaseDescriptionParser.parse(clinicalCase.getDescripcion());
+        return firstText(
+                clinicalCase.getFraseSinInformacion(),
+                safeMetadataValue(parts.legacyMetadata(), "fallbackResponse", "fallback_response", "noInformationPhrase", "no_information_phrase")
+        );
     }
 
     List<ClinicalCaseFact> selectFactsForPrompt(UUID sessionId, String userMessage) {
@@ -1109,7 +1138,15 @@ public class LlmPatientResponseService implements PatientResponseService {
                 originalContext.caseHistory(),
                 originalContext.noInformationReply(),
                 originalContext.personalityTraits(),
-                compactFacts.isEmpty() ? originalContext.facts() : compactFacts
+                compactFacts.isEmpty() ? originalContext.facts() : compactFacts,
+                originalContext.initialMessage(),
+                originalContext.broaderContext(),
+                originalContext.currentIllness(),
+                originalContext.generalBackground(),
+                originalContext.clinicalExamFindings(),
+                originalContext.tone(),
+                originalContext.detailLevel(),
+                originalContext.behaviorGuidelines()
         );
 
         List<LlmMessage> compactPrompt = promptBuilderService.buildMessages(
@@ -1266,6 +1303,35 @@ public class LlmPatientResponseService implements PatientResponseService {
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String safeMetadataValue(Map<String, String> metadata, String... keys) {
+        if (metadata == null || metadata.isEmpty() || keys == null) {
+            return null;
+        }
+        for (String key : keys) {
+            String value = metadata.get(key);
+            if (hasText(value)) {
+                return ClinicalCaseSafetySanitizer.sanitizeCaseHistory(value);
+            }
+        }
+        return null;
+    }
+
+    private String firstText(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    private String safeFactPart(String value) {
+        return hasText(value) ? value.trim() : "GENERAL";
     }
 
     private String resolveMetricProvider(LlmResponse providerResponse, String fallbackProvider) {

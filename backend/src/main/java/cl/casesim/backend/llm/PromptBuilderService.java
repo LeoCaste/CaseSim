@@ -56,6 +56,7 @@ public class PromptBuilderService {
 
         String factsSection = formatFactsSection(context.facts(), context.chiefComplaint());
         String personalitySection = formatBulletSection(context.personalityTraits());
+        String metadataContextSection = formatMetadataContextSection(context);
 
         String contextualPrompt = """
                 Contexto clínico del caso:
@@ -67,7 +68,11 @@ public class PromptBuilderService {
                 - Sexo del paciente: %s
                 - Motivo de consulta principal: %s
                 - Historial del caso: %s
+                %s
                 - Regla de revelación: usa solo los hechos listados como información disponible en esta sesión.
+                - Regla INITIAL: los hechos disponibles desde el inicio deben usarse de forma natural y parcial; nunca los recites como lista completa.
+                - Regla ON_QUESTION: los hechos de pregunta solo están disponibles cuando aparecen en la sección de información conocida por coincidencia con trigger, categoría o tema de la pregunta actual, o si ya fueron revelados previamente.
+                - Regla examen clínico: si hay hallazgos de examen, no los reveles espontáneamente ni como lista técnica. Responde como paciente: "me dolía cuando me apretaron" o "me dijeron que...". No uses nombres de signos técnicos salvo que explícitamente te los hayan mencionado como paciente y la pregunta sea pertinente.
                 - Rasgos de personalidad del paciente:
                 %s
                 Información del paciente (solo lo conocido hasta ahora):
@@ -81,6 +86,7 @@ public class PromptBuilderService {
                 defaultText(context.patientSex()),
                 defaultText(context.chiefComplaint()),
                 defaultText(ClinicalCaseSafetySanitizer.sanitizeCaseHistory(context.caseHistory())),
+                metadataContextSection,
                 personalitySection,
                 factsSection
         );
@@ -162,6 +168,28 @@ public class PromptBuilderService {
         return "  - Sin información registrada.";
     }
 
+    private String formatMetadataContextSection(ClinicalPromptContext context) {
+        List<String> lines = new ArrayList<>();
+        addLine(lines, "Mensaje inicial sugerido", context.initialMessage());
+        addLine(lines, "Contexto comunicable", context.broaderContext());
+        addLine(lines, "Enfermedad actual comunicable", context.currentIllness());
+        addLine(lines, "Antecedentes generales comunicables", context.generalBackground());
+        if (hasText(context.clinicalExamFindings())) {
+            lines.add("- Hallazgos de examen clínico (NO revelar espontáneamente; no recitar como lista técnica): "
+                    + defaultText(ClinicalCaseSafetySanitizer.sanitizeCaseHistory(context.clinicalExamFindings())));
+        }
+        addLine(lines, "Tono del paciente", context.tone());
+        addLine(lines, "Nivel de detalle", context.detailLevel());
+        addLine(lines, "Guías de conducta del paciente", context.behaviorGuidelines());
+        return lines.isEmpty() ? "" : String.join("\n", lines);
+    }
+
+    private void addLine(List<String> lines, String label, String value) {
+        if (hasText(value)) {
+            lines.add("- " + label + ": " + defaultText(ClinicalCaseSafetySanitizer.sanitizeCaseHistory(value)));
+        }
+    }
+
     private String defaultText(String value) {
         return hasText(value) ? value.trim() : "Sin información registrada.";
     }
@@ -212,7 +240,15 @@ public class PromptBuilderService {
             String caseHistory,
             String noInformationReply,
             List<String> personalityTraits,
-            List<String> facts
+            List<String> facts,
+            String initialMessage,
+            String broaderContext,
+            String currentIllness,
+            String generalBackground,
+            String clinicalExamFindings,
+            String tone,
+            String detailLevel,
+            String behaviorGuidelines
     ) {
     }
 }

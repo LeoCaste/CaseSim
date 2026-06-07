@@ -14,8 +14,8 @@ public final class ClinicalCaseDescriptionParser {
     private static final Pattern SENSITIVE_KEY_VALUE = Pattern.compile(
             "(?im)^\\s*\"?(expectedDiagnosis|expected_diagnosis|diagnosticoEsperado|diagnostico_esperado|diagnóstico esperado|diagnostico esperado|finalDiagnosis|final_diagnosis)\"?\\s*[:=].*$"
     );
-    private static final Pattern SIMPLE_KEY_VALUE = Pattern.compile("(?m)^\\s*\"?([A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_ -]{2,80})\"?\\s*[:=]\\s*\"?([^\"\\r\\n,}]+)\"?\\s*,?\\s*$");
-    private static final Pattern JSON_LIKE_KEY_VALUE = Pattern.compile("\"([A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_ -]{2,80})\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern SIMPLE_KEY_VALUE = Pattern.compile("(?m)^\\s*\"?([A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_. -]{2,80})\"?\\s*[:=]\\s*\"?([^\"\\r\\n,}]+)\"?\\s*,?\\s*$");
+    private static final Pattern JSON_LIKE_KEY_VALUE = Pattern.compile("\"([A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_. -]{2,80})\"\\s*:\\s*\"([^\"]*)\"");
 
     private ClinicalCaseDescriptionParser() {
     }
