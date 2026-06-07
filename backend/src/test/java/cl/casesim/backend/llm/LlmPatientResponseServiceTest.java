@@ -29,10 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -70,6 +67,7 @@ class LlmPatientResponseServiceTest {
     );
 
     private LlmPatientResponseService service;
+    private RevealableFactSelector revealableFactSelector;
     private LlmProperties properties;
     private SimulationSession session;
     private SimulationActivity activity;
@@ -90,6 +88,14 @@ class LlmPatientResponseServiceTest {
                 clinicalCasePersonalityRepository
         );
 
+        revealableFactSelector = new RevealableFactSelector(
+                clinicalCaseFactRepository,
+                sessionRevealedFactRepository,
+                simulationSessionRepository,
+                simulationActivityRepository,
+                properties
+        );
+
         service = new LlmPatientResponseService(
                 properties,
                 llmClient,
@@ -99,10 +105,8 @@ class LlmPatientResponseServiceTest {
                 conversationHistoryAssembler,
                 clinicalCasePromptContextAssembler,
                 llmUsageService,
-                simulationActivityRepository,
-                simulationSessionRepository,
                 clinicalCaseFactRepository,
-                sessionRevealedFactRepository
+                revealableFactSelector
         );
 
         UUID sessionId = UUID.randomUUID();

@@ -6,8 +6,6 @@ import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
 import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
 import cl.casesim.backend.sessions.ChatMessageRepository;
 import cl.casesim.backend.sessions.PatientResponseService;
-import cl.casesim.backend.sessions.SessionRevealedFactRepository;
-import cl.casesim.backend.sessions.SimulationSessionRepository;
 import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -142,10 +140,8 @@ public class LlmConfiguration {
             ConversationHistoryAssembler conversationHistoryAssembler,
             ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler,
             LlmUsageService llmUsageService,
-            SimulationActivityRepository simulationActivityRepository,
-            SimulationSessionRepository simulationSessionRepository,
             ClinicalCaseFactRepository clinicalCaseFactRepository,
-            SessionRevealedFactRepository sessionRevealedFactRepository
+            RevealableFactSelector revealableFactSelector
     ) {
         return new LlmPatientResponseService(
                 llmProperties,
@@ -156,10 +152,8 @@ public class LlmConfiguration {
                 conversationHistoryAssembler,
                 clinicalCasePromptContextAssembler,
                 llmUsageService,
-                simulationActivityRepository,
-                simulationSessionRepository,
                 clinicalCaseFactRepository,
-                sessionRevealedFactRepository
+                revealableFactSelector
         );
     }
 
