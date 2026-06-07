@@ -57,7 +57,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private static final String TECHNICAL_FALLBACK_RESPONSE = "Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?";
     private static final String CONTEXT_FALLBACK_RESPONSE = "No pude cargar el contexto clínico de esta sesión. Intenta nuevamente en unos segundos o reinicia la sesión.";
     private static final String QUOTA_FALLBACK_RESPONSE = "Estoy con alta demanda en este momento. Si te parece, continuamos con preguntas concretas de síntomas, tiempos o antecedentes mientras se restablece el servicio.";
-    private static final List<String> LEVEL_2_HINTS = List.of("que", "como", "donde", "cuando", "cuanto", "tiene", "siente", "dolor", "fiebre", "tos", "sintoma", "vomito", "nausea");
+    private static final List<String> LEVEL_2_HINTS = List.of("como", "donde", "cuando", "cuanto", "tiene", "siente", "dolor", "fiebre", "tos", "sintoma", "vomito", "nausea");
     private static final List<String> LEVEL_3_HINTS = List.of("desde", "antecedente", "alergia", "medicamento", "cirugia", "hospital", "laboratorio", "examen", "resultado", "familiar", "cronico", "tratamiento");
     private static final List<String> TEMPORAL_HINTS = List.of("desde cuando", "hace cuanto", "inicio", "empezo", "comenzo", "cuanto tiempo", "desde");
 
@@ -901,16 +901,13 @@ public class LlmPatientResponseService implements PatientResponseService {
 
         for (ClinicalCaseFact fact : allFacts) {
             int factRevealLevel = fact.getNivelRevelacion() == null ? 1 : fact.getNivelRevelacion();
-            boolean includeByDefault = factRevealLevel == 1 || (revealStrategy == RevealStrategy.DIRECT && factRevealLevel <= 2);
+            boolean includeByDefault = factRevealLevel == 1;
             boolean includeAsPreviouslyRevealed = alreadyRevealedIds.contains(fact.getId());
 
             boolean includeAsNewReveal = false;
             if (!includeByDefault && !includeAsPreviouslyRevealed && factRevealLevel <= allowedRevealLevel) {
                 includeAsNewReveal = matchesFactByKeyword(fact, messageKeywords);
                 if (!includeAsNewReveal && temporalIntent && isTemporalFact(fact)) {
-                    includeAsNewReveal = true;
-                }
-                if (!includeAsNewReveal && revealStrategy == RevealStrategy.DIRECT && factRevealLevel <= 2 && messageKeywords.isEmpty()) {
                     includeAsNewReveal = true;
                 }
             }
@@ -929,12 +926,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             selectedFacts = selectedFacts.stream()
                     .sorted(Comparator.comparing((ClinicalCaseFact fact) -> !isTemporalFact(fact)))
                     .collect(Collectors.toList());
-        }
-
-        if (selectedFacts.isEmpty()) {
-            allFacts.stream()
-                    .min(Comparator.comparing(fact -> fact.getNivelRevelacion() == null ? 1 : fact.getNivelRevelacion()))
-                    .ifPresent(selectedFacts::add);
         }
 
         persistNewlyRevealedFacts(sessionId, newlyRevealedFacts);
@@ -1028,6 +1019,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
 
         String normalizedFactText = normalize((fact.getNombre() == null ? "" : fact.getNombre()) + " " +
+                (fact.getCategoria() == null ? "" : fact.getCategoria()) + " " +
                 (fact.getContenidoPaciente() == null ? "" : fact.getContenidoPaciente()) + " " +
                 (fact.getTriggers() == null ? "" : fact.getTriggers()));
 
