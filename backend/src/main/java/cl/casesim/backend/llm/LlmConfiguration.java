@@ -33,6 +33,11 @@ public class LlmConfiguration {
     }
 
     @Bean
+    public PatientFallbackResponseService patientFallbackResponseService(PatientResponseSafetyService patientResponseSafetyService) {
+        return new PatientFallbackResponseService(patientResponseSafetyService);
+    }
+
+    @Bean
     public LlmProviderUrlResolver llmProviderUrlResolver() {
         return new LlmProviderUrlResolver();
     }
@@ -112,6 +117,7 @@ public class LlmConfiguration {
             LlmClient llmClient,
             PromptBuilderService promptBuilderService,
             PatientResponseSafetyService patientResponseSafetyService,
+            PatientFallbackResponseService patientFallbackResponseService,
             ChatMessageRepository chatMessageRepository,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
@@ -126,6 +132,7 @@ public class LlmConfiguration {
                 llmClient,
                 promptBuilderService,
                 patientResponseSafetyService,
+                patientFallbackResponseService,
                 chatMessageRepository,
                 llmUsageService,
                 simulationActivityRepository,

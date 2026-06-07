@@ -34,10 +34,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static cl.casesim.backend.llm.FallbackCauseClassifier.classifyFallbackCause;
-import static cl.casesim.backend.llm.FallbackCauseClassifier.isLikelyFollowUp;
-import static cl.casesim.backend.llm.FallbackCauseClassifier.isLikelyGreeting;
-import static cl.casesim.backend.llm.FallbackCauseClassifier.isLikelyQuotaMessage;
-import static cl.casesim.backend.llm.TextNormalizationUtil.extractFactValue;
 import static cl.casesim.backend.llm.TextNormalizationUtil.firstText;
 import static cl.casesim.backend.llm.TextNormalizationUtil.hasText;
 import static cl.casesim.backend.llm.TextNormalizationUtil.maskForLog;
@@ -53,6 +49,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final LlmClient llmClient;
     private final PromptBuilderService promptBuilderService;
     private final PatientResponseSafetyService patientResponseSafetyService;
+    private final PatientFallbackResponseService patientFallbackResponseService;
     private final ChatMessageRepository chatMessageRepository;
     private final LlmUsageService llmUsageService;
     private final SimulationActivityRepository simulationActivityRepository;
@@ -62,10 +59,9 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final ClinicalCasePersonalityRepository clinicalCasePersonalityRepository;
     private final SessionRevealedFactRepository sessionRevealedFactRepository;
 
-    private static final String DEFAULT_SAFE_NO_INFO_RESPONSE = "No tengo información asociada a eso.";
+    private static final String DEFAULT_SAFE_NO_INFO_RESPONSE = PatientFallbackResponseService.DEFAULT_SAFE_NO_INFO_RESPONSE;
     private static final String TECHNICAL_FALLBACK_RESPONSE = "Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?";
     private static final String CONTEXT_FALLBACK_RESPONSE = "No pude cargar el contexto clínico de esta sesión. Intenta nuevamente en unos segundos o reinicia la sesión.";
-    private static final String QUOTA_FALLBACK_RESPONSE = "Estoy con alta demanda en este momento. Si te parece, continuamos con preguntas concretas de síntomas, tiempos o antecedentes mientras se restablece el servicio.";
     private static final List<String> LEVEL_2_HINTS = List.of("como", "donde", "cuando", "cuanto", "tiene", "siente", "dolor", "fiebre", "tos", "sintoma", "vomito", "nausea");
     private static final List<String> LEVEL_3_HINTS = List.of("desde", "antecedente", "alergia", "medicamento", "cirugia", "hospital", "laboratorio", "examen", "resultado", "familiar", "cronico", "tratamiento");
     private static final List<String> TEMPORAL_HINTS = List.of("desde cuando", "hace cuanto", "inicio", "empezo", "comenzo", "cuanto tiempo", "desde");
@@ -75,6 +71,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             LlmClient llmClient,
             PromptBuilderService promptBuilderService,
             PatientResponseSafetyService patientResponseSafetyService,
+            PatientFallbackResponseService patientFallbackResponseService,
             ChatMessageRepository chatMessageRepository,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
@@ -88,6 +85,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         this.llmClient = llmClient;
         this.promptBuilderService = promptBuilderService;
         this.patientResponseSafetyService = patientResponseSafetyService;
+        this.patientFallbackResponseService = patientFallbackResponseService;
         this.chatMessageRepository = chatMessageRepository;
         this.llmUsageService = llmUsageService;
         this.simulationActivityRepository = simulationActivityRepository;
@@ -225,7 +223,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 );
                 if (!hasText(llmResponse)) {
                     String fallbackCause = classifyFallbackCause(ex, this::sanitizeError);
-                    String contextualFallback = buildContextualPatientFallback(context, userMessage, noInfoResolution);
+                    String contextualFallback = patientFallbackResponseService.buildContextualPatientFallback(context, userMessage, noInfoResolution.value());
                     if (hasText(contextualFallback)) {
                         return registerAndReturnLocalPatientFallback(
                                 session,
@@ -278,7 +276,14 @@ public class LlmPatientResponseService implements PatientResponseService {
                     llmProperties.isEnabledSafetyFilter(),
                     noInfoResolution.value()
             );
-            String finalResponse = avoidConsecutiveRepetition(safeResponse, history, userMessage, context, noInfoResolution);
+            String finalResponse = patientFallbackResponseService.avoidConsecutiveRepetition(
+                    safeResponse,
+                    history,
+                    userMessage,
+                    context,
+                    noInfoResolution.value(),
+                    llmProperties.isEnabledSafetyFilter()
+            );
             boolean fallbackUsed = noInfoResolution.value().equals(finalResponse);
             String responseOrigin = fallbackUsed ? "FALLBACK_NO_INFO_OR_SAFETY" : "PROVIDER";
             log.info("LLM response completed requestId={} provider={} model={} fallbackUsed={} noInfoSource={} noInfoResponse={} safetyFilterApplied={}",
@@ -541,215 +546,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                 reason
         );
         return safeResponse;
-    }
-
-    private String buildContextualPatientFallback(
-            PromptBuilderService.ClinicalPromptContext context,
-            String userMessage,
-            NoInfoResolution noInfoResolution
-    ) {
-        if (context == null) {
-            return null;
-        }
-        if (isLikelyQuotaMessage(userMessage)) {
-            return QUOTA_FALLBACK_RESPONSE;
-        }
-        if (hasText(context.chiefComplaint())) {
-            if (!hasText(userMessage) || userMessage.trim().length() <= 12 || isLikelyGreeting(userMessage)) {
-                String patientRef = hasText(context.patientName()) ? context.patientName().trim() : "la paciente";
-                return "Hola, soy " + patientRef + ". " + context.chiefComplaint().trim();
-            }
-
-            String normalizedMessage = normalize(userMessage);
-            if (normalizedMessage.contains("desde") || normalizedMessage.contains("hace cuanto") || normalizedMessage.contains("cuanto tiempo")) {
-                String temporalAlternative = firstTemporalFactValue(context);
-                if (hasText(temporalAlternative)) {
-                    return temporalAlternative;
-                }
-            }
-
-            String alternativeFact = firstUsableFactValue(context, context.chiefComplaint());
-            if (hasText(alternativeFact)) {
-                return alternativeFact;
-            }
-            return context.chiefComplaint().trim();
-        }
-        return noInfoResolution == null ? null : noInfoResolution.value();
-    }
-
-    private String firstUsableFactValue(PromptBuilderService.ClinicalPromptContext context, String valueToAvoid) {
-        if (context == null || context.facts() == null || context.facts().isEmpty()) {
-            return null;
-        }
-        String normalizedAvoid = normalize(valueToAvoid);
-        for (String fact : context.facts()) {
-            if (!hasText(fact)) {
-                continue;
-            }
-            String factValue = extractFactValue(fact.trim());
-            if (!hasText(factValue)) {
-                continue;
-            }
-            if (normalize(factValue).equals(normalizedAvoid)) {
-                continue;
-            }
-            return factValue;
-        }
-        return null;
-    }
-
-    private String firstTemporalFactValue(PromptBuilderService.ClinicalPromptContext context) {
-        if (context == null || context.facts() == null || context.facts().isEmpty()) {
-            return null;
-        }
-        for (String fact : context.facts()) {
-            if (!hasText(fact)) {
-                continue;
-            }
-            String factValue = extractFactValue(fact.trim());
-            if (!hasText(factValue)) {
-                continue;
-            }
-            if (normalize(factValue).contains("desde")
-                    || normalize(factValue).contains("hace")
-                    || normalize(factValue).contains("inicio")
-                    || normalize(factValue).contains("comenzo")) {
-                return factValue;
-            }
-        }
-        return null;
-    }
-
-    private String avoidConsecutiveRepetition(
-            String candidateResponse,
-            List<ChatMessage> history,
-            String userMessage,
-            PromptBuilderService.ClinicalPromptContext context,
-            NoInfoResolution noInfoResolution
-    ) {
-        if (!hasText(candidateResponse) || history == null || history.isEmpty()) {
-            return candidateResponse;
-        }
-
-        String lastAssistant = lastAssistantMessage(history);
-        if (!hasText(lastAssistant)) {
-            return candidateResponse;
-        }
-
-        String normalizedCandidate = normalize(candidateResponse);
-        String normalizedLastAssistant = normalize(lastAssistant);
-        if (!hasText(normalizedCandidate) || !normalizedCandidate.equals(normalizedLastAssistant)) {
-            return candidateResponse;
-        }
-
-        boolean hasFacts = context != null && context.facts() != null
-                && context.facts().stream().anyMatch(TextNormalizationUtil::hasText);
-        boolean isGreetingTurn = isLikelyGreeting(userMessage);
-
-        if (!hasFacts || isGreetingTurn) {
-            return candidateResponse;
-        }
-
-        String alternative = buildAlternativeFromFacts(context, normalizedCandidate, noInfoResolution);
-        if (hasText(alternative)) {
-            return alternative;
-        }
-
-        if (isLikelyFollowUp(userMessage) && hasText(context.chiefComplaint())) {
-            String normalizedChiefComplaint = normalize(context.chiefComplaint());
-            if (normalizedCandidate.equals(normalizedChiefComplaint)) {
-                String nonChiefAlternative = buildAlternativeAvoidingChiefComplaint(
-                        context,
-                        normalizedCandidate,
-                        normalizedChiefComplaint,
-                        noInfoResolution
-                );
-                if (hasText(nonChiefAlternative)) {
-                    return nonChiefAlternative;
-                }
-            }
-        }
-
-        return candidateResponse;
-    }
-
-    private String lastAssistantMessage(List<ChatMessage> history) {
-        for (int i = history.size() - 1; i >= 0; i--) {
-            ChatMessage message = history.get(i);
-            if (message != null && "ASSISTANT".equalsIgnoreCase(message.getRol()) && hasText(message.getContenido())) {
-                return message.getContenido().trim();
-            }
-        }
-        return null;
-    }
-
-    private String buildAlternativeFromFacts(
-            PromptBuilderService.ClinicalPromptContext context,
-            String normalizedCandidate,
-            NoInfoResolution noInfoResolution
-    ) {
-        if (context == null || context.facts() == null || context.facts().isEmpty()) {
-            return null;
-        }
-
-        for (String fact : context.facts()) {
-            if (!hasText(fact)) {
-                continue;
-            }
-            String trimmedFact = fact.trim();
-            if (normalize(trimmedFact).equals(normalizedCandidate)) {
-                continue;
-            }
-            String factValue = extractFactValue(trimmedFact);
-            if (!hasText(factValue)) {
-                continue;
-            }
-            String safeAlternative = patientResponseSafetyService.applyRepetitionAlternative(
-                    factValue,
-                    llmProperties.isEnabledSafetyFilter(),
-                    noInfoResolution == null ? DEFAULT_SAFE_NO_INFO_RESPONSE : noInfoResolution.value()
-            );
-            if (hasText(safeAlternative) && !normalize(safeAlternative).equals(normalizedCandidate)) {
-                return safeAlternative;
-            }
-        }
-
-        return null;
-    }
-
-    private String buildAlternativeAvoidingChiefComplaint(
-            PromptBuilderService.ClinicalPromptContext context,
-            String normalizedCandidate,
-            String normalizedChiefComplaint,
-            NoInfoResolution noInfoResolution
-    ) {
-        if (context == null || context.facts() == null || context.facts().isEmpty()) {
-            return null;
-        }
-
-        for (String fact : context.facts()) {
-            if (!hasText(fact)) {
-                continue;
-            }
-            String factValue = extractFactValue(fact.trim());
-            if (!hasText(factValue)) {
-                continue;
-            }
-            String normalizedFactValue = normalize(factValue);
-            if (normalizedFactValue.equals(normalizedCandidate) || normalizedFactValue.equals(normalizedChiefComplaint)) {
-                continue;
-            }
-            String safeAlternative = patientResponseSafetyService.applyRepetitionAlternative(
-                    factValue,
-                    llmProperties.isEnabledSafetyFilter(),
-                    noInfoResolution == null ? DEFAULT_SAFE_NO_INFO_RESPONSE : noInfoResolution.value()
-            );
-            if (hasText(safeAlternative) && !normalize(safeAlternative).equals(normalizedCandidate)) {
-                return safeAlternative;
-            }
-        }
-
-        return null;
     }
 
     private List<ChatMessage> loadRecentHistory(java.util.UUID sessionId) {
