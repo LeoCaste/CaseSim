@@ -83,8 +83,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     new LlmUnavailableException("Servicio de simulación IA no disponible: configuración LLM incompleta."),
                     requestId,
                     null,
-                    0,
-                    estimatedPromptTokens
+                    0
             );
         }
 
@@ -196,8 +195,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                             contextualFallback,
                             requestId,
                             context.clinicalCaseId(),
-                            promptChars,
-                            estimatedPromptTokens
+                            promptChars
                     );
                 }
                 return registerAndReturnTechnicalFallback(
@@ -211,8 +209,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                         gatewayResult.originalException(),
                         requestId,
                         context.clinicalCaseId(),
-                        promptChars,
-                        estimatedPromptTokens
+                        promptChars
                 );
             }
 
@@ -278,8 +275,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     ex,
                     requestId,
                     null,
-                    0,
-                    estimatedPromptTokens
+                    0
             );
         } catch (RuntimeException ex) {
             return registerAndReturnTechnicalFallback(
@@ -293,8 +289,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     ex,
                     requestId,
                     null,
-                    0,
-                    estimatedPromptTokens
+                    0
             );
         }
     }
@@ -310,8 +305,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             RuntimeException ex,
             String requestId,
             UUID caseId,
-            int promptChars,
-            int promptTokensEstimate
+            int promptChars
     ) {
         String fallback = patientResponseSafetyService.applyContextualFallback(
                 CONTEXT_FALLBACK_RESPONSE,
@@ -344,7 +338,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 errorType,
                 sanitizedReason,
                 promptChars,
-                promptTokensEstimate
+                estimatedPromptTokens
         );
         llmInteractionMetricsService.safeRegisterUsage(
                 session.getId(),
@@ -370,8 +364,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             RuntimeException ex,
             String requestId,
             UUID caseId,
-            int promptChars,
-            int promptTokensEstimate
+            int promptChars
     ) {
         String fallback = patientResponseSafetyService.applyTechnicalFallback(
                 TECHNICAL_FALLBACK_RESPONSE,
@@ -405,7 +398,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 errorType,
                 sanitizedReason,
                 promptChars,
-                promptTokensEstimate
+                estimatedPromptTokens
         );
         llmInteractionMetricsService.safeRegisterUsage(
                 session.getId(),
@@ -432,8 +425,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             String localFallback,
             String requestId,
             UUID caseId,
-            int promptChars,
-            int promptTokensEstimate
+            int promptChars
     ) {
         String safeResponse = patientResponseSafetyService.applyLocalPatientFallback(
                 localFallback,
@@ -466,7 +458,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 errorType,
                 sanitizedReason,
                 promptChars,
-                promptTokensEstimate
+                estimatedPromptTokens
         );
         if ("QUOTA_EXCEEDED".equals(fallbackCause)) {
             log.warn(
@@ -500,10 +492,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                     ? List.of()
                     : revealableFactSelector.selectFactsForPrompt(session.getId(), userMessage, allFacts);
         });
-    }
-
-    private PromptBuilderService.ClinicalPromptContext emptyPromptContext(SimulationSession session) {
-        return clinicalCasePromptContextAssembler.emptyPromptContext(session);
     }
 
     private NoInfoResolution resolveNoInfoResponse(String contextNoInfoResponse) {
