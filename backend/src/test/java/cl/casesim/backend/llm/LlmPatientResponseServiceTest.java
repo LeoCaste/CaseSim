@@ -68,6 +68,7 @@ class LlmPatientResponseServiceTest {
 
     private LlmInteractionMetricsService llmInteractionMetricsService;
     private LlmErrorSanitizer llmErrorSanitizer;
+    private PatientPromptAssemblyService patientPromptAssemblyService;
     private LlmPatientResponseService service;
     private RevealableFactSelector revealableFactSelector;
     private LlmProperties properties;
@@ -101,11 +102,16 @@ class LlmPatientResponseServiceTest {
         llmInteractionMetricsService = new LlmInteractionMetricsService(llmUsageService);
         llmErrorSanitizer = new LlmErrorSanitizer(properties);
 
+        patientPromptAssemblyService = new PatientPromptAssemblyService(
+                promptBuilderService,
+                llmInteractionMetricsService
+        );
+
         service = new LlmPatientResponseService(
                 properties,
                 llmProviderGateway,
                 llmErrorSanitizer,
-                promptBuilderService,
+                patientPromptAssemblyService,
                 patientResponseSafetyService,
                 patientFallbackResponseService,
                 conversationHistoryAssembler,

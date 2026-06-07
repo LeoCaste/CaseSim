@@ -146,11 +146,19 @@ public class LlmConfiguration {
     }
 
     @Bean
+    public PatientPromptAssemblyService patientPromptAssemblyService(
+            PromptBuilderService promptBuilderService,
+            LlmInteractionMetricsService llmInteractionMetricsService
+    ) {
+        return new PatientPromptAssemblyService(promptBuilderService, llmInteractionMetricsService);
+    }
+
+    @Bean
     public LlmPatientResponseService llmPatientResponseService(
             LlmProperties llmProperties,
             LlmProviderGateway llmProviderGateway,
             LlmErrorSanitizer llmErrorSanitizer,
-            PromptBuilderService promptBuilderService,
+            PatientPromptAssemblyService patientPromptAssemblyService,
             PatientResponseSafetyService patientResponseSafetyService,
             PatientFallbackResponseService patientFallbackResponseService,
             ConversationHistoryAssembler conversationHistoryAssembler,
@@ -163,7 +171,7 @@ public class LlmConfiguration {
                 llmProperties,
                 llmProviderGateway,
                 llmErrorSanitizer,
-                promptBuilderService,
+                patientPromptAssemblyService,
                 patientResponseSafetyService,
                 patientFallbackResponseService,
                 conversationHistoryAssembler,

@@ -23,7 +23,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final LlmProperties llmProperties;
     private final LlmProviderGateway llmProviderGateway;
     private final LlmErrorSanitizer llmErrorSanitizer;
-    private final PromptBuilderService promptBuilderService;
+    private final PatientPromptAssemblyService patientPromptAssemblyService;
     private final PatientResponseSafetyService patientResponseSafetyService;
     private final PatientFallbackResponseService patientFallbackResponseService;
     private final ConversationHistoryAssembler conversationHistoryAssembler;
@@ -40,7 +40,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             LlmProperties llmProperties,
             LlmProviderGateway llmProviderGateway,
             LlmErrorSanitizer llmErrorSanitizer,
-            PromptBuilderService promptBuilderService,
+            PatientPromptAssemblyService patientPromptAssemblyService,
             PatientResponseSafetyService patientResponseSafetyService,
             PatientFallbackResponseService patientFallbackResponseService,
             ConversationHistoryAssembler conversationHistoryAssembler,
@@ -52,7 +52,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         this.llmProperties = llmProperties;
         this.llmProviderGateway = llmProviderGateway;
         this.llmErrorSanitizer = llmErrorSanitizer;
-        this.promptBuilderService = promptBuilderService;
+        this.patientPromptAssemblyService = patientPromptAssemblyService;
         this.patientResponseSafetyService = patientResponseSafetyService;
         this.patientFallbackResponseService = patientFallbackResponseService;
         this.conversationHistoryAssembler = conversationHistoryAssembler;
@@ -111,7 +111,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                     llmProperties.getRevealStrategy() == null ? RevealStrategy.PROGRESSIVE : llmProperties.getRevealStrategy()
             );
 
-            List<LlmMessage> promptMessages = promptBuilderService.buildMessages(
+            PatientPromptAssemblyService.PromptAssemblyResult result = patientPromptAssemblyService.assemblePrompt(
                     context,
                     history,
                     userMessage,
@@ -123,14 +123,9 @@ public class LlmPatientResponseService implements PatientResponseService {
                     )
             );
 
-            estimatedPromptTokens = promptMessages.stream()
-                    .map(LlmMessage::content)
-                    .mapToInt(llmInteractionMetricsService::estimateTokens)
-                    .sum();
-            int promptChars = promptMessages.stream()
-                    .map(LlmMessage::content)
-                    .mapToInt(content -> content == null ? 0 : content.length())
-                    .sum();
+            List<LlmMessage> promptMessages = result.promptMessages();
+            estimatedPromptTokens = result.estimatedPromptTokens();
+            int promptChars = result.promptChars();
 
             log.info(
                     "LLM request prepared requestId={} provider={} model={} promptChars={} revealStrategy={} noInfoConfigured={}",
