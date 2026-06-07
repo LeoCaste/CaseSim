@@ -238,7 +238,9 @@ class LlmUsageServiceTest {
     }
 
     @Test
-    void registerCallShouldSkipPersistenceWhenSessionIdIsNull() {
+    void registerCallShouldPersistEvenWhenSessionIdIsNull() {
+        when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
         service.registerCall(
                 null,
                 "groq",
@@ -250,7 +252,11 @@ class LlmUsageServiceTest {
                 null
         );
 
-        verify(llmUsageRepository, never()).save(any(LlmUsage.class));
+        ArgumentCaptor<LlmUsage> captor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository).save(captor.capture());
+
+        LlmUsage saved = captor.getValue();
+        assertNull(ReflectionTestUtils.getField(saved, "sessionId"));
     }
 
     @Test

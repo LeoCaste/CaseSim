@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -89,7 +90,7 @@ class LlmAdminServiceTest {
         assertEquals("api.openai.com", response.resolvedBaseHost());
         assertEquals("/v1/chat/completions", response.endpointPath());
         assertNull(response.detail());
-        verify(llmUsageService).registerCall(any(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
+        verify(llmUsageService).registerCall(isNull(), any(), any(), any(Integer.class), any(Integer.class), any(), any(Boolean.class), any());
     }
 
     @Test

@@ -65,8 +65,7 @@ public class LlmUsageService {
             String error
     ) {
         if (sessionId == null) {
-            log.debug("Se omite persistencia de uso LLM sin sesion_id (provider={}, model={}).", provider, model);
-            return;
+            log.debug("Se registra uso LLM sin sesion_id para observabilidad admin (provider={}, model={}).", provider, model);
         }
 
         LocalDateTime now = LocalDateTime.now();

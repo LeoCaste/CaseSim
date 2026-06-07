@@ -31,9 +31,10 @@ class LlmUsageRepositoryTest {
         repository.save(new LlmUsage(UUID.randomUUID(), sessionId, "openai", "gpt-4o-mini", 80, 30, 110, 190, false, null, now));
         repository.save(new LlmUsage(UUID.randomUUID(), sessionId, "openai", "gpt-4o-mini", 40, 20, 60, 170, true, "PROVIDER_CALL_ERROR|TIMEOUT", now));
         repository.save(new LlmUsage(UUID.randomUUID(), sessionId, "openai", "gpt-4o-mini", 20, 10, 30, 160, false, "PROVIDER_HTTP_500", now));
+        repository.save(new LlmUsage(UUID.randomUUID(), null, "openai", "gpt-4o-mini", 5, 3, 8, 155, false, null, now));
 
         LlmUsageSummaryProjection summary = repository.getSummary();
-        assertEquals(4L, summary.getTotalCalls());
+        assertEquals(5L, summary.getTotalCalls());
         assertEquals(1L, summary.getFallbackCount());
         assertEquals(1L, summary.getErrorCount());
 
