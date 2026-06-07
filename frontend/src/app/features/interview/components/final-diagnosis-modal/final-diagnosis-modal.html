@@ -15,8 +15,13 @@
         id="diagnosis"
         placeholder="Ej: Neumonía atípica por Mycoplasma pneumoniae..."
         [(ngModel)]="diagnosis"
+        (ngModelChange)="onDiagnosisChange($event)"
         [ngModelOptions]="{ standalone: true }"
       ></textarea>
+
+      <small *ngIf="validationMessage || !canConfirm" class="diagnosis-modal__validation" [class.diagnosis-modal__validation--error]="!!validationMessage">
+        {{ validationMessage || 'Escribe un diagnóstico para habilitar el envío.' }}
+      </small>
 
       <label for="reasoning">Razonamiento clínico</label>
       <textarea
@@ -32,7 +37,7 @@
         Continuar entrevista
       </button>
 
-      <button class="modal-button primary" type="button" (click)="onConfirm()">
+      <button class="modal-button primary" type="button" (click)="onConfirm()" [disabled]="!canConfirm">
         Enviar diagnóstico y finalizar
       </button>
     </footer>

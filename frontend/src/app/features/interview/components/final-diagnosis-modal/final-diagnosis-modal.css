@@ -52,6 +52,17 @@
   line-height: 1.5;
 }
 
+.diagnosis-modal__validation {
+  display: block;
+  margin-top: 8px;
+  color: var(--cs-text-muted);
+  font-size: 13px;
+}
+
+.diagnosis-modal__validation--error {
+  color: #b42318;
+}
+
 .diagnosis-modal__body label {
   display: block;
   margin: 16px 0 6px;
