@@ -13,6 +13,10 @@ describe('StudentNotebook', () => {
 
     fixture = TestBed.createComponent(StudentNotebook);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('notebook', {
+      notes: 'Paciente refiere inicio súbito del dolor.',
+      hypothesis: 'Síndrome coronario agudo en estudio.',
+    });
     await fixture.whenStable();
   });
 

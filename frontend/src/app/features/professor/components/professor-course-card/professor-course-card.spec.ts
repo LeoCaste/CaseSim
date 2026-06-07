@@ -13,6 +13,13 @@ describe('ProfessorCourseCard', () => {
 
     fixture = TestBed.createComponent(ProfessorCourseCard);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('simulation', {
+      name: 'Simulación cardiología',
+      caseName: 'Dolor torácico',
+      course: 'Medicina Interna',
+      students: 12,
+      completedSessions: 4,
+    });
     await fixture.whenStable();
   });
 

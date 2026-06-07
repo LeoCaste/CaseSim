@@ -13,6 +13,14 @@ describe('ProfessorActivitySummary', () => {
 
     fixture = TestBed.createComponent(ProfessorActivitySummary);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('activity', {
+      title: 'Entrevista clínica inicial',
+      course: 'Medicina Interna',
+      caseName: 'Dolor torácico',
+      status: 'En progreso',
+      completed: 2,
+      total: 5,
+    });
     await fixture.whenStable();
   });
 
