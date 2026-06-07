@@ -56,12 +56,12 @@ export class ClinicalCaseFormPage implements OnInit {
     title: '',
     patientName: '',
     status: 'DRAFT',
-    estimatedTimeMinutes: undefined,
     factsCount: 0,
     age: 18,
     sex: 'F',
     context: '',
     reason: '',
+    currentIllness: '',
     initialMessage: '',
     expectedDiagnosis: '',
     fallbackResponse: '',
@@ -71,12 +71,29 @@ export class ClinicalCaseFormPage implements OnInit {
       detailLevel: 'Responder solo lo preguntado',
       behaviorNotes: ''
     },
-    facts: []
+    facts: [],
+    clinicalExam: {
+      findings: ''
+    },
+    generalBackground: ''
   };
 
   clinicalFacts: FactDraft[] = [];
   factsValidationError = '';
   fieldErrors: Record<string, string> = {};
+  expandedSections: Set<string> = new Set(['block-a']);
+  private readonly fieldToSection: Record<string, string> = {
+    patientName: 'block-a',
+    age: 'block-a',
+    sex: 'block-a',
+    context: 'block-a',
+    initialMessage: 'block-a',
+    reason: 'block-a',
+    fallbackResponse: 'block-d',
+    expectedDiagnosis: 'block-e',
+    behaviorGuidelines: 'block-d',
+    generalBackground: 'block-b'
+  };
   private readonly fieldPathToControlName: Record<string, string> = {
     patientName: 'patientName',
     age: 'age',
@@ -86,7 +103,7 @@ export class ClinicalCaseFormPage implements OnInit {
     initialMessage: 'initialMessage',
     expectedDiagnosis: 'expectedDiagnosis',
     fallbackResponse: 'fallbackResponse',
-    behaviorGuidelines: 'behaviorStyle'
+    behaviorGuidelines: 'behaviorGuidelines'
   };
 
   constructor(
@@ -175,6 +192,7 @@ export class ClinicalCaseFormPage implements OnInit {
     if (!this.validateFacts()) {
       this.saveAttempted = true;
       this.saveError = this.factsValidationError;
+      this.expandSectionsWithErrors();
       this.focusFirstInvalidField();
       this.cdr.detectChanges();
       return;
@@ -210,6 +228,7 @@ export class ClinicalCaseFormPage implements OnInit {
       this.saveAttempted = true;
       this.showSaveModal = false;
       this.saveError = this.factsValidationError;
+      this.expandSectionsWithErrors();
       this.focusFirstInvalidField();
       this.cdr.detectChanges();
       return;
@@ -229,18 +248,20 @@ export class ClinicalCaseFormPage implements OnInit {
       title: (this.caseFormState.title || `Caso ${this.caseFormState.patientName}`).trim(),
       patientName: this.caseFormState.patientName.trim(),
       status: this.caseFormState.status,
-      estimatedTimeMinutes: this.caseFormState.estimatedTimeMinutes,
       age: this.caseFormState.age,
       sex: this.caseFormState.sex,
       context: this.caseFormState.context.trim(),
       reason: this.caseFormState.reason.trim(),
+      currentIllness: this.caseFormState.currentIllness?.trim() || undefined,
       initialMessage: this.caseFormState.initialMessage.trim(),
       expectedDiagnosis: this.caseFormState.expectedDiagnosis?.trim(),
-      legacyExpectedDiagnosis: this.caseFormState.legacyExpectedDiagnosis,
+      legacyExpectedDiagnosis: this.caseFormState.expectedDiagnosis?.trim(),
       fallbackResponse: this.caseFormState.fallbackResponse?.trim(),
       behaviorGuidelines: this.caseFormState.behaviorGuidelines?.trim(),
       personality: this.caseFormState.personality,
-      facts
+      facts,
+      generalBackground: this.caseFormState.generalBackground?.trim() || undefined,
+      clinicalExam: this.caseFormState.clinicalExam
     };
 
     const save$ = this.isEditMode && this.caseId
@@ -311,6 +332,88 @@ export class ClinicalCaseFormPage implements OnInit {
     const nextErrors = { ...this.fieldErrors };
     delete nextErrors[path];
     this.fieldErrors = nextErrors;
+  }
+
+  toggleSection(sectionId: string): void {
+    if (this.expandedSections.has(sectionId)) {
+      this.expandedSections.delete(sectionId);
+    } else {
+      this.expandedSections.add(sectionId);
+    }
+  }
+
+  isSectionExpanded(sectionId: string): boolean {
+    return this.expandedSections.has(sectionId);
+  }
+
+  getBlockIndicator(blockId: string): string {
+    switch (blockId) {
+      case 'block-a': {
+        const missing: string[] = [];
+        if (!this.caseFormState.patientName.trim()) missing.push('patientName');
+        if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) missing.push('age');
+        if (!this.caseFormState.reason.trim()) missing.push('reason');
+        if (!this.caseFormState.initialMessage.trim()) missing.push('initialMessage');
+        return missing.length === 0 ? 'Completo' : 'Incompleto';
+      }
+      case 'block-b':
+        return 'Opcional';
+      case 'block-c': {
+        if (this.clinicalFacts.length === 0) return 'Sin datos revelables';
+        const missingFacts = this.clinicalFacts.some(
+          (f) => !f.category.trim() || !f.title.trim() || !f.content.trim() || !f.trigger.trim()
+        );
+        return missingFacts ? 'Incompleto' : 'Completo';
+      }
+      case 'block-d': {
+        if (!this.caseFormState.fallbackResponse?.trim()) return 'Incompleto';
+        return 'Completo';
+      }
+      case 'block-e':
+        return 'Opcional';
+      default:
+        return '';
+    }
+  }
+
+  getBlockIndicatorClass(blockId: string): string {
+    switch (blockId) {
+      case 'block-a': {
+        const missing: string[] = [];
+        if (!this.caseFormState.patientName.trim()) missing.push('patientName');
+        if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) missing.push('age');
+        if (!this.caseFormState.reason.trim()) missing.push('reason');
+        if (!this.caseFormState.initialMessage.trim()) missing.push('initialMessage');
+        return missing.length === 0 ? 'indicator-complete' : 'indicator-incomplete';
+      }
+      case 'block-b':
+        return 'indicator-optional';
+      case 'block-c': {
+        if (this.clinicalFacts.length === 0) return '';
+        const missingFacts = this.clinicalFacts.some(
+          (f) => !f.category.trim() || !f.title.trim() || !f.content.trim() || !f.trigger.trim()
+        );
+        return missingFacts ? 'indicator-incomplete' : 'indicator-complete';
+      }
+      case 'block-d': {
+        if (!this.caseFormState.fallbackResponse?.trim()) return 'indicator-incomplete';
+        return 'indicator-complete';
+      }
+      case 'block-e':
+        return 'indicator-optional';
+      default:
+        return '';
+    }
+  }
+
+  goToSection(sectionId: string): void {
+    this.expandedSections.add(sectionId);
+    setTimeout(() => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
   }
 
   addFact(): void {
@@ -387,6 +490,10 @@ export class ClinicalCaseFormPage implements OnInit {
       pending.push('Motivo principal de consulta');
     }
 
+    if (!this.caseFormState.initialMessage.trim()) {
+      pending.push('Mensaje inicial del paciente');
+    }
+
     if (!this.caseFormState.sex) {
       pending.push('Sexo del paciente');
     }
@@ -396,7 +503,7 @@ export class ClinicalCaseFormPage implements OnInit {
     }
 
     if (this.clinicalFacts.length === 0) {
-      pending.push('Al menos un antecedente clínico');
+      pending.push('Al menos un elemento de información revelable');
       return pending;
     }
 
@@ -404,16 +511,16 @@ export class ClinicalCaseFormPage implements OnInit {
       const factNumber = index + 1;
 
       if (!fact.category.trim()) {
-        pending.push(`Antecedente ${factNumber}: categoría`);
+        pending.push(`Información revelable ${factNumber}: categoría`);
       }
       if (!fact.title.trim()) {
-        pending.push(`Antecedente ${factNumber}: título`);
+        pending.push(`Información revelable ${factNumber}: título`);
       }
       if (!fact.content.trim()) {
-        pending.push(`Antecedente ${factNumber}: contenido`);
+        pending.push(`Información revelable ${factNumber}: contenido`);
       }
       if (!fact.trigger.trim()) {
-        pending.push(`Antecedente ${factNumber}: gatillante`);
+        pending.push(`Información revelable ${factNumber}: gatillante`);
       }
     });
 
@@ -421,7 +528,7 @@ export class ClinicalCaseFormPage implements OnInit {
   }
 
   get shouldShowPendingRequiredSummary(): boolean {
-    return this.saveAttempted && this.caseFormState.status === 'READY' && this.pendingRequiredItems.length > 0;
+    return this.saveAttempted && this.pendingRequiredItems.length > 0;
   }
 
   private syncFromFormState(): void {
@@ -430,6 +537,12 @@ export class ClinicalCaseFormPage implements OnInit {
       detailLevel: 'Responder solo lo preguntado',
       behaviorNotes: this.caseFormState.behaviorGuidelines ?? ''
     };
+
+    this.caseFormState.clinicalExam = this.caseFormState.clinicalExam ?? {
+      findings: ''
+    };
+
+    this.caseFormState.generalBackground = this.caseFormState.generalBackground ?? '';
 
     this.clinicalFacts = this.caseFormState.facts.map((fact) => ({
       ...fact,
@@ -455,7 +568,7 @@ export class ClinicalCaseFormPage implements OnInit {
     }
 
     if (this.clinicalFacts.length === 0) {
-      this.factsValidationError = 'Agrega al menos un antecedente antes de guardar el caso clínico.';
+      this.factsValidationError = 'Agrega al menos un elemento de información revelable antes de guardar el caso clínico.';
       return false;
     }
 
@@ -465,7 +578,7 @@ export class ClinicalCaseFormPage implements OnInit {
 
     if (invalidFact >= 0) {
       this.factsValidationError =
-        'Cada antecedente debe tener categoría, título, contenido y gatillante para poder guardar.';
+        'Cada elemento de información revelable debe tener categoría, título, contenido y gatillante para poder guardar.';
       const current = this.clinicalFacts[invalidFact];
       if (!current.category.trim()) this.fieldErrors[`facts.${invalidFact}.category`] = 'Campo obligatorio';
       if (!current.title.trim()) this.fieldErrors[`facts.${invalidFact}.title`] = 'Campo obligatorio';
@@ -484,7 +597,7 @@ export class ClinicalCaseFormPage implements OnInit {
 
     if (hasInvalidVisibility) {
       this.factsValidationError =
-        'Cada antecedente debe tener una visibilidad válida (Inicial o Bajo pregunta).';
+        'Cada elemento de información revelable debe tener una visibilidad válida (Inicial o Bajo pregunta).';
       return false;
     }
 
@@ -508,6 +621,12 @@ export class ClinicalCaseFormPage implements OnInit {
     if (!this.caseFormState.reason.trim()) {
       this.factsValidationError = 'Ingresa el motivo principal de consulta antes de guardar.';
       this.fieldErrors['reason'] = 'Campo obligatorio';
+      return false;
+    }
+
+    if (!this.caseFormState.initialMessage.trim()) {
+      this.factsValidationError = 'Ingresa el mensaje inicial del paciente antes de guardar.';
+      this.fieldErrors['initialMessage'] = 'Campo obligatorio';
       return false;
     }
 
@@ -820,10 +939,31 @@ export class ClinicalCaseFormPage implements OnInit {
     return null;
   }
 
+  private expandSectionsWithErrors(): void {
+    for (const fieldPath of Object.keys(this.fieldErrors)) {
+      const sectionId = this.getSectionForField(fieldPath);
+      if (sectionId) {
+        this.expandedSections.add(sectionId);
+      }
+    }
+  }
+
+  private getSectionForField(fieldPath: string): string | null {
+    if (fieldPath.startsWith('facts.')) {
+      return 'block-c';
+    }
+    return this.fieldToSection[fieldPath] ?? null;
+  }
+
   private focusFirstInvalidField(): void {
     const [firstPath] = Object.keys(this.fieldErrors);
     if (!firstPath) {
       return;
+    }
+
+    const sectionId = this.getSectionForField(firstPath);
+    if (sectionId) {
+      this.expandedSections.add(sectionId);
     }
 
     const controlName = this.mapFieldPathToControlName(firstPath);

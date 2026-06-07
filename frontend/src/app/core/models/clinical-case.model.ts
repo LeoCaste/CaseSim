@@ -1,5 +1,9 @@
 export type ClinicalFactVisibility = 'INITIAL' | 'ON_QUESTION';
-export type ClinicalCaseStatus = 'DRAFT' | 'READY' | 'ARCHIVED';
+export type ClinicalCaseStatus = 'DRAFT' | 'READY';
+
+export interface ClinicalExamData {
+  findings?: string;
+}
 export type ClinicalSex = 'F' | 'M' | 'X';
 
 // Alias temporal para mantener compatibilidad con usos anteriores.
@@ -31,7 +35,6 @@ export interface ClinicalCaseSummary {
   title: string;
   patientName: string;
   status: ClinicalCaseStatus;
-  estimatedTimeMinutes?: number;
   factsCount: number;
   age?: number;
   sex?: ClinicalSex;
@@ -43,6 +46,7 @@ export interface ClinicalCase extends ClinicalCaseSummary {
   sex: ClinicalSex;
   context: string;
   reason: string;
+  currentIllness?: string;
   initialMessage: string;
   expectedDiagnosis?: string;
   /** Valor heredado desde [CASESIM_META]; solo se preserva por compatibilidad. */
@@ -51,17 +55,19 @@ export interface ClinicalCase extends ClinicalCaseSummary {
   behaviorGuidelines?: string;
   personality: ClinicalCasePersonality;
   facts: ClinicalFact[];
+  generalBackground?: string;
+  clinicalExam?: ClinicalExamData;
 }
 
 export interface ClinicalCaseUpsertPayload {
   title: string;
   patientName: string;
   status: ClinicalCaseStatus;
-  estimatedTimeMinutes?: number;
   age: number;
   sex: ClinicalSex;
   context: string;
   reason: string;
+  currentIllness?: string;
   initialMessage: string;
   expectedDiagnosis?: string;
   /** No crear desde UI; permite no perder metadato legacy ya existente. */
@@ -70,4 +76,6 @@ export interface ClinicalCaseUpsertPayload {
   behaviorGuidelines?: string;
   personality: ClinicalCasePersonality;
   facts: ClinicalFact[];
+  generalBackground?: string;
+  clinicalExam?: ClinicalExamData;
 }

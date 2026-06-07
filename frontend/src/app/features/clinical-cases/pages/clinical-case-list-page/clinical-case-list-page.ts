@@ -26,7 +26,6 @@ export class ClinicalCaseListPage implements OnInit {
     private clinicalCaseService: ClinicalCaseService,
     private cdr: ChangeDetectorRef
   ) {
-    this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {

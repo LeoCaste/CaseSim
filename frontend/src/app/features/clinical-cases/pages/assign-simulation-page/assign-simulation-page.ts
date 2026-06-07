@@ -25,7 +25,6 @@ export class AssignSimulationPage implements OnInit {
     patientName: string;
     reason: string;
     status: ClinicalCaseStatus;
-    estimatedTimeMinutes?: number;
   } = {
     id: '1',
     title: 'Caso Catalina Paz Soto',
@@ -55,7 +54,6 @@ export class AssignSimulationPage implements OnInit {
     private simulationAssignmentService: SimulationAssignmentService,
     private cdr: ChangeDetectorRef
   ) {
-    this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {
@@ -157,14 +155,8 @@ export class AssignSimulationPage implements OnInit {
     return this.clinicalCase.status === 'READY';
   }
 
-  get estimatedDurationLabel(): string {
-    if (!this.clinicalCase.estimatedTimeMinutes) return 'No definida';
-    return `${this.clinicalCase.estimatedTimeMinutes} minutos`;
-  }
-
-  get statusLabel(): 'Listo' | 'Borrador' | 'Archivado' {
+  get statusLabel(): 'Listo' | 'Borrador' {
     if (this.clinicalCase.status === 'READY') return 'Listo';
-    if (this.clinicalCase.status === 'DRAFT') return 'Borrador';
-    return 'Archivado';
+    return 'Borrador';
   }
 }

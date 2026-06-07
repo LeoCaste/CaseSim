@@ -8,7 +8,7 @@ import { Simulation, SimulationStudent } from '../models/simulation.model';
 import { environment } from '../../../environments/environment';
 
 export interface SimulationAssignmentContext {
-  clinicalCase: Pick<ClinicalCase, 'id' | 'title' | 'patientName' | 'reason' | 'status' | 'estimatedTimeMinutes'>;
+  clinicalCase: Pick<ClinicalCase, 'id' | 'title' | 'patientName' | 'reason' | 'status'>;
   students: SimulationStudent[];
 }
 
@@ -34,8 +34,7 @@ export class SimulationAssignmentService {
           title: 'Caso clínico',
           patientName: 'Paciente simulado',
           reason: 'Motivo no disponible',
-          status: 'READY',
-          estimatedTimeMinutes: undefined
+          status: 'READY'
         },
         students: []
       });
@@ -55,8 +54,7 @@ export class SimulationAssignmentService {
           title: clinicalCase.title,
           patientName: clinicalCase.patientName,
           reason: clinicalCase.chiefComplaint,
-          status: this.mapBackendStatus(clinicalCase),
-          estimatedTimeMinutes: clinicalCase.estimatedTimeMinutes
+          status: this.mapBackendStatus(clinicalCase)
         },
         students: students
           .map((student) => ({
@@ -119,11 +117,11 @@ export class SimulationAssignmentService {
   }
 
   private mapBackendStatus(response: BackendClinicalCaseResponse): ClinicalCaseStatus {
-    if (response.status === 'DRAFT' || response.status === 'READY' || response.status === 'ARCHIVED') {
+    if (response.status === 'DRAFT' || response.status === 'READY') {
       return response.status;
     }
 
-    return response.active ? 'READY' : 'ARCHIVED';
+    return response.active ? 'READY' : 'DRAFT';
   }
 }
 
@@ -140,7 +138,6 @@ interface BackendClinicalCaseResponse {
   chiefComplaint: string;
   status?: ClinicalCaseStatus;
   active: boolean;
-  estimatedTimeMinutes?: number;
 }
 
 interface BackendProfessorStudentResponse {

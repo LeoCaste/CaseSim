@@ -71,16 +71,16 @@ describe('ClinicalCaseService fact mapping', () => {
     });
   });
 
-  it('should map estimatedTimeMinutes from backend response', () => {
-    const response = {
-      ...buildBackendResponse(null),
-      estimatedTimeMinutes: 45
-    };
+  it('should support cases without legacy metadata', () => {
+    const response = buildBackendResponse('Indicaciones generales del paciente.');
 
-    const summary = (service as unknown as { mapBackendCaseToSummary: (response: unknown) => Record<string, unknown> })
-      .mapBackendCaseToSummary(response);
+    const detail = (service as unknown as { mapBackendCaseToDetail: (response: unknown) => Record<string, unknown> })
+      .mapBackendCaseToDetail(response);
 
-    expect(summary['estimatedTimeMinutes']).toBe(45);
+    expect(detail['context']).toBe('');
+    expect(detail['behaviorGuidelines']).toBe('Indicaciones generales del paciente.');
+    expect(detail['expectedDiagnosis']).toBeUndefined();
+    expect(detail['legacyExpectedDiagnosis']).toBeUndefined();
   });
 
   it('should preserve backend clinical case status when present', () => {
@@ -96,12 +96,12 @@ describe('ClinicalCaseService fact mapping', () => {
     expect(summary['status']).toBe('DRAFT');
   });
 
-  it('should fallback legacy active true to READY and active false to ARCHIVED', () => {
+  it('should fallback legacy active true to READY and active false to DRAFT', () => {
     const mapSummary = (service as unknown as { mapBackendCaseToSummary: (response: unknown) => Record<string, unknown> })
       .mapBackendCaseToSummary.bind(service);
 
     expect(mapSummary({ ...buildBackendResponse(null), active: true })['status']).toBe('READY');
-    expect(mapSummary({ ...buildBackendResponse(null), active: false })['status']).toBe('ARCHIVED');
+    expect(mapSummary({ ...buildBackendResponse(null), active: false })['status']).toBe('DRAFT');
   });
 
   it('should send status and legacy active compatibility in upsert requests', () => {
@@ -112,65 +112,16 @@ describe('ClinicalCaseService fact mapping', () => {
       trigger: 'dolor',
       visibility: 'ON_QUESTION'
     });
-    payload.status = 'ARCHIVED';
+    payload.status = 'DRAFT';
 
     const request = (service as unknown as { mapUpsertPayloadToBackendRequest: (payload: ClinicalCaseUpsertPayload) => Record<string, unknown> })
       .mapUpsertPayloadToBackendRequest(payload);
 
-    expect(request['status']).toBe('ARCHIVED');
+    expect(request['status']).toBe('DRAFT');
     expect(request['active']).toBe(false);
   });
 
-  it('should not send completely empty fact content', () => {
-    const payload = buildPayload({
-      category: 'Historia actual',
-      title: 'Vacío',
-      content: '   ',
-      trigger: 'dolor',
-      visibility: 'ON_QUESTION'
-    });
-
-    const request = (service as unknown as { mapUpsertPayloadToBackendRequest: (payload: ClinicalCaseUpsertPayload) => unknown })
-      .mapUpsertPayloadToBackendRequest(payload) as { facts: Array<Record<string, unknown>> };
-
-    expect(request.facts).toEqual([]);
-  });
-
-  it('should load legacy description metadata without losing expectedDiagnosis', () => {
-    const response = buildBackendResponse(
-      '[CASESIM_META]' +
-        JSON.stringify({
-          context: 'Box de urgencia',
-          initialMessage: 'Me duele el pecho',
-          expectedDiagnosis: 'Síndrome coronario a descartar',
-          behaviorGuidelines: 'Responder breve'
-        })
-    );
-
-    const detail = (service as unknown as { mapBackendCaseToDetail: (response: unknown) => Record<string, unknown> })
-      .mapBackendCaseToDetail(response);
-
-    expect(detail['context']).toBe('Box de urgencia');
-    expect(detail['initialMessage']).toBe('Me duele el pecho');
-    expect(detail['expectedDiagnosis']).toBe('Síndrome coronario a descartar');
-    expect(detail['legacyExpectedDiagnosis']).toBe('Síndrome coronario a descartar');
-    expect(detail['behaviorGuidelines']).toBe('Responder breve');
-    expect((detail['personality'] as Record<string, unknown>)['behaviorNotes']).not.toContain('[CASESIM_META]');
-  });
-
-  it('should support cases without legacy metadata', () => {
-    const response = buildBackendResponse('Indicaciones generales del paciente.');
-
-    const detail = (service as unknown as { mapBackendCaseToDetail: (response: unknown) => Record<string, unknown> })
-      .mapBackendCaseToDetail(response);
-
-    expect(detail['context']).toBe('');
-    expect(detail['behaviorGuidelines']).toBe('Indicaciones generales del paciente.');
-    expect(detail['expectedDiagnosis']).toBeUndefined();
-    expect(detail['legacyExpectedDiagnosis']).toBeUndefined();
-  });
-
-  it('should not create new expectedDiagnosis metadata from form input', () => {
+  it('should save expectedDiagnosis metadata from form input', () => {
     const payload = buildPayload({
       category: 'Historia actual',
       title: 'Inicio de dolor',
@@ -183,11 +134,11 @@ describe('ClinicalCaseService fact mapping', () => {
     const request = (service as unknown as { mapUpsertPayloadToBackendRequest: (payload: ClinicalCaseUpsertPayload) => { description: string | null } })
       .mapUpsertPayloadToBackendRequest(payload);
 
-    expect(request.description).not.toContain('Diagnóstico docente nuevo');
-    expect(request.description).not.toContain('expectedDiagnosis');
+    expect(request.description).toContain('Diagnóstico docente nuevo');
+    expect(request.description).toContain('expectedDiagnosis');
   });
 
-  it('should preserve existing legacy expectedDiagnosis metadata on update payloads', () => {
+  it('should save edited expectedDiagnosis over legacy value on update payloads', () => {
     const payload = buildPayload({
       category: 'Historia actual',
       title: 'Inicio de dolor',
@@ -202,8 +153,8 @@ describe('ClinicalCaseService fact mapping', () => {
       .mapUpsertPayloadToBackendRequest(payload);
 
     expect(request.description).toContain('expectedDiagnosis');
-    expect(request.description).toContain('Diagnóstico docente legacy');
-    expect(request.description).not.toContain('Diagnóstico docente editado');
+    expect(request.description).toContain('Diagnóstico docente editado');
+    expect(request.description).not.toContain('Diagnóstico docente legacy');
   });
 });
 

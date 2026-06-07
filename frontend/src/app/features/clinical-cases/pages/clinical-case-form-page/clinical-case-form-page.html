@@ -4,8 +4,14 @@
       <p class="case-form-header__eyebrow">Caso clínico</p>
       <h1>{{ pageTitle }}</h1>
       <p>
-        Paciente simulado: {{ caseFormState.patientName }}. Define su contexto clínico y cómo
+        Paciente simulado: {{ caseFormState.patientName || '(sin nombre)' }}. Define su contexto clínico y cómo
         responderá durante la entrevista simulada.
+      </p>
+      <p *ngIf="caseFormState.status" class="header-status">
+        <span class="status-badge"
+          [ngClass]="caseFormState.status === 'DRAFT' ? 'status-badge--draft' : 'status-badge--ready'">
+          {{ caseFormState.status === 'DRAFT' ? 'Borrador' : 'Listo' }}
+        </span>
       </p>
     </div>
 
@@ -20,12 +26,12 @@
     </div>
   </header>
 
-  <p *ngIf="isLoading">Cargando casos clínicos...</p>
-  <p *ngIf="!isLoading && loadError">{{ loadError }}</p>
-  <p *ngIf="!isLoading && !loadError && saveError">{{ saveError }}</p>
+  <p *ngIf="isLoading" class="loading-text">Cargando caso clínico...</p>
+  <p *ngIf="!isLoading && loadError" class="error-text">{{ loadError }}</p>
 
   <form class="case-form" *ngIf="!isLoading && !loadError">
     <p class="required-legend">Los campos con <span>*</span> son obligatorios para guardar.</p>
+
     <section class="required-summary" *ngIf="shouldShowPendingRequiredSummary" aria-live="assertive">
       <p><strong>No puedes guardar aún.</strong> Revisa estos campos obligatorios:</p>
       <ul>
@@ -33,328 +39,492 @@
       </ul>
     </section>
 
-    <section class="form-card">
-      <header>
-        <p>Sección 1</p>
-        <h2>Datos del paciente</h2>
+    <p *ngIf="saveError" class="save-error-text">{{ saveError }}</p>
+
+    <!-- ===== BLOCK NAVIGATION ===== -->
+    <nav class="section-nav" aria-label="Indice de bloques">
+      <h3>Ir a bloque</h3>
+      <ol>
+        <li><a (click)="goToSection('block-a')">A. Datos visibles del paciente</a> <span class="block-indicator" [ngClass]="getBlockIndicatorClass('block-a')">{{ getBlockIndicator('block-a') }}</span></li>
+        <li><a (click)="goToSection('block-b')">B. Historia clínica y datos del caso</a> <span class="block-indicator" [ngClass]="getBlockIndicatorClass('block-b')">{{ getBlockIndicator('block-b') }}</span></li>
+        <li><a (click)="goToSection('block-c')">C. Información revelable durante la entrevista</a> <span class="block-indicator" [ngClass]="getBlockIndicatorClass('block-c')">{{ getBlockIndicator('block-c') }}</span></li>
+        <li><a (click)="goToSection('block-d')">D. Comportamiento del paciente</a> <span class="block-indicator" [ngClass]="getBlockIndicatorClass('block-d')">{{ getBlockIndicator('block-d') }}</span></li>
+        <li><a (click)="goToSection('block-e')">E. Informacion interna del profesor</a> <span class="block-indicator" [ngClass]="getBlockIndicatorClass('block-e')">{{ getBlockIndicator('block-e') }}</span></li>
+      </ol>
+    </nav>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK A: Datos visibles del paciente                          -->
+    <!-- ============================================================ -->
+    <section class="form-card collapsible-section" id="block-a">
+      <header class="collapsible-header" (click)="toggleSection('block-a')">
+        <div class="collapsible-header__left">
+          <p>Bloque A</p>
+          <h2>Datos visibles del paciente</h2>
+        </div>
+        <div class="collapsible-header__right">
+          <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+          <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+          <span class="collapse-indicator">{{ isSectionExpanded('block-a') ? '[-]' : '[+]' }}</span>
+        </div>
       </header>
+      <div class="collapsible-content" [class.expanded]="isSectionExpanded('block-a')">
+        <p class="form-help">Estos datos ayudan a presentar el caso al estudiante y contextualizar la entrevista.</p>
 
-      <div class="form-grid two">
-        <label for="caseStatus">
-          Estado del caso
-          <select id="caseStatus" [(ngModel)]="caseFormState.status" name="caseStatus">
-            <option value="DRAFT">Borrador</option>
-            <option value="READY">Listo</option>
-            <option value="ARCHIVED">Archivado</option>
-          </select>
-          <small class="field-hint">Solo los casos listos se pueden asignar a simulaciones.</small>
+        <div class="form-grid two">
+          <label for="patientName" class="label-with-badge">
+            <span class="label-row">
+              Nombre del paciente <span class="required-mark">*</span>
+              <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+              <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+            </span>
+            <input
+              id="patientName"
+              type="text"
+              [(ngModel)]="caseFormState.patientName"
+              name="patientName"
+              placeholder="Ej: Catalina Paz Soto"
+              [class.field-error]="hasFieldError('patientName')"
+              (ngModelChange)="clearFieldError('patientName')"
+            />
+            <small class="field-error-text" *ngIf="hasFieldError('patientName')">{{ getFieldError('patientName') }}</small>
+          </label>
+
+          <label for="age" class="label-with-badge">
+            <span class="label-row">
+              Edad <span class="required-mark">*</span>
+              <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+              <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+            </span>
+            <input
+              id="age"
+              type="number"
+              [(ngModel)]="caseFormState.age"
+              name="age"
+              min="1"
+              [class.field-error]="hasFieldError('age')"
+              (ngModelChange)="clearFieldError('age')"
+            />
+            <small class="field-error-text" *ngIf="hasFieldError('age')">{{ getFieldError('age') }}</small>
+          </label>
+
+          <label for="sex" class="label-with-badge">
+            <span class="label-row">
+              Sexo
+              <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+              <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+            </span>
+            <select
+              id="sex"
+              [(ngModel)]="caseFormState.sex"
+              name="sex"
+              [class.field-error]="hasFieldError('sex')"
+              (ngModelChange)="clearFieldError('sex')"
+            >
+              <option value="F">Femenino</option>
+              <option value="M">Masculino</option>
+              <option value="X">Otro / No especificado</option>
+            </select>
+            <small class="field-error-text" *ngIf="hasFieldError('sex')">{{ getFieldError('sex') }}</small>
+          </label>
+
+          <label for="context" class="label-with-badge">
+            <span class="label-row">
+              Contexto de atención
+              <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+              <span class="info-badge badge-used-by-ia">[USADO POR PACIENTE IA: CONTEXTO]</span>
+            </span>
+            <input
+              id="context"
+              type="text"
+              [(ngModel)]="caseFormState.context"
+              name="context"
+              placeholder="Ej: Consulta ambulatoria"
+              [class.field-error]="hasFieldError('context')"
+              (ngModelChange)="clearFieldError('context')"
+            />
+            <small class="field-error-text" *ngIf="hasFieldError('context')">{{ getFieldError('context') }}</small>
+          </label>
+        </div>
+
+        <label for="initialMessage" class="label-with-badge">
+          <span class="label-row">
+            Mensaje inicial del paciente <span class="required-mark">*</span>
+            <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+            <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          </span>
+          <textarea
+            id="initialMessage"
+            [(ngModel)]="caseFormState.initialMessage"
+            name="initialMessage"
+            placeholder="Ej: Doctor, vengo porque tengo tos hace varios días y me siento cansada"
+            [class.field-error]="hasFieldError('initialMessage')"
+            (ngModelChange)="clearFieldError('initialMessage')"
+          ></textarea>
+          <small class="field-hint">Frase inicial textual con la que parte la entrevista simulada.</small>
+          <small class="field-error-text" *ngIf="hasFieldError('initialMessage')">{{ getFieldError('initialMessage') }}</small>
         </label>
 
-        <label for="patientName">
-          Nombre del paciente <span class="required-mark">*</span>
-          <input
-            id="patientName"
-            type="text"
-            [(ngModel)]="caseFormState.patientName"
-            name="patientName"
-            placeholder="Ej: Catalina Paz Soto"
-            [class.field-error]="hasFieldError('patientName')"
-            (ngModelChange)="clearFieldError('patientName')"
-          />
-          <small class="field-error-text" *ngIf="hasFieldError('patientName')">{{ getFieldError('patientName') }}</small>
-        </label>
-
-        <label for="age">
-          Edad <span class="required-mark">*</span>
-          <input
-            id="age"
-            type="number"
-            [(ngModel)]="caseFormState.age"
-            name="age"
-            min="1"
-            [class.field-error]="hasFieldError('age')"
-            (ngModelChange)="clearFieldError('age')"
-          />
-          <small class="field-error-text" *ngIf="hasFieldError('age')">{{ getFieldError('age') }}</small>
-        </label>
-
-        <label for="sex">
-          Sexo
-          <select
-            id="sex"
-            [(ngModel)]="caseFormState.sex"
-            name="sex"
-            [class.field-error]="hasFieldError('sex')"
-            (ngModelChange)="clearFieldError('sex')"
-          >
-            <option value="F">Femenino</option>
-            <option value="M">Masculino</option>
-            <option value="X">Otro / No especificado</option>
-          </select>
-          <small class="field-error-text" *ngIf="hasFieldError('sex')">{{ getFieldError('sex') }}</small>
-        </label>
-
-        <label for="context">
-          Contexto de atención
-          <input
-            id="context"
-            type="text"
-            [(ngModel)]="caseFormState.context"
-            name="context"
-            placeholder="Ej: Consulta ambulatoria"
-            [class.field-error]="hasFieldError('context')"
-            (ngModelChange)="clearFieldError('context')"
-          />
-          <small class="field-error-text" *ngIf="hasFieldError('context')">{{ getFieldError('context') }}</small>
-        </label>
-
-        <label for="estimatedTime">
-          Duración estimada (minutos)
-          <input
-            id="estimatedTime"
-            type="number"
-            [(ngModel)]="caseFormState.estimatedTimeMinutes"
-            name="estimatedTime"
-            min="5"
-            max="180"
-            placeholder="Ej: 30"
-          />
-          <small class="field-hint">Tiempo sugerido para la simulación. Entre 5 y 180 minutos.</small>
-        </label>
-      </div>
-    </section>
-
-    <section class="form-card">
-      <header>
-        <p>Sección 2</p>
-        <h2>Motivo de consulta</h2>
-      </header>
-
-      <label for="reason">
-         Motivo principal de consulta <span class="required-mark">*</span>
-         <textarea
+        <label for="reason" class="label-with-badge">
+          <span class="label-row">
+            Motivo principal de consulta <span class="required-mark">*</span>
+            <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+            <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          </span>
+          <textarea
             id="reason"
             [(ngModel)]="caseFormState.reason"
             name="reason"
             placeholder="Ej: Tos seca persistente y cansancio progresivo"
-           [class.field-error]="hasFieldError('reason')"
-           (ngModelChange)="clearFieldError('reason')"
-         ></textarea>
-         <small class="field-hint">Describe en una frase breve por qué consulta el paciente.</small>
-         <small class="field-error-text" *ngIf="hasFieldError('reason')">{{ getFieldError('reason') }}</small>
-       </label>
-
-      <label for="initialMessage">
-        Mensaje inicial del paciente
-        <textarea
-          id="initialMessage"
-          [(ngModel)]="caseFormState.initialMessage"
-          name="initialMessage"
-          placeholder="Ej: Doctor, vengo porque tengo tos hace varios días y me siento cansada"
-          [class.field-error]="hasFieldError('initialMessage')"
-          (ngModelChange)="clearFieldError('initialMessage')"
-        ></textarea>
-        <small class="field-hint">Frase inicial textual con la que parte la entrevista simulada.</small>
-        <small class="field-error-text" *ngIf="hasFieldError('initialMessage')">{{ getFieldError('initialMessage') }}</small>
-      </label>
-    </section>
-
-    <section class="form-card">
-      <header>
-        <p>Sección 3</p>
-        <h2>Antecedentes del paciente</h2>
-      </header>
-
-      <p class="form-help">
-        Define la información que el paciente puede entregar durante la entrevista.
-        Parte de esta información se menciona al inicio, y otra solo cuando el estudiante
-        realiza preguntas adecuadas.
-      </p>
-
-      <p class="facts-empty" *ngIf="clinicalFacts.length === 0">
-        Aún no hay antecedentes. Agrega al menos uno para completar este caso clínico.
-      </p>
-
-      <p class="facts-error" *ngIf="factsValidationError">{{ factsValidationError }}</p>
-
-      <div class="facts-list" *ngIf="clinicalFacts.length > 0">
-        <article class="fact-item" *ngFor="let fact of clinicalFacts; let index = index; trackBy: trackByFactIndex">
-          <header class="fact-item__header">
-            <h3>Antecedente {{ index + 1 }} — {{ fact.title.trim() || 'Sin título' }}</h3>
-            <p>Visibilidad: {{ fact.visibilityLabel }}</p>
-          </header>
-
-          <div class="fact-item__fields">
-            <label [for]="'factCategory' + index">
-              Categoría <span class="required-mark">*</span>
-              <input
-                [id]="'factCategory' + index"
-                type="text"
-                [(ngModel)]="fact.category"
-                [name]="'factCategory' + index"
-                required
-                placeholder="Ej: Historia actual"
-                [class.field-error]="hasFieldError('facts.' + index + '.category')"
-                (ngModelChange)="clearFieldError('facts.' + index + '.category')"
-              />
-              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.category')">{{ getFieldError('facts.' + index + '.category') }}</small>
-            </label>
-
-            <label [for]="'factTitle' + index">
-              Título <span class="required-mark">*</span>
-              <input
-                [id]="'factTitle' + index"
-                type="text"
-                [(ngModel)]="fact.title"
-                [name]="'factTitle' + index"
-                required
-                placeholder="Ej: Inicio y evolución de síntomas"
-                [class.field-error]="hasFieldError('facts.' + index + '.title')"
-                (ngModelChange)="clearFieldError('facts.' + index + '.title')"
-              />
-              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.title')">{{ getFieldError('facts.' + index + '.title') }}</small>
-            </label>
-
-            <label [for]="'factContent' + index">
-              Contenido <span class="required-mark">*</span>
-              <textarea
-                [id]="'factContent' + index"
-                [(ngModel)]="fact.content"
-                [name]="'factContent' + index"
-                required
-                placeholder="Ej: Hace 5 días comenzó con tos seca..."
-                [class.field-error]="hasFieldError('facts.' + index + '.content')"
-                (ngModelChange)="clearFieldError('facts.' + index + '.content')"
-              ></textarea>
-              <small class="field-hint">Qué información clínica entregará el paciente cuando este antecedente se active.</small>
-              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.content')">{{ getFieldError('facts.' + index + '.content') }}</small>
-            </label>
-
-            <label [for]="'factTrigger' + index">
-              Gatillante o pregunta esperada <span class="required-mark">*</span>
-              <textarea
-                [id]="'factTrigger' + index"
-                [(ngModel)]="fact.trigger"
-                [name]="'factTrigger' + index"
-                required
-                placeholder="Ej: tos, desde cuándo, fiebre, cansancio"
-                [class.field-error]="hasFieldError('facts.' + index + '.trigger')"
-                (ngModelChange)="clearFieldError('facts.' + index + '.trigger')"
-              ></textarea>
-              <small class="field-hint">Palabra clave/pregunta del estudiante que dispara este antecedente.</small>
-              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.trigger')">{{ getFieldError('facts.' + index + '.trigger') }}</small>
-            </label>
-          </div>
-
-          <div class="fact-item__aside">
-            <label [for]="'factVisibility' + index">
-              Visibilidad
-              <select
-                [id]="'factVisibility' + index"
-                [(ngModel)]="fact.visibilityLabel"
-                [name]="'factVisibility' + index"
-                (ngModelChange)="updateFactVisibility(index, $event)"
-                [class.field-error]="hasFieldError('facts.' + index + '.visibility')"
-              >
-                <option value="Inicial">Inicial</option>
-                <option value="Bajo pregunta">Bajo pregunta</option>
-              </select>
-              <small class="field-hint">Inicial = se puede revelar sin pregunta. Bajo pregunta = requiere consulta dirigida.</small>
-              <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.visibility')">{{ getFieldError('facts.' + index + '.visibility') }}</small>
-            </label>
-
-            <button class="case-button subtle" type="button" (click)="removeFact(index)" [attr.aria-label]="'Eliminar antecedente ' + (index + 1)">
-              Eliminar
-            </button>
-          </div>
-        </article>
-      </div>
-
-      <button class="case-button secondary" type="button" (click)="addFact()">
-        Agregar antecedente
-      </button>
-    </section>
-
-    <section class="form-card">
-      <header>
-        <p>Sección 4</p>
-        <h2>Perfil conversacional del paciente</h2>
-      </header>
-
-      <div class="form-grid two">
-        <label>
-          Tono
-          <select [(ngModel)]="caseFormState.personality.tone" name="personalityTone">
-            <option>Natural y colaborador</option>
-            <option>Ansioso</option>
-            <option>Reservado</option>
-            <option>Confundido</option>
-          </select>
-        </label>
-
-        <label>
-          Nivel de detalle
-          <select [(ngModel)]="caseFormState.personality.detailLevel" name="personalityDetailLevel">
-            <option>Responder solo lo preguntado</option>
-            <option>Dar contexto moderado</option>
-            <option>Respuestas breves</option>
-          </select>
+            [class.field-error]="hasFieldError('reason')"
+            (ngModelChange)="clearFieldError('reason')"
+          ></textarea>
+          <small class="field-hint">Describe en una frase breve por qué consulta el paciente.</small>
+          <small class="field-error-text" *ngIf="hasFieldError('reason')">{{ getFieldError('reason') }}</small>
         </label>
       </div>
-
-      <label>
-        Notas de comportamiento
-        <textarea [(ngModel)]="caseFormState.personality.behaviorNotes" name="personalityBehaviorNotes"></textarea>
-      </label>
     </section>
 
-    <section class="form-card">
-      <header>
-        <p>Sección 5</p>
-        <h2>Parámetros clínicos de respuesta</h2>
+    <!-- ============================================================ -->
+    <!-- BLOCK B: Historia clínica y datos del caso                    -->
+    <!-- ============================================================ -->
+    <section class="form-card collapsible-section" id="block-b">
+      <header class="collapsible-header" (click)="toggleSection('block-b')">
+        <div class="collapsible-header__left">
+          <p>Bloque B</p>
+          <h2>Historia clínica y datos del caso</h2>
+        </div>
+        <div class="collapsible-header__right">
+          <span class="info-badge info-badge--student">[VISIBLE AL ESTUDIANTE]</span>
+          <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+          <span class="collapse-indicator">{{ isSectionExpanded('block-b') ? '[-]' : '[+]' }}</span>
+        </div>
       </header>
+      <div class="collapsible-content" [class.expanded]="isSectionExpanded('block-b')">
+        <label for="currentIllness" class="label-with-badge">
+          <span class="label-row">
+            Enfermedad actual
+            <span class="info-badge badge-used-by-ia">[USADO POR PACIENTE IA: CONTEXTO]</span>
+            <span class="info-badge badge-visible-student">[VISIBLE AL ESTUDIANTE: BAJO PREGUNTA]</span>
+          </span>
+          <textarea
+            id="currentIllness"
+            [(ngModel)]="caseFormState.currentIllness"
+            name="currentIllness"
+            placeholder="Ej: Dolor toracico opresivo de 6 horas de evolucion, asociado a disnea y sudoracion."
+            rows="4"
+          ></textarea>
+          <small class="field-hint">Descripcion detallada de la enfermedad actual del paciente.</small>
+        </label>
 
-      <label for="expectedDiagnosis">
-        Diagnóstico base del caso
-        <input
-          id="expectedDiagnosis"
-          type="text"
-          [(ngModel)]="caseFormState.expectedDiagnosis"
-          name="expectedDiagnosis"
-          readonly
-          [class.field-error]="hasFieldError('expectedDiagnosis')"
-          (ngModelChange)="clearFieldError('expectedDiagnosis')"
-        />
-        <small class="field-hint">Dato docente legacy de solo lectura; no se crean nuevas escrituras en description.</small>
-        <small class="field-error-text" *ngIf="hasFieldError('expectedDiagnosis')">{{ getFieldError('expectedDiagnosis') }}</small>
-      </label>
+        <label for="generalBackground" class="label-with-badge">
+          <span class="label-row">
+            Antecedentes relevantes
+            <span class="info-badge badge-used-by-ia">[USADO POR PACIENTE IA: CONTEXTO]</span>
+            <span class="info-badge badge-visible-student">[VISIBLE AL ESTUDIANTE: BAJO PREGUNTA]</span>
+          </span>
+          <textarea
+            id="generalBackground"
+            [(ngModel)]="caseFormState.generalBackground"
+            name="generalBackground"
+            placeholder="Ej: HTA, DM2, tabaquismo, medicamentos habituales, alergias conocidas."
+            rows="4"
+          ></textarea>
+          <small class="field-hint">Antecedentes generales del paciente utilizados por el paciente IA durante la simulacion.</small>
+        </label>
 
-      <label for="fallbackResponse">
-        Cómo responde cuando no sabe algo
-        <input
-          id="fallbackResponse"
-          type="text"
-          [(ngModel)]="caseFormState.fallbackResponse"
-          name="fallbackResponse"
-          placeholder="Ej: No sabría decirle bien, doctor"
-          [class.field-error]="hasFieldError('fallbackResponse')"
-          (ngModelChange)="clearFieldError('fallbackResponse')"
-        />
-        <small class="field-error-text" *ngIf="hasFieldError('fallbackResponse')">{{ getFieldError('fallbackResponse') }}</small>
-      </label>
+        <label for="clinicalExam" class="label-with-badge">
+          <span class="label-row">
+            Examen fisico y resultados disponibles
+            <span class="info-badge badge-used-by-ia">[USADO POR PACIENTE IA: CONTEXTO]</span>
+            <span class="info-badge badge-visible-student">[VISIBLE AL ESTUDIANTE: BAJO PREGUNTA]</span>
+          </span>
+          <textarea
+            id="clinicalExam"
+            [(ngModel)]="caseFormState.clinicalExam!.findings"
+            name="clinicalExam"
+            placeholder="Ej: PA 150/90, FC 105, SatO2 94%. ECG con cambios sugerentes. Troponina elevada."
+            rows="4"
+          ></textarea>
+          <small class="field-hint">Hallazgos del examen fisico, signos vitales, laboratorio e imagenes. Visible solo para el profesor.</small>
+        </label>
+      </div>
+    </section>
 
-      <label for="behaviorStyle">
-        Estilo de respuesta
-        <textarea
-          id="behaviorStyle"
-          [(ngModel)]="caseFormState.behaviorGuidelines"
-          name="behaviorStyle"
-          placeholder="Ej: Habla de forma natural, sencilla y colaboradora"
-          [class.field-error]="hasFieldError('behaviorGuidelines')"
-          (ngModelChange)="clearFieldError('behaviorGuidelines')"
-        ></textarea>
-        <small class="field-error-text" *ngIf="hasFieldError('behaviorGuidelines')">{{ getFieldError('behaviorGuidelines') }}</small>
-      </label>
+    <!-- ============================================================ -->
+    <!-- BLOCK C: Información revelable durante la entrevista          -->
+    <!-- ============================================================ -->
+    <section class="form-card collapsible-section" id="block-c">
+      <header class="collapsible-header" (click)="toggleSection('block-c')">
+        <div class="collapsible-header__left">
+          <p>Bloque C</p>
+          <h2>Información revelable durante la entrevista</h2>
+        </div>
+        <div class="collapsible-header__right">
+          <span class="info-badge badge-revealable">[USADO POR PACIENTE IA: REVELABLE]</span>
+          <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+          <span class="collapse-indicator">{{ isSectionExpanded('block-c') ? '[-]' : '[+]' }}</span>
+        </div>
+      </header>
+      <div class="collapsible-content" [class.expanded]="isSectionExpanded('block-c')">
+        <p class="form-help">
+          El estudiante no ve estos datos directamente. El paciente puede revelarlos durante la entrevista si la pregunta corresponde.
+        </p>
+
+        <p class="facts-empty" *ngIf="clinicalFacts.length === 0">
+          Aún no hay información revelable. Agrega al menos un elemento para completar este caso clínico.
+        </p>
+
+        <p class="facts-error" *ngIf="factsValidationError">{{ factsValidationError }}</p>
+
+        <div class="facts-list" *ngIf="clinicalFacts.length > 0">
+          <article class="fact-item" *ngFor="let fact of clinicalFacts; let index = index; trackBy: trackByFactIndex">
+            <header class="fact-item__header">
+              <h3>Información revelable {{ index + 1 }} — {{ fact.title.trim() || 'Sin título' }}</h3>
+              <span>
+                <span class="fact-visibility"
+                  [ngClass]="(fact.visibilityLabel || 'Bajo pregunta') === 'Inicial' ? 'initial' : 'guided'">
+                  {{ fact.visibilityLabel || 'Bajo pregunta' }}
+                </span>
+              </span>
+            </header>
+
+            <div class="fact-item__fields fact-item__fields--reordered">
+              <label [for]="'factCategory' + index">
+                Categoría <span class="required-mark">*</span>
+                <input
+                  [id]="'factCategory' + index"
+                  type="text"
+                  [(ngModel)]="fact.category"
+                  [name]="'factCategory' + index"
+                  required
+                  placeholder="Ej: Medicamento / alergia / síntoma oculto / antecedente / hábito / miedo / exposición."
+                  [class.field-error]="hasFieldError('facts.' + index + '.category')"
+                  (ngModelChange)="clearFieldError('facts.' + index + '.category')"
+                />
+                <small class="field-hint">Agrupa este elemento.</small>
+                <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.category')">{{ getFieldError('facts.' + index + '.category') }}</small>
+              </label>
+
+              <label [for]="'factTitle' + index">
+                Título / key <span class="required-mark">*</span>
+                <input
+                  [id]="'factTitle' + index"
+                  type="text"
+                  [(ngModel)]="fact.title"
+                  [name]="'factTitle' + index"
+                  required
+                  placeholder="Ej: Automedicación con aspirina."
+                  [class.field-error]="hasFieldError('facts.' + index + '.title')"
+                  (ngModelChange)="clearFieldError('facts.' + index + '.title')"
+                />
+                <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.title')">{{ getFieldError('facts.' + index + '.title') }}</small>
+              </label>
+
+              <label [for]="'factContent' + index">
+                Contenido <span class="required-mark">*</span>
+                <textarea
+                  [id]="'factContent' + index"
+                  [(ngModel)]="fact.content"
+                  [name]="'factContent' + index"
+                  required
+                  placeholder="Ej: Tomé una aspirina hace 3 horas porque pensé que era algo del corazón."
+                  [class.field-error]="hasFieldError('facts.' + index + '.content')"
+                  (ngModelChange)="clearFieldError('facts.' + index + '.content')"
+                ></textarea>
+                <small class="field-hint">Qué información clínica entregará el paciente cuando este elemento se active.</small>
+                <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.content')">{{ getFieldError('facts.' + index + '.content') }}</small>
+              </label>
+
+              <label [for]="'factTrigger' + index">
+                Trigger / pregunta esperada <span class="required-mark">*</span>
+                <textarea
+                  [id]="'factTrigger' + index"
+                  [(ngModel)]="fact.trigger"
+                  [name]="'factTrigger' + index"
+                  required
+                  placeholder="Ej: medicamentos, tomó algo, automedicación."
+                  [class.field-error]="hasFieldError('facts.' + index + '.trigger')"
+                  (ngModelChange)="clearFieldError('facts.' + index + '.trigger')"
+                ></textarea>
+                <small class="field-hint">Palabras clave o pregunta del estudiante que dispara este elemento.</small>
+                <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.trigger')">{{ getFieldError('facts.' + index + '.trigger') }}</small>
+              </label>
+
+              <div class="fact-item__visibility-row">
+                <label [for]="'factVisibility' + index">
+                  Nivel de revelación
+                  <select
+                    [id]="'factVisibility' + index"
+                    [(ngModel)]="fact.visibilityLabel"
+                    [name]="'factVisibility' + index"
+                    (ngModelChange)="updateFactVisibility(index, $event)"
+                    [class.field-error]="hasFieldError('facts.' + index + '.visibility')"
+                  >
+                    <option value="Inicial">Inicial — Se entrega al paciente IA desde el inicio de la entrevista</option>
+                    <option value="Bajo pregunta">Bajo pregunta — Se revela solo si el estudiante pregunta por este tema</option>
+                  </select>
+                  <small class="field-hint">Inicial: Se entrega al paciente IA desde el inicio de la entrevista. Bajo pregunta: Se revela solo si el estudiante pregunta por este tema.</small>
+                  <small class="field-error-text" *ngIf="hasFieldError('facts.' + index + '.visibility')">{{ getFieldError('facts.' + index + '.visibility') }}</small>
+                </label>
+
+                <button class="case-button subtle" type="button" (click)="removeFact(index)" [attr.aria-label]="'Eliminar información revelable ' + (index + 1)">
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <button class="case-button secondary" type="button" (click)="addFact()">
+          + Agregar información revelable
+        </button>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK D: Comportamiento del paciente                          -->
+    <!-- ============================================================ -->
+    <section class="form-card collapsible-section" id="block-d">
+      <header class="collapsible-header" (click)="toggleSection('block-d')">
+        <div class="collapsible-header__left">
+          <p>Bloque D</p>
+          <h2>Comportamiento del paciente</h2>
+        </div>
+        <div class="collapsible-header__right">
+          <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+          <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          <span class="collapse-indicator">{{ isSectionExpanded('block-d') ? '[-]' : '[+]' }}</span>
+        </div>
+      </header>
+      <div class="collapsible-content" [class.expanded]="isSectionExpanded('block-d')">
+        <p class="form-help">Estos datos orientan como responde el paciente IA, pero no deben ser entregados todos de golpe al estudiante.</p>
+
+        <div class="form-grid two">
+          <label for="personalityTone" class="label-with-badge">
+            <span class="label-row">
+              Tono
+              <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+              <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+            </span>
+            <select id="personalityTone" [(ngModel)]="caseFormState.personality.tone" name="personalityTone">
+              <option>Natural y colaborador</option>
+              <option>Ansioso</option>
+              <option>Reservado</option>
+              <option>Confundido</option>
+            </select>
+          </label>
+
+          <label for="personalityDetailLevel" class="label-with-badge">
+            <span class="label-row">
+              Nivel de detalle
+              <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+              <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+            </span>
+            <select id="personalityDetailLevel" [(ngModel)]="caseFormState.personality.detailLevel" name="personalityDetailLevel">
+              <option>Responder solo lo preguntado</option>
+              <option>Dar contexto moderado</option>
+              <option>Respuestas breves</option>
+            </select>
+          </label>
+        </div>
+
+        <label for="behaviorGuidelines" class="label-with-badge">
+          <span class="label-row">
+            Reglas de comportamiento
+            <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+            <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          </span>
+          <textarea
+            id="behaviorGuidelines"
+            [(ngModel)]="caseFormState.behaviorGuidelines"
+            name="behaviorGuidelines"
+            placeholder="Ej: Habla de forma natural, sencilla y colaboradora"
+            [class.field-error]="hasFieldError('behaviorGuidelines')"
+            (ngModelChange)="clearFieldError('behaviorGuidelines')"
+            rows="3"
+          ></textarea>
+          <small class="field-error-text" *ngIf="hasFieldError('behaviorGuidelines')">{{ getFieldError('behaviorGuidelines') }}</small>
+        </label>
+
+        <label for="fallbackResponse" class="label-with-badge">
+          <span class="label-row">
+            Frase cuando no tiene informacion <span class="required-mark">*</span>
+            <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+            <span class="info-badge info-badge--ai">[USADO POR PACIENTE IA]</span>
+          </span>
+          <input
+            id="fallbackResponse"
+            type="text"
+            [(ngModel)]="caseFormState.fallbackResponse"
+            name="fallbackResponse"
+            placeholder="Ej: No sabría decirle bien, doctor"
+            [class.field-error]="hasFieldError('fallbackResponse')"
+            (ngModelChange)="clearFieldError('fallbackResponse')"
+          />
+          <small class="field-error-text" *ngIf="hasFieldError('fallbackResponse')">{{ getFieldError('fallbackResponse') }}</small>
+        </label>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- BLOCK E: Información interna del profesor                    -->
+    <!-- ============================================================ -->
+    <section class="form-card collapsible-section teacher-section" id="block-e">
+      <header class="collapsible-header" (click)="toggleSection('block-e')">
+        <div class="collapsible-header__left">
+          <p>Bloque E</p>
+          <h2>Información interna del profesor</h2>
+        </div>
+        <div class="collapsible-header__right">
+          <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR] SOLAMENTE</span>
+          <span class="collapse-indicator">{{ isSectionExpanded('block-e') ? '[-]' : '[+]' }}</span>
+        </div>
+      </header>
+      <div class="collapsible-content" [class.expanded]="isSectionExpanded('block-e')">
+        <div class="teacher-notice">
+          <div class="teacher-notice__box">
+            <p>Esta información es solo para el profesor y nunca se comparte con el estudiante ni con el paciente IA.</p>
+          </div>
+        </div>
+
+        <div class="form-grid two">
+          <label for="expectedDiagnosis" class="label-with-badge">
+              <span class="label-row">
+                Diagnóstico esperado
+                <span class="info-badge badge-visible-professor">[VISIBLE AL PROFESOR: NO COMPARTIDO]</span>
+                <span class="info-badge badge-not-sent-to-ia">[NO ENVIADO A IA]</span>
+              </span>
+              <input
+                id="expectedDiagnosis"
+                type="text"
+                [(ngModel)]="caseFormState.expectedDiagnosis"
+                name="expectedDiagnosis"
+                placeholder="Ej: Neumonía atípica"
+                [class.field-error]="hasFieldError('expectedDiagnosis')"
+                (ngModelChange)="clearFieldError('expectedDiagnosis')"
+              />
+              <small class="field-hint">No se envía al paciente IA. El estudiante no la ve.</small>
+            <small class="field-error-text" *ngIf="hasFieldError('expectedDiagnosis')">{{ getFieldError('expectedDiagnosis') }}</small>
+          </label>
+
+          <label for="caseStatus">
+            Estado del caso
+            <span class="info-badge info-badge--professor">[VISIBLE AL PROFESOR]</span>
+            <select id="caseStatus" [(ngModel)]="caseFormState.status" name="caseStatus">
+              <option value="DRAFT">Borrador</option>
+              <option value="READY">Listo</option>
+            </select>
+            <small class="field-hint">Solo los casos listos se pueden asignar a simulaciones.</small>
+            <small class="status-hint">
+              <strong>Borrador:</strong> puedes guardar avances, pero no asignar.<br>
+              <strong>Listo:</strong> el caso puede asignarse a estudiantes.
+            </small>
+          </label>
+        </div>
+      </div>
     </section>
 
     <footer class="form-footer">
@@ -366,8 +536,13 @@
         {{ isSaving ? 'Guardando...' : saveLabel }}
       </button>
     </footer>
+
+    <p *ngIf="pendingRequiredItems.length > 0 && !saveAttempted" class="save-disabled-hint">
+      Completa los campos obligatorios marcados con * para guardar.
+    </p>
   </form>
 
+  <!-- SAVE CONFIRMATION MODAL -->
   <section *ngIf="showSaveModal" class="modal-overlay" role="dialog" aria-modal="true" aria-live="polite">
     <article class="modal-card">
       <p class="modal-title" *ngIf="!isSaveSuccess">¿Guardar este caso clínico?</p>
@@ -385,6 +560,7 @@
     </article>
   </section>
 
+  <!-- ERROR MODAL -->
   <app-error-modal
     *ngIf="showSaveErrorModal"
     [title]="saveErrorModalTitle"

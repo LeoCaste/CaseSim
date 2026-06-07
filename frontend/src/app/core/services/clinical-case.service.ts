@@ -8,6 +8,7 @@ import {
   ClinicalCaseStatus,
   ClinicalCaseSummary,
   ClinicalCaseUpsertPayload,
+  ClinicalExamData,
   ClinicalFactVisibility
 } from '../models/clinical-case.model';
 import { environment } from '../../../environments/environment';
@@ -26,7 +27,6 @@ export class ClinicalCaseService {
       title: 'Entrevista respiratoria',
       patientName: 'Catalina Paz Soto',
       status: 'READY',
-      estimatedTimeMinutes: undefined,
       factsCount: 8,
       age: 22,
       sex: 'F',
@@ -34,6 +34,10 @@ export class ClinicalCaseService {
       reason: 'tos seca y fatiga',
       initialMessage: 'Vengo porque tengo una tos seca que no se me pasa y me siento muy agotada.',
       expectedDiagnosis: 'Neumonía atípica probable',
+      generalBackground: 'Paciente previamente sana, sin antecedentes mórbidos.',
+      clinicalExam: {
+        findings: 'Buen estado general, alerta, orientada. CyT: rosadas y secas. AR: murmullo pulmonar conservado, sin ruidos agregados.\n\nPA 120/80, FC 78 lpm, FR 16 rpm, T 36.5 C, SatO2 98%\n\nHb 14.2 g/dL, GB 8900/mm3, PCR 0.5 mg/dL\n\nRx torax: sin hallazgos patologicos.'
+      },
       fallbackResponse: 'No estoy segura, no sabría decir.',
       behaviorGuidelines:
         'Paciente responde de forma natural, breve y coherente. No entrega información que no se le haya preguntado. Puede mostrar leve preocupación por su estado.',
@@ -72,7 +76,6 @@ export class ClinicalCaseService {
       title: 'Caso cardiovascular',
       patientName: 'Roberto Alarcón',
       status: 'DRAFT',
-      estimatedTimeMinutes: 20,
       factsCount: 5,
       age: 58,
       sex: 'M',
@@ -221,7 +224,6 @@ export class ClinicalCaseService {
       title: 'Entrevista respiratoria',
       patientName: 'Catalina Paz Soto',
       status: 'DRAFT',
-      estimatedTimeMinutes: undefined,
       factsCount: 3,
       age: 22,
       sex: 'F',
@@ -270,12 +272,12 @@ export class ClinicalCaseService {
       title: '',
       patientName: '',
       status: 'DRAFT',
-      estimatedTimeMinutes: undefined,
       factsCount: 0,
       age: 18,
       sex: 'F',
       context: '',
       reason: '',
+      currentIllness: '',
       initialMessage: '',
       expectedDiagnosis: '',
       fallbackResponse: '',
@@ -289,10 +291,8 @@ export class ClinicalCaseService {
     };
   }
 
-  getStatusLabel(status: ClinicalCaseStatus): 'Listo' | 'Borrador' | 'Archivado' {
-    if (status === 'READY') return 'Listo';
-    if (status === 'DRAFT') return 'Borrador';
-    return 'Archivado';
+  getStatusLabel(status: ClinicalCaseStatus): 'Listo' | 'Borrador' {
+    return status === 'READY' ? 'Listo' : 'Borrador';
   }
 
   getFactVisibilityLabel(visibility: ClinicalFactVisibility): 'Inicial' | 'Bajo pregunta' {
@@ -317,7 +317,6 @@ export class ClinicalCaseService {
       title: clinicalCase.title,
       patientName: clinicalCase.patientName,
       status: clinicalCase.status,
-      estimatedTimeMinutes: clinicalCase.estimatedTimeMinutes,
       factsCount: clinicalCase.factsCount,
       age: clinicalCase.age,
       sex: clinicalCase.sex,
@@ -333,7 +332,6 @@ export class ClinicalCaseService {
       title: response.title,
       patientName: response.patientName,
       status: this.mapBackendStatus(response),
-      estimatedTimeMinutes: response.estimatedTimeMinutes,
       factsCount: response.factsCount ?? facts.length,
       age: response.patientAge,
       sex: this.mapSex(response.patientSex),
@@ -356,12 +354,15 @@ export class ClinicalCaseService {
       sex: this.mapSex(response.patientSex),
       context: descriptionMetadata?.context ?? this.normalizeOptionalText(response.context) ?? '',
       reason: this.normalizeOptionalText(response.chiefComplaint) ?? '',
+      currentIllness: descriptionMetadata?.currentIllness ?? undefined,
       initialMessage:
         descriptionMetadata?.initialMessage ?? this.normalizeOptionalText(response.initialMessage) ?? '',
       expectedDiagnosis: descriptionMetadata?.expectedDiagnosis ?? response.expectedDiagnosis ?? undefined,
       legacyExpectedDiagnosis: descriptionMetadata?.expectedDiagnosis,
       fallbackResponse: normalizedFallbackPhrase ?? undefined,
       behaviorGuidelines: behaviorGuidelines ?? undefined,
+      generalBackground: descriptionMetadata?.generalBackground ?? undefined,
+      clinicalExam: this.parseClinicalExamMetadata(descriptionMetadata?.clinicalExam),
       personality,
       facts
     };
@@ -382,8 +383,7 @@ export class ClinicalCaseService {
       chiefComplaint: normalizedReason ?? normalizedInitialMessage ?? '',
       noInformationPhrase: normalizedFallbackResponse ?? 'No tengo información asociada a eso.',
       status: payload.status,
-      active: payload.status !== 'ARCHIVED',
-      estimatedTimeMinutes: payload.estimatedTimeMinutes,
+      active: payload.status === 'READY',
       facts: payload.facts
         .filter((fact) => this.normalizeOptionalText(fact.content))
         .map((fact) => ({
@@ -401,8 +401,11 @@ export class ClinicalCaseService {
     const metadata: ClinicalCaseDescriptionMetadata = {
       context: this.normalizeOptionalText(payload.context),
       initialMessage: this.normalizeOptionalText(payload.initialMessage),
-      expectedDiagnosis: this.normalizeOptionalText(payload.legacyExpectedDiagnosis),
-      behaviorGuidelines: this.normalizeOptionalText(payload.behaviorGuidelines)
+      expectedDiagnosis: this.normalizeOptionalText(payload.expectedDiagnosis),
+      behaviorGuidelines: this.normalizeOptionalText(payload.behaviorGuidelines),
+      generalBackground: this.normalizeOptionalText(payload.generalBackground),
+      clinicalExam: this.normalizeOptionalText(payload.clinicalExam?.findings),
+      currentIllness: this.normalizeOptionalText(payload.currentIllness),
     };
 
     const hasAtLeastOneValue = Object.values(metadata).some((value) => typeof value === 'string');
@@ -428,11 +431,40 @@ export class ClinicalCaseService {
         context: this.normalizeOptionalText(parsed.context),
         initialMessage: this.normalizeOptionalText(parsed.initialMessage),
         expectedDiagnosis: this.normalizeOptionalText(parsed.expectedDiagnosis),
-        behaviorGuidelines: this.normalizeOptionalText(parsed.behaviorGuidelines)
+        behaviorGuidelines: this.normalizeOptionalText(parsed.behaviorGuidelines),
+        generalBackground: this.normalizeOptionalText(parsed.generalBackground),
+        clinicalExam: parsed.clinicalExam,
+        currentIllness: this.normalizeOptionalText(parsed.currentIllness),
       };
     } catch {
       return undefined;
     }
+  }
+
+  private parseClinicalExamMetadata(clinicalExam: string | undefined): ClinicalExamData | undefined {
+    if (!clinicalExam) {
+      return undefined;
+    }
+    // Try JSON parse for backward compatibility with old 4-field format
+    try {
+      const parsed = JSON.parse(clinicalExam);
+      if (typeof parsed === 'object' && parsed !== null) {
+        // Old format: merge 4 fields into findings
+        const parts = [parsed.physicalExam, parsed.vitalSigns, parsed.labResults, parsed.imaging]
+          .filter((v: unknown) => typeof v === 'string' && v.trim())
+          .join('\n\n');
+        if (parts) {
+          return { findings: parts };
+        }
+        // New format with findings field
+        if (typeof parsed.findings === 'string' && parsed.findings.trim()) {
+          return { findings: parsed.findings };
+        }
+      }
+    } catch {
+      // Not JSON, treat as plain text
+    }
+    return { findings: clinicalExam };
   }
 
   private normalizeOptionalText(value: string | null | undefined): string | undefined {
@@ -580,11 +612,11 @@ export class ClinicalCaseService {
   }
 
   private mapBackendStatus(response: BackendClinicalCaseResponse): ClinicalCaseStatus {
-    if (response.status === 'DRAFT' || response.status === 'READY' || response.status === 'ARCHIVED') {
+    if (response.status === 'DRAFT' || response.status === 'READY') {
       return response.status;
     }
 
-    return response.active ? 'READY' : 'ARCHIVED';
+    return response.active ? 'READY' : 'DRAFT';
   }
 }
 
@@ -607,7 +639,6 @@ interface BackendClinicalCaseResponse {
   facts?: BackendClinicalFactResponse[];
   clinicalFacts?: BackendClinicalFactResponse[];
   personality?: string[] | BackendClinicalCasePersonalityResponse;
-  estimatedTimeMinutes?: number;
 }
 
 interface BackendClinicalCaseRequest {
@@ -622,7 +653,6 @@ interface BackendClinicalCaseRequest {
   active: boolean;
   facts: BackendClinicalFactRequest[];
   personality: string[];
-  estimatedTimeMinutes?: number;
 }
 
 interface BackendClinicalFact {
@@ -672,4 +702,7 @@ interface ClinicalCaseDescriptionMetadata {
   initialMessage?: string;
   expectedDiagnosis?: string;
   behaviorGuidelines?: string;
+  generalBackground?: string;
+  clinicalExam?: string;
+  currentIllness?: string;
 }

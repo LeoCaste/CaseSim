@@ -22,13 +22,7 @@ export class ClinicalCaseCard {
 
   constructor(private clinicalCaseService: ClinicalCaseService) {}
 
-  get estimatedTimeLabel(): string {
-    return this.clinicalCase.estimatedTimeMinutes === undefined
-      ? 'Sin límite de tiempo'
-      : `${this.clinicalCase.estimatedTimeMinutes} minutos`;
-  }
-
-  get statusLabel(): 'Listo' | 'Borrador' | 'Archivado' {
+  get statusLabel(): 'Listo' | 'Borrador' {
     return this.clinicalCaseService.getStatusLabel(this.clinicalCase.status);
   }
 

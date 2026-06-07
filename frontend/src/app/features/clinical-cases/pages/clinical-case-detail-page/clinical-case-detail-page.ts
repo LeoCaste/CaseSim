@@ -24,13 +24,12 @@ export class ClinicalCaseDetailPage implements OnInit {
   associatedStudents: Array<{ name: string; status: string; canReview: boolean }> = [];
 
   constructor(
-    private userContext: UserContext,
+    public userContext: UserContext,
     private route: ActivatedRoute,
     private clinicalCaseService: ClinicalCaseService,
     private simulationAssignmentService: SimulationAssignmentService,
     private cdr: ChangeDetectorRef
   ) {
-    this.userContext.setRole('professor');
   }
 
   ngOnInit(): void {
@@ -108,13 +107,8 @@ export class ClinicalCaseDetailPage implements OnInit {
     return this.clinicalCase?.personality.behaviorNotes || this.clinicalCase?.behaviorGuidelines || '';
   }
 
-  get statusLabel(): 'Listo' | 'Borrador' | 'Archivado' {
+  get statusLabel(): 'Listo' | 'Borrador' {
     return this.clinicalCase ? this.clinicalCaseService.getStatusLabel(this.clinicalCase.status) : 'Borrador';
-  }
-
-  get estimatedDurationLabel(): string {
-    if (!this.clinicalCase?.estimatedTimeMinutes) return 'No definida';
-    return `${this.clinicalCase.estimatedTimeMinutes} minutos`;
   }
 
   get canAssign(): boolean {
