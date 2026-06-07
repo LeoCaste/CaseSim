@@ -39,7 +39,6 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.reset;
 
 class LlmPatientResponseServiceTest {
 
@@ -208,8 +207,8 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertFalse(readBooleanField(usage, "fallbackUsed"));
-        assertEquals(null, readStringField(usage, "error"));
+        assertFalse(usage.isFallbackUsed());
+        assertEquals(null, usage.getError());
     }
 
     @Test
@@ -407,10 +406,10 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertEquals("gemini", readStringField(usage, "provider"));
-        assertEquals("gemini-2.5-flash-lite", readStringField(usage, "model"));
-        assertEquals(101, readIntField(usage, "tokensInput"));
-        assertEquals(33, readIntField(usage, "tokensOutput"));
+        assertEquals("gemini", usage.getProvider());
+        assertEquals("gemini-2.5-flash-lite", usage.getModel());
+        assertEquals(101, usage.getTokensInput());
+        assertEquals(33, usage.getTokensOutput());
     }
 
     @Test
@@ -478,8 +477,8 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertTrue(readBooleanField(usage, "fallbackUsed"));
-        assertTrue(readStringField(usage, "error").contains("LLM_DISABLED_OR_MISSING_API_KEY"));
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("LLM_DISABLED_OR_MISSING_API_KEY"));
     }
 
     @Test
@@ -704,21 +703,23 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
-    void registraMetricaEnExitoYFallback() {
+    void metricaEnExitoRegistraFallbackUsedFalseYErrorNull() {
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
         when(llmProviderGateway.executeCall(any(), any(), any(), any(), any(), any()))
                 .thenReturn(LlmProviderGatewayResult.primarySuccess("respuesta segura", new LlmResponse("respuesta segura", null, null)));
 
         service.generateResponse(session, "hola");
 
-        ArgumentCaptor<LlmUsage> successCaptor = ArgumentCaptor.forClass(LlmUsage.class);
-        verify(llmUsageRepository, atLeastOnce()).save(successCaptor.capture());
-        LlmUsage successUsage = successCaptor.getValue();
-        assertFalse(readBooleanField(successUsage, "fallbackUsed"));
-        assertEquals(null, readStringField(successUsage, "error"));
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertFalse(usage.isFallbackUsed());
+        assertEquals(null, usage.getError());
+    }
 
-        reset(llmUsageRepository);
-        when(llmUsageRepository.save(any(LlmUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    @Test
+    void metricaEnFallbackRegistraFallbackUsedTrueYErrorEsperado() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
         when(llmProviderGateway.executeCall(any(), any(), any(), any(), any(), any()))
                 .thenReturn(LlmProviderGatewayResult.allFailed(
                         "MODEL_OR_PARAMETER_INCOMPATIBILITY",
@@ -728,11 +729,11 @@ class LlmPatientResponseServiceTest {
 
         service.generateResponse(session, "hola");
 
-        ArgumentCaptor<LlmUsage> fallbackCaptor = ArgumentCaptor.forClass(LlmUsage.class);
-        verify(llmUsageRepository).save(fallbackCaptor.capture());
-        LlmUsage fallbackUsage = fallbackCaptor.getValue();
-        assertTrue(readBooleanField(fallbackUsage, "fallbackUsed"));
-        assertTrue(readStringField(fallbackUsage, "error").contains("PROVIDER_CALL_ERROR"));
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("PROVIDER_CALL_ERROR"));
     }
 
     @Test
@@ -755,8 +756,8 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertTrue(readBooleanField(usage, "fallbackUsed"));
-        assertTrue(readStringField(usage, "error").contains("status=429"));
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("status=429"));
     }
 
     @Test
@@ -1034,8 +1035,8 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertTrue(readBooleanField(usage, "fallbackUsed"));
-        assertTrue(readStringField(usage, "error").contains("PROVIDER_CALL_ERROR"));
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("PROVIDER_CALL_ERROR"));
     }
 
     /**
@@ -1060,8 +1061,8 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertTrue(readBooleanField(usage, "fallbackUsed"));
-        assertTrue(readStringField(usage, "error").contains("CONTEXT_LOAD_ERROR"));
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("CONTEXT_LOAD_ERROR"));
     }
 
     /**
@@ -1084,38 +1085,42 @@ class LlmPatientResponseServiceTest {
         ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
         verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
         LlmUsage usage = usageCaptor.getValue();
-        assertTrue(readBooleanField(usage, "fallbackUsed"));
-        assertTrue(readStringField(usage, "error").contains("PROMPT_OR_CONTEXT_ERROR"));
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("PROMPT_OR_CONTEXT_ERROR"));
     }
 
-    private boolean readBooleanField(LlmUsage usage, String fieldName) {
-        try {
-            var field = LlmUsage.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return field.getBoolean(usage);
-        } catch (ReflectiveOperationException ex) {
-            throw new AssertionError(ex);
-        }
-    }
+    @Test
+    void runtimeExceptionEnAssemblePrompt_retornaFallbackTecnico() {
+        PatientPromptAssemblyService mockAssembly = mock(PatientPromptAssemblyService.class);
+        when(mockAssembly.assemblePrompt(any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Fallo en ensamblaje de prompt"));
 
-    private String readStringField(LlmUsage usage, String fieldName) {
-        try {
-            var field = LlmUsage.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return (String) field.get(usage);
-        } catch (ReflectiveOperationException ex) {
-            throw new AssertionError(ex);
-        }
-    }
+        service = new LlmPatientResponseService(
+                properties,
+                llmProviderGateway,
+                llmErrorSanitizer,
+                mockAssembly,
+                patientResponseSafetyService,
+                patientFallbackResponseService,
+                conversationHistoryAssembler,
+                clinicalCasePromptContextAssembler,
+                llmInteractionMetricsService,
+                clinicalCaseFactRepository,
+                revealableFactSelector
+        );
 
-    private int readIntField(LlmUsage usage, String fieldName) {
-        try {
-            var field = LlmUsage.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return field.getInt(usage);
-        } catch (ReflectiveOperationException ex) {
-            throw new AssertionError(ex);
-        }
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+
+        String response = service.generateResponse(session, "Hola");
+
+        assertTrue(response.contains("Perdón, me cuesta responder"),
+                "Debe retornar TECHNICAL_FALLBACK_RESPONSE cuando assemblePrompt lanza RuntimeException");
+
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(usage.isFallbackUsed());
+        assertTrue(usage.getError().contains("PROMPT_OR_CONTEXT_ERROR"));
     }
 
     @SuppressWarnings("unchecked")

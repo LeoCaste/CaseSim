@@ -46,6 +46,30 @@ public class LlmUsage {
     @Column(name = "creado_en", nullable = false)
     private LocalDateTime createdAt;
 
+    public boolean isFallbackUsed() {
+        return fallbackUsed;
+    }
+
+    public String getError() {
+        return error;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public int getTokensInput() {
+        return tokensInput;
+    }
+
+    public int getTokensOutput() {
+        return tokensOutput;
+    }
+
     protected LlmUsage() {
         // Constructor requerido por JPA
     }
