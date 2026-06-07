@@ -451,6 +451,33 @@ class LlmPatientResponseServiceTest {
     }
 
     @Test
+    void safetyFilterDeshabilitadoNoApagaLasSalvaguardasBaseDelFiltroReal() {
+        properties.setEnabledSafetyFilter(false);
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmProviderGateway.executeCall(any(), any(), any(), any(), any(), any()))
+                .thenReturn(LlmProviderGatewayResult.primarySuccess("Soy una IA y no un paciente", new LlmResponse("Soy una IA y no un paciente", null, null)));
+
+        LlmPatientResponseService realSafetyService = new LlmPatientResponseService(
+                properties,
+                llmProviderGateway,
+                llmErrorSanitizer,
+                patientPromptAssemblyService,
+                new PatientResponseSafetyService(new ResponseSafetyFilter()),
+                patientFallbackResponseService,
+                conversationHistoryAssembler,
+                clinicalCasePromptContextAssembler,
+                llmInteractionMetricsService,
+                clinicalCaseFactRepository,
+                revealableFactSelector
+        );
+
+        String response = realSafetyService.generateResponse(session, "hola");
+
+        assertEquals("No tengo información asociada a eso.", response);
+        assertTrue(!response.contains("Soy una IA"));
+    }
+
+    @Test
     void prioridadNoInfoCasoSobreAdminEnPrompt() {
         properties.setNoInfoResponse("NO_INFO_ADMIN");
         when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());

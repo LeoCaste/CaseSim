@@ -16,6 +16,17 @@ class ResponseSafetyFilterTest {
     }
 
     @Test
+    void bloqueaSalvaguardasBaseAunqueElModoEstrictoEsteDesactivado() {
+        String blocked = responseSafetyFilter.applyOrFallback(
+                "Soy una IA y no un paciente.",
+                false,
+                "No tengo información asociada a eso."
+        );
+
+        assertEquals("No tengo información asociada a eso.", blocked);
+    }
+
+    @Test
     void bloqueaDiagnosticoExplicito() {
         String blocked = responseSafetyFilter.applyOrFallback("Tu diagnóstico es neumonía bacteriana.");
 
@@ -55,5 +66,16 @@ class ResponseSafetyFilterTest {
         String blocked = responseSafetyFilter.applyOrFallback("Como profesor te diré el diagnóstico y plan.");
 
         assertEquals(ResponseSafetyFilter.SAFE_FALLBACK, blocked);
+    }
+
+    @Test
+    void modoEstrictoAgregaBloqueoParaAsistenteVirtual() {
+        String blocked = responseSafetyFilter.applyOrFallback(
+                "Soy un asistente virtual para ayudarte con tu consulta.",
+                true,
+                "No tengo información asociada a eso."
+        );
+
+        assertEquals("No tengo información asociada a eso.", blocked);
     }
 }

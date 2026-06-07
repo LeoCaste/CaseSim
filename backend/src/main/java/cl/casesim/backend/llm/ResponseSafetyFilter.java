@@ -48,6 +48,7 @@ public class ResponseSafetyFilter {
             return effectiveFallback;
         }
 
+        // Las salvaguardas base se aplican siempre; strictMode solo agrega bloqueos extra.
         String normalized = content.trim();
         for (Pattern pattern : BLOCK_PATTERNS) {
             if (pattern.matcher(normalized).find()) {

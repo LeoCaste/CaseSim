@@ -79,6 +79,23 @@ describe('AdminLlmConfigPage', () => {
     expect(component.providers).toEqual(['openai', 'groq', 'gemini', 'openrouter']);
   });
 
+  it('debe mostrar la API key solo enmascarada y el input como password', () => {
+    component.config = {
+      ...baseConfig,
+      apiKeyConfigured: true,
+      maskedApiKey: '************1234'
+    };
+    component.form.apiKey = 'super-secret-key';
+
+    fixture.detectChanges();
+
+    const apiKeyInput = fixture.nativeElement.querySelector('#apiKey') as HTMLInputElement;
+
+    expect(apiKeyInput.type).toBe('password');
+    expect(fixture.nativeElement.textContent).toContain('API key actual: ************1234');
+    expect(fixture.nativeElement.textContent).not.toContain('super-secret-key');
+  });
+
   it('debe seleccionar modelo sugerido por defecto de OpenRouter al cambiar provider', () => {
     component.form.model = '';
 

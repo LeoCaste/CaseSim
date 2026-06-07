@@ -2,7 +2,7 @@
   <header class="admin-llm-config__header">
     <p class="admin-llm-config__eyebrow">Administración</p>
     <h1>Configuración LLM</h1>
-    <p>Gestiona proveedor, modelo y estado operativo para respuestas clínicas.</p>
+    <p>Gestiona proveedor, modelo y reglas globales para todos los pacientes IA.</p>
   </header>
 
   <p *ngIf="loadError" class="admin-llm-config__error">{{ loadError }}</p>
@@ -25,6 +25,9 @@
 
     <section class="admin-llm-config__block admin-llm-config__status">
       <h2>Configuración editable</h2>
+      <p class="admin-llm-config__field-note admin-llm-config__field-note--warning">
+        Lo que cambies aquí aplica de forma global a todos los pacientes IA. La capa institucional CaseSim/Safety permanece inmutable.
+      </p>
 
       <div class="admin-llm-config__row admin-llm-config__switch-row">
         <label for="enabled">LLM habilitado</label>
@@ -78,12 +81,9 @@
         <h3>Comportamiento del paciente IA</h3>
 
         <div class="admin-llm-config__row">
-          <label for="basePrompt">Prompt base</label>
+          <label for="basePrompt">Prompt base global</label>
           <p class="admin-llm-config__field-note admin-llm-config__field-note--warning">
-            Estas reglas afectan el comportamiento global de todos los pacientes simulados.
-          </p>
-          <p class="admin-llm-config__field-note">
-            Modifícalas con cuidado, ya que pueden cambiar cómo responde el paciente durante las entrevistas.
+            Reglas globales editables del administrador. No reemplazan la capa institucional CaseSim/Safety.
           </p>
           <textarea
             id="basePrompt"
@@ -95,7 +95,10 @@
         </div>
 
         <div class="admin-llm-config__row">
-          <label for="additionalRules">Reglas adicionales</label>
+          <label for="additionalRules">Reglas adicionales globales</label>
+          <p class="admin-llm-config__field-note">
+            Restricciones y comportamiento complementario que también aplican a todos los pacientes IA.
+          </p>
           <textarea
             id="additionalRules"
             rows="5"
@@ -107,6 +110,7 @@
 
         <div class="admin-llm-config__row">
           <label for="noInformationReply">Respuesta sin información</label>
+          <p class="admin-llm-config__field-note">Respuesta global cuando el caso no aporta información suficiente.</p>
           <textarea
             id="noInformationReply"
             rows="3"
@@ -117,8 +121,8 @@
         </div>
 
         <div class="admin-llm-config__row">
-          <label for="revealStrategy">Estrategia revelación</label>
-          <small>Define cómo el paciente entrega antecedentes clínicos durante la entrevista.</small>
+          <label for="revealStrategy">Estrategia de revelación</label>
+          <small>Define cómo se entregan antecedentes clínicos al estudiante, sin mostrar reglas internas.</small>
           <select id="revealStrategy" [(ngModel)]="form.patientBehavior.revealStrategy">
             <option *ngFor="let strategy of revealStrategies" [value]="strategy">{{ strategy }}</option>
           </select>
@@ -152,10 +156,12 @@
         </div>
 
         <div class="admin-llm-config__row admin-llm-config__switch-row">
-          <label for="safetyFilterEnabled">Safety filter</label>
+          <label for="safetyFilterEnabled">Safety filter global</label>
           <input id="safetyFilterEnabled" type="checkbox" [(ngModel)]="form.patientBehavior.safetyFilterEnabled" />
         </div>
-        <p class="admin-llm-config__field-note">Ayuda a bloquear respuestas fuera del rol de paciente simulado.</p>
+        <p class="admin-llm-config__field-note">
+          Ayuda a bloquear respuestas fuera del rol de paciente simulado. Desactivarlo no elimina las salvaguardas base del sistema.
+        </p>
       </div>
     </section>
 
@@ -184,6 +190,9 @@
             {{ isDeletingApiKey ? 'Eliminando...' : 'Eliminar API key' }}
           </button>
         </div>
+        <p class="admin-llm-config__field-note">
+          “Probar conexión” usa la configuración guardada actual. “Restaurar valores recomendados” solo restablece el comportamiento del paciente IA.
+        </p>
       </section>
 
     <p *ngIf="saveMessage" class="admin-llm-config__success">{{ saveMessage }}</p>
