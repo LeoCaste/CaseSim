@@ -96,7 +96,7 @@ public class ClinicalCaseService {
         );
 
         ClinicalCase savedClinicalCase = clinicalCaseRepository.save(clinicalCase);
-        saveFacts(savedClinicalCase.getId(), request.facts());
+        saveFacts(savedClinicalCase.getId(), request.facts(), status == ClinicalCaseStatus.READY);
         savePersonality(savedClinicalCase.getId(), request.personality());
 
         return toResponse(savedClinicalCase);
@@ -122,7 +122,7 @@ public class ClinicalCaseService {
 
         ClinicalCase updatedClinicalCase = clinicalCaseRepository.save(clinicalCase);
         clinicalCaseFactRepository.deleteByCasoId(updatedClinicalCase.getId());
-        saveFacts(updatedClinicalCase.getId(), request.facts());
+        saveFacts(updatedClinicalCase.getId(), request.facts(), status == ClinicalCaseStatus.READY);
 
         clinicalCasePersonalityRepository.deleteByCasoId(updatedClinicalCase.getId());
         savePersonality(updatedClinicalCase.getId(), request.personality());
@@ -170,7 +170,7 @@ public class ClinicalCaseService {
         if (normalizeOptionalText(request.patientName()) == null) {
             missingFields.add("patientName");
         }
-        if (request.patientAge() == null) {
+        if (request.patientAge() == null || request.patientAge() <= 0) {
             missingFields.add("patientAge");
         }
         if (normalizeOptionalText(request.patientSex()) == null) {
@@ -179,11 +179,17 @@ public class ClinicalCaseService {
         if (normalizeOptionalText(request.chiefComplaint()) == null) {
             missingFields.add("chiefComplaint");
         }
+        if (resolveInitialMessage(request) == null) {
+            missingFields.add("initialMessage");
+        }
         if (request.facts() == null || request.facts().stream().noneMatch(this::hasValidFactContent)) {
             missingFields.add("facts");
         }
         if (normalizeOptionalText(request.noInformationPhrase()) == null) {
             missingFields.add("noInformationPhrase");
+        }
+        if (request.personality() == null || request.personality().stream().noneMatch(trait -> normalizeOptionalText(trait) != null)) {
+            missingFields.add("personality");
         }
 
         if (!missingFields.isEmpty()) {
@@ -193,6 +199,20 @@ public class ClinicalCaseService {
 
     private boolean hasValidFactContent(ClinicalCaseRequest.ClinicalCaseFactRequest fact) {
         return fact != null && normalizeOptionalText(fact.content()) != null;
+    }
+
+    private String resolveInitialMessage(ClinicalCaseRequest request) {
+        String directInitialMessage = normalizeOptionalText(request.initialMessage());
+        if (directInitialMessage != null) {
+            return directInitialMessage;
+        }
+
+        return ClinicalCaseDescriptionParser.parse(request.description()).legacyMetadata().entrySet().stream()
+                .filter(entry -> "initialmessage".equals(entry.getKey().replace("_", "").replace("-", "").replace(" ", "").toLowerCase(java.util.Locale.ROOT)))
+                .map(entry -> normalizeOptionalText(entry.getValue()))
+                .filter(value -> value != null)
+                .findFirst()
+                .orElse(null);
     }
 
     private String normalizeOptionalText(String value) {
@@ -244,7 +264,7 @@ public class ClinicalCaseService {
         );
     }
 
-    private void saveFacts(UUID caseId, List<ClinicalCaseRequest.ClinicalCaseFactRequest> facts) {
+    private void saveFacts(UUID caseId, List<ClinicalCaseRequest.ClinicalCaseFactRequest> facts, boolean requireContent) {
         if (facts == null || facts.isEmpty()) {
             return;
         }
@@ -267,7 +287,10 @@ public class ClinicalCaseService {
 
             String factContent = normalizeOptionalText(fact.content());
             if (factContent == null) {
-                throw new BadRequestException("facts[" + order + "].content: el contenido del hecho clínico no puede estar vacío.");
+                if (requireContent) {
+                    throw new BadRequestException("facts[" + order + "].content: el contenido del hecho clínico no puede estar vacío.");
+                }
+                continue;
             }
 
             int revealLevel = resolveRevealLevel(fact, order);

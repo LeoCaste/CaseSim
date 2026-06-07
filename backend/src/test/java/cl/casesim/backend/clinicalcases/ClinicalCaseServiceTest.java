@@ -26,6 +26,9 @@ import static org.mockito.Mockito.times;
 
 class ClinicalCaseServiceTest {
 
+    private static final String READY_DESCRIPTION = "[CASESIM_META]{\"initialMessage\":\"Me duele el pecho.\"}";
+    private static final List<String> READY_PERSONALITY = List.of("ansiosa");
+
     private final ClinicalCaseRepository clinicalCaseRepository = mock(ClinicalCaseRepository.class);
     private final ClinicalCaseFactRepository clinicalCaseFactRepository = mock(ClinicalCaseFactRepository.class);
     private final ClinicalCasePersonalityRepository clinicalCasePersonalityRepository = mock(ClinicalCasePersonalityRepository.class);
@@ -169,7 +172,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso actualizado",
-                "Descripción con [CASESIM_META]{\"foo\":\"bar\"}",
+                "[CASESIM_META]{\"foo\":\"bar\",\"initialMessage\":\"Me duele.\"}",
                 "Paciente actualizado",
                 35,
                 "F",
@@ -183,7 +186,7 @@ class ClinicalCaseServiceTest {
         var response = clinicalCaseService.updateClinicalCase(caseId, request);
 
         assertEquals("Caso actualizado", response.title());
-        assertEquals("Descripción con [CASESIM_META]{\"foo\":\"bar\"}", response.description());
+        assertEquals("[CASESIM_META]{\"foo\":\"bar\",\"initialMessage\":\"Me duele.\"}", response.description());
         assertEquals(List.of("inicio", "evolución"), response.facts().getFirst().triggers());
     }
 
@@ -225,7 +228,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 40,
                 "F",
@@ -233,7 +236,7 @@ class ClinicalCaseServiceTest {
                 "No sé",
                 true,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes_personales", "HTA", List.of("hta"), 1, null)),
-                List.of()
+                READY_PERSONALITY
         );
 
         var response = clinicalCaseService.createClinicalCase(request, userId);
@@ -269,7 +272,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso actualizado",
-                "Descripción actualizada",
+                READY_DESCRIPTION,
                 "Paciente actualizado",
                 35,
                 "F",
@@ -284,7 +287,7 @@ class ClinicalCaseServiceTest {
                         3,
                         null
                 )),
-                List.of()
+                READY_PERSONALITY
         );
 
         var response = clinicalCaseService.updateClinicalCase(caseId, request);
@@ -335,7 +338,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso actualizado",
-                "Descripción actualizada",
+                READY_DESCRIPTION,
                 "Paciente actualizado",
                 35,
                 "F",
@@ -343,7 +346,7 @@ class ClinicalCaseServiceTest {
                 "No recuerdo más detalles",
                 true,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes", "", List.of("hta"), 1, null)),
-                List.of()
+                READY_PERSONALITY
         );
 
         assertThrows(BadRequestException.class, () -> clinicalCaseService.updateClinicalCase(caseId, request));
@@ -425,7 +428,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso de 8 hechos",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 40,
                 "F",
@@ -433,7 +436,7 @@ class ClinicalCaseServiceTest {
                 "No sé",
                 true,
                 facts,
-                List.of()
+                READY_PERSONALITY
         );
 
         var response = clinicalCaseService.createClinicalCase(request, userId);
@@ -468,7 +471,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 40,
                 "F",
@@ -479,7 +482,7 @@ class ClinicalCaseServiceTest {
                         new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "f1", "dato1", null, 1, null),
                         new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "f2", "dato2", List.of("  "), 1, null)
                 ),
-                List.of()
+                READY_PERSONALITY
         );
 
         clinicalCaseService.createClinicalCase(request, userId);
@@ -497,7 +500,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 40,
                 "F",
@@ -505,7 +508,7 @@ class ClinicalCaseServiceTest {
                 "No sé",
                 true,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("ANTECEDENTES", "antecedentes", "HTA", java.util.Map.of("foo", "bar"), 1, null)),
-                List.of()
+                READY_PERSONALITY
         );
 
         assertThrows(BadRequestException.class, () -> clinicalCaseService.createClinicalCase(request, userId));
@@ -521,7 +524,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 40,
                 "F",
@@ -529,7 +532,7 @@ class ClinicalCaseServiceTest {
                 "No sé",
                 true,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "fact", "dato", "tos", null, "INITIAL")),
-                List.of()
+                READY_PERSONALITY
         );
 
         clinicalCaseService.createClinicalCase(request, userId);
@@ -549,7 +552,7 @@ class ClinicalCaseServiceTest {
 
         ClinicalCaseRequest request = new ClinicalCaseRequest(
                 "Caso",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 40,
                 "F",
@@ -557,7 +560,7 @@ class ClinicalCaseServiceTest {
                 "No sé",
                 true,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "fact", "dato", "tos", null, null)),
-                List.of()
+                READY_PERSONALITY
         );
 
         clinicalCaseService.createClinicalCase(request, userId);
@@ -621,7 +624,7 @@ class ClinicalCaseServiceTest {
 
         var response = clinicalCaseService.updateClinicalCase(caseId, new ClinicalCaseRequest(
                 "Caso listo",
-                "desc",
+                READY_DESCRIPTION,
                 "Paciente",
                 45,
                 "F",
@@ -630,7 +633,7 @@ class ClinicalCaseServiceTest {
                 null,
                 ClinicalCaseStatus.READY,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "dato", "Contenido", null, 1, null)),
-                List.of()
+                READY_PERSONALITY
         ));
 
         assertEquals(ClinicalCaseStatus.READY, response.status());
@@ -656,6 +659,56 @@ class ClinicalCaseServiceTest {
         );
 
         assertThrows(BadRequestException.class, () -> clinicalCaseService.createClinicalCase(request, userId));
+        verify(clinicalCaseRepository, never()).save(any(ClinicalCase.class));
+    }
+
+    @Test
+    void createClinicalCaseShouldRejectReadyWithoutInitialMessage() {
+        UUID userId = UUID.randomUUID();
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso casi listo",
+                "Contexto clínico sin metadato de mensaje inicial",
+                "Paciente",
+                40,
+                "F",
+                "Dolor",
+                "No sé",
+                null,
+                ClinicalCaseStatus.READY,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "dato", "Contenido", null, 1, null)),
+                READY_PERSONALITY
+        );
+
+        BadRequestException exception = assertThrows(BadRequestException.class,
+                () -> clinicalCaseService.createClinicalCase(request, userId));
+
+        assertTrue(exception.getMessage().contains("initialMessage"));
+        verify(clinicalCaseRepository, never()).save(any(ClinicalCase.class));
+    }
+
+    @Test
+    void createClinicalCaseShouldRejectReadyWithNonPositiveAge() {
+        UUID userId = UUID.randomUUID();
+
+        ClinicalCaseRequest request = new ClinicalCaseRequest(
+                "Caso casi listo",
+                READY_DESCRIPTION,
+                "Paciente",
+                0,
+                "F",
+                "Dolor",
+                "No sé",
+                null,
+                ClinicalCaseStatus.READY,
+                List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "dato", "Contenido", null, 1, null)),
+                READY_PERSONALITY
+        );
+
+        BadRequestException exception = assertThrows(BadRequestException.class,
+                () -> clinicalCaseService.createClinicalCase(request, userId));
+
+        assertTrue(exception.getMessage().contains("patientAge"));
         verify(clinicalCaseRepository, never()).save(any(ClinicalCase.class));
     }
 
@@ -701,7 +754,7 @@ class ClinicalCaseServiceTest {
     private ClinicalCaseRequest buildRequest() {
         return new ClinicalCaseRequest(
                 "Caso actualizado",
-                "Descripción actualizada",
+                READY_DESCRIPTION,
                 "Paciente actualizado",
                 35,
                 "F",
@@ -709,7 +762,7 @@ class ClinicalCaseServiceTest {
                 "No recuerdo más detalles",
                 true,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "general", "Dato clínico", null, 1, null)),
-                List.of()
+                READY_PERSONALITY
         );
     }
 }

@@ -19,7 +19,10 @@ public record ClinicalCaseRequest(
         String patientSex,
         @JsonAlias({"reason", "motivoConsulta", "motivo_consulta"})
         String chiefComplaint,
+        @JsonAlias({"fallbackResponse"})
         String noInformationPhrase,
+        String initialMessage,
+        String expectedDiagnosis,
         Boolean active,
         ClinicalCaseStatus status,
         List<@Valid ClinicalCaseFactRequest> facts,
@@ -38,7 +41,23 @@ public record ClinicalCaseRequest(
             List<@Valid ClinicalCaseFactRequest> facts,
             List<String> personality
     ) {
-        this(title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase, active, null, facts, personality);
+        this(title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase, null, null, active, null, facts, personality);
+    }
+
+    public ClinicalCaseRequest(
+            String title,
+            String description,
+            String patientName,
+            Integer patientAge,
+            String patientSex,
+            String chiefComplaint,
+            String noInformationPhrase,
+            Boolean active,
+            ClinicalCaseStatus status,
+            List<@Valid ClinicalCaseFactRequest> facts,
+            List<String> personality
+    ) {
+        this(title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase, null, null, active, status, facts, personality);
     }
 
     public record ClinicalCaseFactRequest(
