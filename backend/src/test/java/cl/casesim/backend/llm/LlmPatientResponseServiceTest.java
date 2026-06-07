@@ -66,6 +66,7 @@ class LlmPatientResponseServiceTest {
             new BigDecimal("950")
     );
 
+    private LlmInteractionMetricsService llmInteractionMetricsService;
     private LlmPatientResponseService service;
     private RevealableFactSelector revealableFactSelector;
     private LlmProperties properties;
@@ -96,6 +97,8 @@ class LlmPatientResponseServiceTest {
                 properties
         );
 
+        llmInteractionMetricsService = new LlmInteractionMetricsService(llmUsageService);
+
         service = new LlmPatientResponseService(
                 properties,
                 llmClient,
@@ -104,7 +107,7 @@ class LlmPatientResponseServiceTest {
                 patientFallbackResponseService,
                 conversationHistoryAssembler,
                 clinicalCasePromptContextAssembler,
-                llmUsageService,
+                llmInteractionMetricsService,
                 clinicalCaseFactRepository,
                 revealableFactSelector
         );

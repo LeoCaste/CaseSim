@@ -27,7 +27,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final PatientFallbackResponseService patientFallbackResponseService;
     private final ConversationHistoryAssembler conversationHistoryAssembler;
     private final ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler;
-    private final LlmUsageService llmUsageService;
+    private final LlmInteractionMetricsService llmInteractionMetricsService;
     private final ClinicalCaseFactRepository clinicalCaseFactRepository;
     private final RevealableFactSelector revealableFactSelector;
 
@@ -43,7 +43,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             PatientFallbackResponseService patientFallbackResponseService,
             ConversationHistoryAssembler conversationHistoryAssembler,
             ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler,
-            LlmUsageService llmUsageService,
+            LlmInteractionMetricsService llmInteractionMetricsService,
             ClinicalCaseFactRepository clinicalCaseFactRepository,
             RevealableFactSelector revealableFactSelector
     ) {
@@ -54,7 +54,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         this.patientFallbackResponseService = patientFallbackResponseService;
         this.conversationHistoryAssembler = conversationHistoryAssembler;
         this.clinicalCasePromptContextAssembler = clinicalCasePromptContextAssembler;
-        this.llmUsageService = llmUsageService;
+        this.llmInteractionMetricsService = llmInteractionMetricsService;
         this.clinicalCaseFactRepository = clinicalCaseFactRepository;
         this.revealableFactSelector = revealableFactSelector;
     }
@@ -63,7 +63,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     public String generateResponse(SimulationSession session, String userMessage) {
         long startedAt = System.currentTimeMillis();
         String requestId = UUID.randomUUID().toString();
-        int estimatedPromptTokens = llmUsageService.estimateTokens(userMessage);
+        int estimatedPromptTokens = llmInteractionMetricsService.estimateTokens(userMessage);
         String resolvedModel = llmProperties.getModel();
         String resolvedProvider = llmProperties.getProvider();
         NoInfoResolution noInfoResolution = resolveNoInfoResponse(clinicalCasePromptContextAssembler.resolveCaseNoInfoResponse(session));
@@ -89,7 +89,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             List<ChatMessage> history = conversationHistoryAssembler.loadRecentHistory(session.getId());
             PromptBuilderService.ClinicalPromptContext context = buildPromptContext(session, userMessage);
             noInfoResolution = resolveNoInfoResponse(context.noInformationReply());
-            int symptomsCount = countSymptomFacts(context.facts());
+            int symptomsCount = llmInteractionMetricsService.countSymptomFacts(context.facts());
             boolean adminConfigPresent = hasText(llmProperties.getSystemPrompt()) || hasText(llmProperties.getPatientBehaviorRules());
             List<String> promptSectionsIncluded = buildPromptSectionsIncluded(context, adminConfigPresent);
             log.info(
@@ -122,7 +122,7 @@ public class LlmPatientResponseService implements PatientResponseService {
 
             estimatedPromptTokens = promptMessages.stream()
                     .map(LlmMessage::content)
-                    .mapToInt(llmUsageService::estimateTokens)
+                    .mapToInt(llmInteractionMetricsService::estimateTokens)
                     .sum();
             int promptChars = promptMessages.stream()
                     .map(LlmMessage::content)
@@ -158,10 +158,10 @@ public class LlmPatientResponseService implements PatientResponseService {
                         llmProperties.getMaxTokens()
                 ));
                 llmResponse = providerResponse == null ? "" : providerResponse.content();
-                metricProvider = resolveMetricProvider(providerResponse, resolvedProvider);
-                metricModel = resolveMetricModel(providerResponse, resolvedModel);
-                providerPromptTokens = resolvePromptTokens(providerResponse);
-                providerCompletionTokens = resolveCompletionTokens(providerResponse);
+                metricProvider = llmInteractionMetricsService.resolveMetricProvider(providerResponse, resolvedProvider);
+                metricModel = llmInteractionMetricsService.resolveMetricModel(providerResponse, resolvedModel);
+                providerPromptTokens = llmInteractionMetricsService.resolvePromptTokens(providerResponse);
+                providerCompletionTokens = llmInteractionMetricsService.resolveCompletionTokens(providerResponse);
                 log.info(
                         "LLM SUCCESS requestId={} sessionId={} caseId={} provider={} model={} origin={} promptChars={} promptTokensEstimate={} completionChars={} completionTokensEstimate={}",
                         requestId,
@@ -173,7 +173,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                         promptChars,
                         estimatedPromptTokens,
                         llmResponse == null ? 0 : llmResponse.length(),
-                        llmUsageService.estimateTokens(llmResponse)
+                        llmInteractionMetricsService.estimateTokens(llmResponse)
                 );
             } catch (LlmClientException ex) {
                 llmResponse = tryGenerateFallbackPatientResponse(
@@ -230,7 +230,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                         promptChars,
                         estimatedPromptTokens,
                         llmResponse.length(),
-                        llmUsageService.estimateTokens(llmResponse)
+                        llmInteractionMetricsService.estimateTokens(llmResponse)
                 );
             }
 
@@ -272,12 +272,12 @@ public class LlmPatientResponseService implements PatientResponseService {
                 );
             }
 
-            safeRegisterUsage(
+            llmInteractionMetricsService.safeRegisterUsage(
                     session.getId(),
                     metricProvider,
                     metricModel,
                     providerPromptTokens == null ? estimatedPromptTokens : providerPromptTokens,
-                    providerCompletionTokens == null ? llmUsageService.estimateTokens(finalResponse) : providerCompletionTokens,
+                    providerCompletionTokens == null ? llmInteractionMetricsService.estimateTokens(finalResponse) : providerCompletionTokens,
                     (int) (System.currentTimeMillis() - startedAt),
                     fallbackUsed,
                     null
@@ -364,12 +364,12 @@ public class LlmPatientResponseService implements PatientResponseService {
                 promptChars,
                 promptTokensEstimate
         );
-        safeRegisterUsage(
+        llmInteractionMetricsService.safeRegisterUsage(
                 session.getId(),
                 resolvedProvider,
                 resolvedModel,
                 estimatedPromptTokens,
-                llmUsageService.estimateTokens(fallback),
+                llmInteractionMetricsService.estimateTokens(fallback),
                 (int) (System.currentTimeMillis() - startedAt),
                 true,
                 reason
@@ -425,12 +425,12 @@ public class LlmPatientResponseService implements PatientResponseService {
                 promptChars,
                 promptTokensEstimate
         );
-        safeRegisterUsage(
+        llmInteractionMetricsService.safeRegisterUsage(
                 session.getId(),
                 resolvedProvider,
                 resolvedModel,
                 estimatedPromptTokens,
-                llmUsageService.estimateTokens(fallback),
+                llmInteractionMetricsService.estimateTokens(fallback),
                 (int) (System.currentTimeMillis() - startedAt),
                 true,
                 reason
@@ -498,12 +498,12 @@ public class LlmPatientResponseService implements PatientResponseService {
                     "FALLBACK_LOCAL_PATIENT"
             );
         }
-        safeRegisterUsage(
+        llmInteractionMetricsService.safeRegisterUsage(
                 session.getId(),
                 resolvedProvider,
                 resolvedModel,
                 estimatedPromptTokens,
-                llmUsageService.estimateTokens(safeResponse),
+                llmInteractionMetricsService.estimateTokens(safeResponse),
                 (int) (System.currentTimeMillis() - startedAt),
                 true,
                 reason
@@ -532,17 +532,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             return new NoInfoResolution(llmProperties.getNoInfoResponse().trim(), "ADMIN");
         }
         return new NoInfoResolution(DEFAULT_SAFE_NO_INFO_RESPONSE, "DEFAULT");
-    }
-
-    private int countSymptomFacts(List<String> facts) {
-        if (facts == null || facts.isEmpty()) {
-            return 0;
-        }
-        return (int) facts.stream()
-                .filter(TextNormalizationUtil::hasText)
-                .map(TextNormalizationUtil::normalize)
-                .filter(text -> text.contains("sintoma") || text.contains("dolor") || text.contains("fiebre") || text.contains("tos") || text.contains("disnea"))
-                .count();
     }
 
     private String tryGenerateFallbackPatientResponse(
@@ -659,69 +648,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             sanitized = sanitized.substring(0, 400);
         }
         return sanitized;
-    }
-
-    private void safeRegisterUsage(
-            UUID sessionId,
-            String provider,
-            String model,
-            int promptTokens,
-            int completionTokens,
-            Integer latencyMs,
-            boolean fallbackUsed,
-            String error
-    ) {
-        try {
-            llmUsageService.registerCall(
-                    sessionId,
-                    provider,
-                    model,
-                    promptTokens,
-                    completionTokens,
-                    latencyMs,
-                    fallbackUsed,
-                    error
-            );
-        } catch (RuntimeException registerError) {
-            log.error(
-                    "LLM usage metric persistence failed sessionId={} provider={} model={} fallbackUsed={} reason={}",
-                    sessionId,
-                    provider,
-                    model,
-                    fallbackUsed,
-                    sanitizeError(registerError.getMessage())
-            );
-        }
-    }
-
-    private String resolveMetricProvider(LlmResponse providerResponse, String fallbackProvider) {
-        if (providerResponse == null || providerResponse.providerResult() == null) {
-            return fallbackProvider;
-        }
-        return hasText(providerResponse.providerResult().provider())
-                ? providerResponse.providerResult().provider().trim()
-                : fallbackProvider;
-    }
-
-    private String resolveMetricModel(LlmResponse providerResponse, String fallbackModel) {
-        if (providerResponse == null || providerResponse.providerResult() == null) {
-            return fallbackModel;
-        }
-        return hasText(providerResponse.providerResult().model())
-                ? providerResponse.providerResult().model().trim()
-                : fallbackModel;
-    }
-
-    private Integer resolvePromptTokens(LlmResponse providerResponse) {
-        return providerResponse == null || providerResponse.usage() == null
-                ? null
-                : providerResponse.usage().promptTokens();
-    }
-
-    private Integer resolveCompletionTokens(LlmResponse providerResponse) {
-        return providerResponse == null || providerResponse.usage() == null
-                ? null
-                : providerResponse.usage().completionTokens();
     }
 
     private List<String> buildPromptSectionsIncluded(PromptBuilderService.ClinicalPromptContext context, boolean adminConfigPresent) {

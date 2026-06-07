@@ -139,7 +139,7 @@ public class LlmConfiguration {
             PatientFallbackResponseService patientFallbackResponseService,
             ConversationHistoryAssembler conversationHistoryAssembler,
             ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler,
-            LlmUsageService llmUsageService,
+            LlmInteractionMetricsService llmInteractionMetricsService,
             ClinicalCaseFactRepository clinicalCaseFactRepository,
             RevealableFactSelector revealableFactSelector
     ) {
@@ -151,7 +151,7 @@ public class LlmConfiguration {
                 patientFallbackResponseService,
                 conversationHistoryAssembler,
                 clinicalCasePromptContextAssembler,
-                llmUsageService,
+                llmInteractionMetricsService,
                 clinicalCaseFactRepository,
                 revealableFactSelector
         );
