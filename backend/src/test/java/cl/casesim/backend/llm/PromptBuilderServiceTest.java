@@ -110,7 +110,15 @@ class PromptBuilderServiceTest {
                 "Historia visible\n[CASESIM_META]\nexpectedDiagnosis: Apendicitis\n",
                 "No tengo información asociada a eso.",
                 List.of(),
-                List.of("síntoma: dolor abdominal")
+                List.of("síntoma: dolor abdominal"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
 
         PromptBuilderService.PatientBehaviorConfig behaviorConfig = new PromptBuilderService.PatientBehaviorConfig(
@@ -131,6 +139,101 @@ class PromptBuilderServiceTest {
         assertTrue(!systemPrompt.contains("Apendicitis"));
     }
 
+    @Test
+    void clinicalExamFindingsSeMuestraConReglaDeNoRevelacion() {
+        var context = new PromptBuilderService.ClinicalPromptContext(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Neurológico",
+                "Paciente Test",
+                "55",
+                "M",
+                "Cefalea intensa",
+                "Historia clínica sin novedades",
+                "No sé.",
+                List.<String>of(),
+                List.of("síntoma: cefalea pulsátil"),
+                null, null, null, null,
+                "Paciente presenta rigidez de nuca y fotofobia. Signo de Kernig dudoso.",
+                null, null, null
+        );
+        var config = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String prompt = promptBuilderService.buildMessages(context, List.of(), "¿Qué tiene?", config)
+                .getFirst().content();
+
+        assertTrue(prompt.contains("Hallazgos de examen clínico"),
+                "Debe mostrar la sección de hallazgos de examen clínico");
+        assertTrue(prompt.contains("NO revelar espontáneamente; no recitar como lista técnica"),
+                "Debe contener la regla de no revelación espontánea");
+        assertTrue(prompt.contains("rigidez de nuca"),
+                "Debe contener el hallazgo sanitizado");
+        assertTrue(prompt.contains("fotofobia"),
+                "Debe contener el hallazgo de fotofobia");
+        assertTrue(prompt.contains("Signo de Kernig"),
+                "Debe contener el hallazgo de signo de Kernig");
+        assertTrue(prompt.contains("Responde como paciente"),
+                "Debe contener la instrucción de responder como paciente");
+    }
+
+    @Test
+    void promptBuilderFormateaHechosConCategoriaYNivel() {
+        var context = new PromptBuilderService.ClinicalPromptContext(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "Caso Metabólico",
+                "Paciente DM",
+                "45",
+                "F",
+                "Control glicemia",
+                "Antecedente de diabetes tipo 2",
+                "No tengo información.",
+                List.<String>of(),
+                List.of(
+                        "[categoria=GENERAL] motivo: Control de glicemia alterada",
+                        "[categoria=ANTECEDENTES] diagnostico_previo: Diabetes tipo 2 desde 2020",
+                        "[categoria=MEDICAMENTOS] uso_actual: Metformina 850mg cada 12 horas"
+                ),
+                null, null, null, null, null, null, null, null
+        );
+        var config = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String prompt = promptBuilderService.buildMessages(context, List.of(), "¿Qué medicamentos toma?", config)
+                .getFirst().content();
+
+        // Verificar formato de facts con categoria
+        assertTrue(prompt.contains("[categoria=GENERAL] motivo: Control de glicemia alterada"),
+                "Fact INITIAL debe aparecer con formato [categoria=X] nombre: contenido");
+        assertTrue(prompt.contains("[categoria=ANTECEDENTES] diagnostico_previo: Diabetes tipo 2 desde 2020"),
+                "Fact ON_QUESTION revelado debe aparecer con categoria");
+        assertTrue(prompt.contains("[categoria=MEDICAMENTOS] uso_actual: Metformina 850mg cada 12 horas"),
+                "Fact ON_QUESTION medicamentos debe aparecer con categoria");
+
+        // Verificar que las reglas INITIAL/ON_QUESTION están presentes
+        assertTrue(prompt.contains("Regla INITIAL"),
+                "Debe contener la regla INITIAL");
+        assertTrue(prompt.contains("usarse de forma natural y parcial"),
+                "Debe indicar que INITIAL facts se usan de forma natural y parcial");
+        assertTrue(prompt.contains("Regla ON_QUESTION"),
+                "Debe contener la regla ON_QUESTION");
+        assertTrue(prompt.contains("disponibles cuando aparecen"),
+                "Debe indicar que ON_QUESTION facts están disponibles bajo condición");
+
+        // Verificar que los facts están bajo la sección correcta
+        assertTrue(prompt.contains("Información del paciente (solo lo conocido hasta ahora):"),
+                "Debe tener la sección de información del paciente");
+    }
+
     private PromptBuilderService.ClinicalPromptContext buildContext() {
         return new PromptBuilderService.ClinicalPromptContext(
                 UUID.randomUUID(),
@@ -143,7 +246,15 @@ class PromptBuilderServiceTest {
                 "Antecedente de asma en infancia",
                 "No tengo información asociada a eso.",
                 List.of("Ansiosa: responde con preocupación"),
-                List.of("Síntoma principal: tos seca")
+                List.of("Síntoma principal: tos seca"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
     }
 }

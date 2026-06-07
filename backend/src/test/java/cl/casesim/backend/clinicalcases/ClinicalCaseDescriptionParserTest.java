@@ -40,6 +40,19 @@ class ClinicalCaseDescriptionParserTest {
     }
 
     @Test
+    void parseSupportsDottedAllowlistMetadataKeys() {
+        ClinicalCaseDescriptionParts parts = ClinicalCaseDescriptionParser.parse("""
+                [CASESIM_META]
+                clinicalExam.findings: Abdomen doloroso a la palpación
+                currentIllness: Empezó ayer
+                """);
+
+        assertEquals("Abdomen doloroso a la palpación", parts.legacyMetadata().get("clinicalExam.findings"));
+        assertEquals("Empezó ayer", parts.legacyMetadata().get("currentIllness"));
+        assertNull(parts.clinicalContext());
+    }
+
+    @Test
     void parseReturnsEmptyPartsForBlankDescription() {
         ClinicalCaseDescriptionParts parts = ClinicalCaseDescriptionParser.parse("  ");
 
