@@ -22,6 +22,11 @@ export class Topbar {
       return;
     }
 
+    const confirmed = window.confirm('¿Estás seguro de que deseas cerrar sesión?');
+    if (!confirmed) {
+      return;
+    }
+
     this.isLoggingOut = true;
     this.authService
       .logout()

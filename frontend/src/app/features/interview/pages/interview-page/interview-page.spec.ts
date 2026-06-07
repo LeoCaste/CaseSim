@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { Mocked, vi } from 'vitest';
 
 import { InterviewPage } from './interview-page';
@@ -103,5 +103,94 @@ describe('InterviewPage', () => {
 
     expect(component.loadError).toBe('Paciente simulado temporalmente no disponible. Intenta nuevamente en unos minutos.');
     expect(component.isSendingMessage).toBe(false);
+  });
+
+  it('should add student message immediately when sending', () => {
+    interviewSessionServiceSpy.sendMessage.mockReturnValue(
+      of([
+        {
+          id: 'm-student-01',
+          role: 'STUDENT',
+          content: '¿Desde cuándo presenta cefalea?',
+          timestamp: '10:00'
+        },
+        {
+          id: 'm-patient-01',
+          role: 'PATIENT',
+          content: 'Me duele desde ayer.',
+          timestamp: '10:01'
+        }
+      ])
+    );
+    component.clinicalIntervention = '¿Desde cuándo presenta cefalea?';
+
+    component.sendIntervention();
+
+    // Student message should be at index 0
+    expect(component.messages.length).toBe(2);
+    expect(component.messages[0].role).toBe('Estudiante');
+    expect(component.messages[0].content).toBe('¿Desde cuándo presenta cefalea?');
+    // Patient response should be at index 1
+    expect(component.messages[1].role).toBe('Paciente');
+    expect(component.messages[1].content).toContain('Me duele desde ayer');
+  });
+
+  it('should scroll when sending message', () => {
+    const scrollSpy = vi.spyOn(component as unknown as { scrollConversationToBottom: () => void }, 'scrollConversationToBottom');
+    interviewSessionServiceSpy.sendMessage.mockReturnValue(
+      of([
+        {
+          id: 'm-student-01',
+          role: 'STUDENT',
+          content: 'Test',
+          timestamp: '10:00'
+        },
+        {
+          id: 'm-patient-01',
+          role: 'PATIENT',
+          content: 'Response',
+          timestamp: '10:01'
+        }
+      ])
+    );
+    component.clinicalIntervention = 'Test';
+
+    component.sendIntervention();
+
+    expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  it('should keep student message visible on error', () => {
+    interviewSessionServiceSpy.sendMessage.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: 'Server error' }))
+    );
+    component.clinicalIntervention = '¿Presenta otros síntomas?';
+
+    component.sendIntervention();
+
+    // Student message should remain visible even on error
+    expect(component.messages.length).toBe(1);
+    expect(component.messages[0].role).toBe('Estudiante');
+    expect(component.messages[0].content).toBe('¿Presenta otros síntomas?');
+    expect(component.loadError).toBeTruthy();
+    expect(component.isSendingMessage).toBe(false);
+  });
+
+  it('should keep student message visible during loading', () => {
+    // Return an observable that never emits to simulate ongoing request
+    interviewSessionServiceSpy.sendMessage.mockReturnValue(
+      new Observable<never>(() => {
+        // Never emit - stay in loading state
+      })
+    );
+    component.clinicalIntervention = 'Mensaje durante carga';
+
+    component.sendIntervention();
+
+    // Student message should be present while service is processing
+    expect(component.messages.length).toBe(1);
+    expect(component.messages[0].role).toBe('Estudiante');
+    expect(component.messages[0].content).toBe('Mensaje durante carga');
+    expect(component.isSendingMessage).toBe(true);
   });
 });

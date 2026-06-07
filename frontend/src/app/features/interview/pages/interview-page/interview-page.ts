@@ -95,6 +95,18 @@ export class InterviewPage implements OnInit {
     this.loadError = '';
     this.isSendingMessage = true;
 
+    // Agregar mensaje del estudiante inmediatamente (antes de la respuesta del backend)
+    const studentMessage: InterviewMessageView = {
+      id: undefined,
+      role: 'Estudiante',
+      time: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+      content: content
+    };
+    this.messages = [...this.messages, studentMessage];
+    this.scrollConversationToBottom();
+    this.clinicalIntervention = '';
+    this.cdr.detectChanges();
+
     this.interviewSessionService
       .sendMessage(this.session.id, content)
       .pipe(
@@ -110,7 +122,6 @@ export class InterviewPage implements OnInit {
         next: (newMessages) => {
           const mappedNewMessages = newMessages.map((message) => this.mapMessage(message));
           this.messages = this.mergeMessagesWithoutDuplicates(this.messages, mappedNewMessages);
-          this.clinicalIntervention = '';
           this.loadError = '';
           this.scrollConversationToBottom();
           this.cdr.detectChanges();
@@ -235,8 +246,29 @@ export class InterviewPage implements OnInit {
     const existingKeys = new Set(currentMessages.map((message) => this.buildMessageKey(message)));
     const nextMessages = [...currentMessages];
 
+    // Mapa de mensajes temporales (sin ID) por rol|contenido para matchear respuestas del backend
+    const tempByContent = new Map<string, number>();
+    currentMessages.forEach((msg, idx) => {
+      if (!msg.id) {
+        tempByContent.set(`${msg.role}|${msg.content}`, idx);
+      }
+    });
+
     for (const message of incomingMessages) {
       const key = this.buildMessageKey(message);
+
+      // Si el mensaje entrante tiene ID, buscar si ya existe uno temporal (sin ID) con mismo contenido
+      if (message.id) {
+        const contentKey = `${message.role}|${message.content}`;
+        const tempIdx = tempByContent.get(contentKey);
+        if (tempIdx !== undefined) {
+          // Actualizar el mensaje temporal con el ID real del backend
+          nextMessages[tempIdx] = { ...nextMessages[tempIdx], id: message.id };
+          existingKeys.add(key);
+          continue;
+        }
+      }
+
       if (existingKeys.has(key)) {
         continue;
       }
