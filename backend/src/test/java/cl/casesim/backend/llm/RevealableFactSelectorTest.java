@@ -333,6 +333,28 @@ class RevealableFactSelectorTest {
     }
 
     @Test
+    void preguntaAmpliaCuentameTodoNoRevelaNivel2SinMatch() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(sessionId)).thenReturn(Set.of());
+
+        List<ClinicalCaseFact> result = selector.selectFactsForPrompt(sessionId, "cuéntame todo", List.of(level1Fact, level2Fact));
+
+        assertTrue(result.contains(level1Fact), "Fact nivel 1 debe incluirse siempre");
+        assertFalse(result.contains(level2Fact), "Fact nivel 2 no debe revelarse con 'cuéntame todo' sin keyword match");
+        verify(sessionRevealedFactRepository, never()).save(any(SessionRevealedFact.class));
+    }
+
+    @Test
+    void preguntaAmpliaExplícameTodoNoRevelaNivel2() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(sessionId)).thenReturn(Set.of());
+
+        List<ClinicalCaseFact> result = selector.selectFactsForPrompt(sessionId, "explícame todo", List.of(level1Fact, level2Fact));
+
+        assertTrue(result.contains(level1Fact), "Fact nivel 1 debe incluirse siempre");
+        assertFalse(result.contains(level2Fact), "Fact nivel 2 no debe revelarse con 'explícame todo' sin keyword match");
+        verify(sessionRevealedFactRepository, never()).save(any(SessionRevealedFact.class));
+    }
+
+    @Test
     void containsAnyTokenDetectaHintEnTextoNormalizado() {
         assertTrue(selector.containsAnyToken("tengo fiebre", List.of("fiebre", "tos")));
         assertTrue(selector.containsAnyToken("dolor de cabeza", List.of("dolor")));

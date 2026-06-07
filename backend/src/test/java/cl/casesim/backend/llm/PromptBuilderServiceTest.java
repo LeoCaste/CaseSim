@@ -234,6 +234,92 @@ class PromptBuilderServiceTest {
                 "Debe tener la sección de información del paciente");
     }
 
+    @Test
+    void saludoGeneralNoRevelaFactsON_QUESTION() {
+        PromptBuilderService.ClinicalPromptContext context = buildContext();
+        PromptBuilderService.PatientBehaviorConfig behaviorConfig = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String systemPrompt = promptBuilderService.buildMessages(context, List.of(), "Hola", behaviorConfig)
+                .getFirst().content();
+
+        assertTrue(systemPrompt.contains("Cuando te saluden"),
+                "El system prompt debe contener la regla de saludo");
+        assertTrue(systemPrompt.contains("motivo de consulta principal"),
+                "La regla de saludo debe mencionar motivo de consulta principal");
+        assertTrue(systemPrompt.contains("duración exacta"),
+                "La regla de saludo debe prohibir duración exacta no preguntada");
+    }
+
+    @Test
+    void preguntaAmpliaNoRevelaTodosLosFacts() {
+        PromptBuilderService.ClinicalPromptContext context = buildContext();
+        PromptBuilderService.PatientBehaviorConfig behaviorConfig = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String systemPrompt = promptBuilderService.buildMessages(context, List.of(), "Cuéntame todo", behaviorConfig)
+                .getFirst().content();
+
+        assertTrue(systemPrompt.contains("contar todo"),
+                "El system prompt debe contener regla para 'contar todo'");
+        assertTrue(systemPrompt.contains("máximo 2 o 3"),
+                "La regla debe limitar a máximo 2 o 3 hechos");
+        assertTrue(systemPrompt.contains("lista completa"),
+                "La regla debe prohibir lista completa de síntomas");
+    }
+
+    @Test
+    void preguntaDiagnosticoNoRevelaDiagnostico() {
+        PromptBuilderService.ClinicalPromptContext context = buildContext();
+        PromptBuilderService.PatientBehaviorConfig behaviorConfig = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String systemPrompt = promptBuilderService.buildMessages(context, List.of(), "¿Qué tengo?", behaviorConfig)
+                .getFirst().content();
+
+        assertTrue(systemPrompt.contains("[POLITICA_ROL_Y_NO_DIAGNOSTICO]"),
+                "Debe contener la sección de política de no diagnóstico");
+        assertTrue(systemPrompt.contains("No entregues diagnóstico final"),
+                "Debe contener la política de no entregar diagnóstico final");
+        assertTrue(systemPrompt.contains("No reveles el diagnóstico esperado"),
+                "Debe contener regla de no revelar diagnóstico esperado");
+    }
+
+    @Test
+    void reglasDeSaludoYAmpliaPresentesEnPrompt() {
+        PromptBuilderService.ClinicalPromptContext context = buildContext();
+        PromptBuilderService.PatientBehaviorConfig behaviorConfig = new PromptBuilderService.PatientBehaviorConfig(
+                PromptBuilderService.defaultSystemPrompt(),
+                "",
+                "No tengo información asociada a eso.",
+                RevealStrategy.PROGRESSIVE
+        );
+
+        String systemPrompt = promptBuilderService.buildMessages(context, List.of(), "Hola doctor", behaviorConfig)
+                .getFirst().content();
+
+        assertTrue(systemPrompt.contains("cuentes qué te trae"),
+                "Debe contener la regla para 'cuentes qué te trae'");
+        assertTrue(systemPrompt.contains("contar todo"),
+                "Debe contener la regla para 'contar todo'");
+        assertTrue(systemPrompt.contains("preguntas muy amplias"),
+                "Debe contener la regla para preguntas muy amplias");
+        assertTrue(systemPrompt.contains("pide al estudiante que precise"),
+                "Debe indicar que pida precisión al estudiante");
+    }
+
     private PromptBuilderService.ClinicalPromptContext buildContext() {
         return new PromptBuilderService.ClinicalPromptContext(
                 UUID.randomUUID(),
