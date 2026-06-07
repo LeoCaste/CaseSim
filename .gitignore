@@ -30,3 +30,5 @@ CASESIM_CONTEXT.md
 .env
 .env.staging
 .env.staging.prod
+# Docs locales
+docs/
