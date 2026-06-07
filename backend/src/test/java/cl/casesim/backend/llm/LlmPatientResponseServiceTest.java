@@ -58,6 +58,8 @@ class LlmPatientResponseServiceTest {
     private final ResponseSafetyFilter responseSafetyFilter = mock(ResponseSafetyFilter.class);
     private final PatientResponseSafetyService patientResponseSafetyService = new PatientResponseSafetyService(responseSafetyFilter);
     private final PatientFallbackResponseService patientFallbackResponseService = new PatientFallbackResponseService(patientResponseSafetyService);
+    private ConversationHistoryAssembler conversationHistoryAssembler;
+    private ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler;
 
     private final PromptBuilderService promptBuilderService = new PromptBuilderService();
     private final LlmUsageService llmUsageService = new LlmUsageService(
@@ -81,6 +83,12 @@ class LlmPatientResponseServiceTest {
         properties = new LlmProperties();
         properties.setEnabled(true);
         properties.setApiKey("test-api-key");
+        conversationHistoryAssembler = new ConversationHistoryAssembler(chatMessageRepository, properties);
+        clinicalCasePromptContextAssembler = new ClinicalCasePromptContextAssembler(
+                simulationActivityRepository,
+                clinicalCaseRepository,
+                clinicalCasePersonalityRepository
+        );
 
         service = new LlmPatientResponseService(
                 properties,
@@ -88,13 +96,12 @@ class LlmPatientResponseServiceTest {
                 promptBuilderService,
                 patientResponseSafetyService,
                 patientFallbackResponseService,
-                chatMessageRepository,
+                conversationHistoryAssembler,
+                clinicalCasePromptContextAssembler,
                 llmUsageService,
                 simulationActivityRepository,
                 simulationSessionRepository,
-                clinicalCaseRepository,
                 clinicalCaseFactRepository,
-                clinicalCasePersonalityRepository,
                 sessionRevealedFactRepository
         );
 

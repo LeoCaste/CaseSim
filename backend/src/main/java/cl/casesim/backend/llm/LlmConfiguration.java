@@ -38,6 +38,27 @@ public class LlmConfiguration {
     }
 
     @Bean
+    public ConversationHistoryAssembler conversationHistoryAssembler(
+            ChatMessageRepository chatMessageRepository,
+            LlmProperties llmProperties
+    ) {
+        return new ConversationHistoryAssembler(chatMessageRepository, llmProperties);
+    }
+
+    @Bean
+    public ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler(
+            SimulationActivityRepository simulationActivityRepository,
+            ClinicalCaseRepository clinicalCaseRepository,
+            ClinicalCasePersonalityRepository clinicalCasePersonalityRepository
+    ) {
+        return new ClinicalCasePromptContextAssembler(
+                simulationActivityRepository,
+                clinicalCaseRepository,
+                clinicalCasePersonalityRepository
+        );
+    }
+
+    @Bean
     public LlmProviderUrlResolver llmProviderUrlResolver() {
         return new LlmProviderUrlResolver();
     }
@@ -118,13 +139,12 @@ public class LlmConfiguration {
             PromptBuilderService promptBuilderService,
             PatientResponseSafetyService patientResponseSafetyService,
             PatientFallbackResponseService patientFallbackResponseService,
-            ChatMessageRepository chatMessageRepository,
+            ConversationHistoryAssembler conversationHistoryAssembler,
+            ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
             SimulationSessionRepository simulationSessionRepository,
-            ClinicalCaseRepository clinicalCaseRepository,
             ClinicalCaseFactRepository clinicalCaseFactRepository,
-            ClinicalCasePersonalityRepository clinicalCasePersonalityRepository,
             SessionRevealedFactRepository sessionRevealedFactRepository
     ) {
         return new LlmPatientResponseService(
@@ -133,13 +153,12 @@ public class LlmConfiguration {
                 promptBuilderService,
                 patientResponseSafetyService,
                 patientFallbackResponseService,
-                chatMessageRepository,
+                conversationHistoryAssembler,
+                clinicalCasePromptContextAssembler,
                 llmUsageService,
                 simulationActivityRepository,
                 simulationSessionRepository,
-                clinicalCaseRepository,
                 clinicalCaseFactRepository,
-                clinicalCasePersonalityRepository,
                 sessionRevealedFactRepository
         );
     }

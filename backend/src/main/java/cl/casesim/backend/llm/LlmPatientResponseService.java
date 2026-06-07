@@ -1,15 +1,8 @@
 package cl.casesim.backend.llm;
 
-import cl.casesim.backend.clinicalcases.ClinicalCase;
-import cl.casesim.backend.clinicalcases.ClinicalCaseDescriptionParts;
-import cl.casesim.backend.clinicalcases.ClinicalCaseDescriptionParser;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFact;
 import cl.casesim.backend.clinicalcases.ClinicalCaseFactRepository;
-import cl.casesim.backend.clinicalcases.ClinicalCasePersonalityRepository;
-import cl.casesim.backend.clinicalcases.ClinicalCaseRepository;
-import cl.casesim.backend.clinicalcases.ClinicalCaseSafetySanitizer;
 import cl.casesim.backend.sessions.ChatMessage;
-import cl.casesim.backend.sessions.ChatMessageRepository;
 import cl.casesim.backend.sessions.PatientResponseService;
 import cl.casesim.backend.sessions.SessionRevealedFact;
 import cl.casesim.backend.sessions.SessionRevealedFactRepository;
@@ -20,7 +13,6 @@ import cl.casesim.backend.simulations.SimulationActivityRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -28,18 +20,14 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static cl.casesim.backend.llm.FallbackCauseClassifier.classifyFallbackCause;
-import static cl.casesim.backend.llm.TextNormalizationUtil.firstText;
 import static cl.casesim.backend.llm.TextNormalizationUtil.hasText;
 import static cl.casesim.backend.llm.TextNormalizationUtil.maskForLog;
 import static cl.casesim.backend.llm.TextNormalizationUtil.normalize;
-import static cl.casesim.backend.llm.TextNormalizationUtil.safeFactPart;
-import static cl.casesim.backend.llm.TextNormalizationUtil.safeMetadataValue;
 
 public class LlmPatientResponseService implements PatientResponseService {
 
@@ -50,13 +38,12 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final PromptBuilderService promptBuilderService;
     private final PatientResponseSafetyService patientResponseSafetyService;
     private final PatientFallbackResponseService patientFallbackResponseService;
-    private final ChatMessageRepository chatMessageRepository;
+    private final ConversationHistoryAssembler conversationHistoryAssembler;
+    private final ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler;
     private final LlmUsageService llmUsageService;
     private final SimulationActivityRepository simulationActivityRepository;
     private final SimulationSessionRepository simulationSessionRepository;
-    private final ClinicalCaseRepository clinicalCaseRepository;
     private final ClinicalCaseFactRepository clinicalCaseFactRepository;
-    private final ClinicalCasePersonalityRepository clinicalCasePersonalityRepository;
     private final SessionRevealedFactRepository sessionRevealedFactRepository;
 
     private static final String DEFAULT_SAFE_NO_INFO_RESPONSE = PatientFallbackResponseService.DEFAULT_SAFE_NO_INFO_RESPONSE;
@@ -72,13 +59,12 @@ public class LlmPatientResponseService implements PatientResponseService {
             PromptBuilderService promptBuilderService,
             PatientResponseSafetyService patientResponseSafetyService,
             PatientFallbackResponseService patientFallbackResponseService,
-            ChatMessageRepository chatMessageRepository,
+            ConversationHistoryAssembler conversationHistoryAssembler,
+            ClinicalCasePromptContextAssembler clinicalCasePromptContextAssembler,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
             SimulationSessionRepository simulationSessionRepository,
-            ClinicalCaseRepository clinicalCaseRepository,
             ClinicalCaseFactRepository clinicalCaseFactRepository,
-            ClinicalCasePersonalityRepository clinicalCasePersonalityRepository,
             SessionRevealedFactRepository sessionRevealedFactRepository
     ) {
         this.llmProperties = llmProperties;
@@ -86,13 +72,12 @@ public class LlmPatientResponseService implements PatientResponseService {
         this.promptBuilderService = promptBuilderService;
         this.patientResponseSafetyService = patientResponseSafetyService;
         this.patientFallbackResponseService = patientFallbackResponseService;
-        this.chatMessageRepository = chatMessageRepository;
+        this.conversationHistoryAssembler = conversationHistoryAssembler;
+        this.clinicalCasePromptContextAssembler = clinicalCasePromptContextAssembler;
         this.llmUsageService = llmUsageService;
         this.simulationActivityRepository = simulationActivityRepository;
         this.simulationSessionRepository = simulationSessionRepository;
-        this.clinicalCaseRepository = clinicalCaseRepository;
         this.clinicalCaseFactRepository = clinicalCaseFactRepository;
-        this.clinicalCasePersonalityRepository = clinicalCasePersonalityRepository;
         this.sessionRevealedFactRepository = sessionRevealedFactRepository;
     }
 
@@ -103,7 +88,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         int estimatedPromptTokens = llmUsageService.estimateTokens(userMessage);
         String resolvedModel = llmProperties.getModel();
         String resolvedProvider = llmProperties.getProvider();
-        NoInfoResolution noInfoResolution = resolveNoInfoResponse(resolveCaseNoInfoResponse(session));
+        NoInfoResolution noInfoResolution = resolveNoInfoResponse(clinicalCasePromptContextAssembler.resolveCaseNoInfoResponse(session));
 
         if (!llmProperties.isEnabled() || !llmProperties.hasApiKey()) {
             return registerAndReturnTechnicalFallback(
@@ -123,7 +108,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
 
         try {
-            List<ChatMessage> history = loadRecentHistory(session.getId());
+            List<ChatMessage> history = conversationHistoryAssembler.loadRecentHistory(session.getId());
             PromptBuilderService.ClinicalPromptContext context = buildPromptContext(session, userMessage);
             noInfoResolution = resolveNoInfoResponse(context.noInformationReply());
             int symptomsCount = countSymptomFacts(context.facts());
@@ -321,7 +306,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             );
 
             return finalResponse;
-        } catch (ContextResolutionException ex) {
+        } catch (ClinicalContextResolutionException ex) {
             return registerAndReturnContextFallback(
                     session,
                     startedAt,
@@ -548,109 +533,17 @@ public class LlmPatientResponseService implements PatientResponseService {
         return safeResponse;
     }
 
-    private List<ChatMessage> loadRecentHistory(java.util.UUID sessionId) {
-        int historyTurns = Math.max(0, llmProperties.getMaxHistoryMessages());
-        if (historyTurns == 0) {
-            return List.of();
-        }
-
-        return chatMessageRepository
-                .findBySesionIdOrderByNumeroTurnoDesc(sessionId, PageRequest.of(0, historyTurns))
-                .stream()
-                .sorted(Comparator.comparing(ChatMessage::getNumeroTurno))
-                .toList();
-    }
-
     private PromptBuilderService.ClinicalPromptContext buildPromptContext(SimulationSession session, String userMessage) {
-        SimulationActivity activity = simulationActivityRepository.findById(session.getActividadId())
-                .orElseThrow(() -> new ContextResolutionException("No existe actividad para la sesión " + session.getId()));
-
-        ClinicalCase clinicalCase = clinicalCaseRepository.findById(activity.getCasoId())
-                .orElseThrow(() -> new ContextResolutionException("No existe caso clínico para la actividad " + activity.getId()));
-
-        List<ClinicalCaseFact> allFacts = clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId());
-        List<ClinicalCaseFact> selectedFacts = (allFacts == null || allFacts.isEmpty())
-                ? List.of()
-                : selectFactsForPrompt(session.getId(), userMessage, allFacts);
-
-        List<String> facts = selectedFacts
-                .stream()
-                .map(fact -> "[categoria=" + safeFactPart(fact.getCategoria()) + "] " + fact.getNombre() + ": " + fact.getContenidoPaciente())
-                .toList();
-
-        List<String> personalityTraits = clinicalCasePersonalityRepository.findByCasoId(clinicalCase.getId())
-                .stream()
-                .map(personality -> personality.getRasgo() + ": " + personality.getDescripcion())
-                .toList();
-
-        var descriptionParts = ClinicalCaseDescriptionParser.parse(clinicalCase.getDescripcion());
-        Map<String, String> safeMetadata = descriptionParts.legacyMetadata();
-        String noInformationReply = firstText(
-                clinicalCase.getFraseSinInformacion(),
-                safeMetadataValue(safeMetadata, "fallbackResponse", "fallback_response", "noInformationPhrase", "no_information_phrase")
-        );
-
-        return new PromptBuilderService.ClinicalPromptContext(
-                session.getId(),
-                clinicalCase.getId(),
-                ClinicalCaseSafetySanitizer.safeCaseTitle(),
-                clinicalCase.getPacienteNombre(),
-                clinicalCase.getPacienteEdad() == null ? null : String.valueOf(clinicalCase.getPacienteEdad()),
-                clinicalCase.getPacienteSexo(),
-                clinicalCase.getMotivoConsulta(),
-                descriptionParts.clinicalContext(),
-                noInformationReply,
-                personalityTraits,
-                facts,
-                safeMetadataValue(safeMetadata, "initialMessage", "initial_message"),
-                safeMetadataValue(safeMetadata, "context", "caseContext"),
-                safeMetadataValue(safeMetadata, "currentIllness", "current_illness", "enfermedadActual"),
-                safeMetadataValue(safeMetadata, "generalBackground", "general_background", "antecedentesGenerales"),
-                safeMetadataValue(safeMetadata, "clinicalExam.findings", "clinicalExamFindings", "clinical_exam_findings", "findings"),
-                safeMetadataValue(safeMetadata, "tone", "tono"),
-                safeMetadataValue(safeMetadata, "detailLevel", "detail_level"),
-                safeMetadataValue(safeMetadata, "behaviorGuidelines", "behavior_guidelines")
-        );
+        return clinicalCasePromptContextAssembler.assemble(session, clinicalCaseId -> {
+            List<ClinicalCaseFact> allFacts = clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCaseId);
+            return (allFacts == null || allFacts.isEmpty())
+                    ? List.of()
+                    : selectFactsForPrompt(session.getId(), userMessage, allFacts);
+        });
     }
 
     private PromptBuilderService.ClinicalPromptContext emptyPromptContext(SimulationSession session) {
-        return new PromptBuilderService.ClinicalPromptContext(
-                session.getId(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                List.of(),
-                List.of(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-    }
-
-    private String resolveCaseNoInfoResponse(SimulationSession session) {
-        SimulationActivity activity = simulationActivityRepository.findById(session.getActividadId()).orElse(null);
-        if (activity == null) {
-            return null;
-        }
-        ClinicalCase clinicalCase = clinicalCaseRepository.findById(activity.getCasoId()).orElse(null);
-        if (clinicalCase == null) {
-            return null;
-        }
-        ClinicalCaseDescriptionParts parts = ClinicalCaseDescriptionParser.parse(clinicalCase.getDescripcion());
-        return firstText(
-                clinicalCase.getFraseSinInformacion(),
-                safeMetadataValue(parts.legacyMetadata(), "fallbackResponse", "fallback_response", "noInformationPhrase", "no_information_phrase")
-        );
+        return clinicalCasePromptContextAssembler.emptyPromptContext(session);
     }
 
     List<ClinicalCaseFact> selectFactsForPrompt(UUID sessionId, String userMessage) {
@@ -1044,9 +937,4 @@ public class LlmPatientResponseService implements PatientResponseService {
     private record NoInfoResolution(String value, String source) {
     }
 
-    private static class ContextResolutionException extends RuntimeException {
-        private ContextResolutionException(String message) {
-            super(message);
-        }
-    }
 }
