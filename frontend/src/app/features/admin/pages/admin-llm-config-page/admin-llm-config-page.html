@@ -71,8 +71,11 @@
           spellcheck="false"
           [disabled]="isSaving || isDeletingApiKey || isTestingConnection"
         />
-        <small *ngIf="hasApiKeyMask">API key actual: {{ config.maskedApiKey }}</small>
-        <small *ngIf="isApiKeyRequired && config.apiKeyConfigured">Dejar vacío para mantener la API key actual.</small>
+        <small *ngIf="hasApiKeyMask">API key guardada enmascarada: {{ config.maskedApiKey }}</small>
+        <small *ngIf="hasProviderChanged && config.apiKeyConfigured" class="admin-llm-config__field-note admin-llm-config__field-note--warning">
+          Cambiaste el proveedor: la key enmascarada corresponde a la configuración guardada. Ingresa una nueva API key antes de guardar.
+        </small>
+        <small *ngIf="isApiKeyRequired && config.apiKeyConfigured && !hasProviderChanged">Dejar vacío para mantener la API key actual.</small>
         <small *ngIf="isApiKeyRequired && !config.apiKeyConfigured">API key requerida para habilitar este proveedor.</small>
         <small *ngIf="!isApiKeyRequired">Este proveedor no requiere API key.</small>
       </div>

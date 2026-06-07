@@ -51,6 +51,14 @@ describe('AdminLlmConfigPage', () => {
     expect(component.form.baseUrl).toBe('https://api.groq.com/openai/v1');
   });
 
+  it('debe limpiar la nueva API key al cambiar de proveedor', () => {
+    component.form.apiKey = 'nueva-key-temporal';
+
+    component.onProviderChange('groq');
+
+    expect(component.form.apiKey).toBe('');
+  });
+
   it('debe seleccionar modelo sugerido por defecto cuando provider cambia y modelo está vacío', () => {
     component.form.model = '';
 
@@ -92,7 +100,7 @@ describe('AdminLlmConfigPage', () => {
     const apiKeyInput = fixture.nativeElement.querySelector('#apiKey') as HTMLInputElement;
 
     expect(apiKeyInput.type).toBe('password');
-    expect(fixture.nativeElement.textContent).toContain('API key actual: ************1234');
+    expect(fixture.nativeElement.textContent).toContain('API key guardada enmascarada: ************1234');
     expect(fixture.nativeElement.textContent).not.toContain('super-secret-key');
   });
 
@@ -177,6 +185,18 @@ describe('AdminLlmConfigPage', () => {
     component.onSave();
 
     expect(component.saveError).toBe('Debes ingresar una API key para este proveedor.');
+  });
+
+  it('debe exigir nueva API key al cambiar de proveedor con key guardada', () => {
+    component.config = { ...baseConfig, apiKeyConfigured: true, maskedApiKey: '************1234' };
+    component.form.provider = 'groq';
+    component.form.model = 'llama-3.1-8b-instant';
+    component.form.apiKey = '';
+
+    component.onSave();
+
+    expect(component.saveError).toBe('Al cambiar de proveedor, ingresa o confirma una nueva API key antes de guardar.');
+    expect(adminLlmServiceMock.updateConfig).not.toHaveBeenCalled();
   });
 
   it('debe mostrar mensaje de error simple al fallar test de conexión', () => {

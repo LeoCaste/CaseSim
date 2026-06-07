@@ -101,8 +101,10 @@ export class AdminLlmConfigPage implements OnInit {
     }
 
     const trimmedApiKey = this.form.apiKey?.trim() ?? '';
-    if (this.isApiKeyRequired && !this.config?.apiKeyConfigured && !trimmedApiKey) {
-      this.saveError = 'Debes ingresar una API key para este proveedor.';
+    if (this.isApiKeyRequired && (!this.config?.apiKeyConfigured || this.hasProviderChanged) && !trimmedApiKey) {
+      this.saveError = this.hasProviderChanged
+        ? 'Al cambiar de proveedor, ingresa o confirma una nueva API key antes de guardar.'
+        : 'Debes ingresar una API key para este proveedor.';
       return;
     }
 
@@ -284,6 +286,7 @@ export class AdminLlmConfigPage implements OnInit {
 
   onProviderChange(providerInput: string): void {
     const provider = this.normalizeProvider(providerInput);
+    const providerChanged = provider !== this.normalizeProvider(this.form.provider);
     this.form.provider = provider;
 
     const selectedModel = this.form.model?.trim();
@@ -293,6 +296,12 @@ export class AdminLlmConfigPage implements OnInit {
     }
 
     this.form.baseUrl = this.resolveBaseUrl(null, provider);
+
+    if (providerChanged) {
+      this.form.apiKey = '';
+      this.saveMessage = '';
+      this.saveError = '';
+    }
   }
 
   getProviderLabel(providerInput: string): string {
@@ -320,6 +329,14 @@ export class AdminLlmConfigPage implements OnInit {
 
   get hasApiKeyMask(): boolean {
     return Boolean(this.config?.maskedApiKey?.trim());
+  }
+
+  get hasProviderChanged(): boolean {
+    if (!this.config?.provider) {
+      return false;
+    }
+
+    return this.normalizeProvider(this.form.provider) !== this.normalizeProvider(this.config.provider);
   }
 
   private loadConfig(): void {
