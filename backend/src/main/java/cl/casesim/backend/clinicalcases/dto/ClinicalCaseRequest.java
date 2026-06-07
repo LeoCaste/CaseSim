@@ -3,7 +3,6 @@ package cl.casesim.backend.clinicalcases.dto;
 import cl.casesim.backend.clinicalcases.ClinicalCaseStatus;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -23,9 +22,6 @@ public record ClinicalCaseRequest(
         String noInformationPhrase,
         Boolean active,
         ClinicalCaseStatus status,
-        @Min(value = 5, message = "La duración estimada debe ser al menos 5 minutos.")
-        @Max(value = 180, message = "La duración estimada no puede exceder 180 minutos.")
-        Integer estimatedTimeMinutes,
         List<@Valid ClinicalCaseFactRequest> facts,
         List<String> personality
 ) {
@@ -42,7 +38,7 @@ public record ClinicalCaseRequest(
             List<@Valid ClinicalCaseFactRequest> facts,
             List<String> personality
     ) {
-        this(title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase, active, null, null, facts, personality);
+        this(title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase, active, null, facts, personality);
     }
 
     public record ClinicalCaseFactRequest(

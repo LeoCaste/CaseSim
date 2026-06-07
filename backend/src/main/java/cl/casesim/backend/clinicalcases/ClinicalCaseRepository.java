@@ -10,7 +10,7 @@ public interface ClinicalCaseRepository extends JpaRepository<ClinicalCase, UUID
 
     List<ClinicalCase> findByActivoTrueOrderByCreadoEnDesc();
 
-    List<ClinicalCase> findByStatusNotOrderByCreadoEnDesc(ClinicalCaseStatus status);
+    List<ClinicalCase> findAllByOrderByCreadoEnDesc();
 
     Optional<ClinicalCase> findByIdAndActivoTrue(UUID id);
 }

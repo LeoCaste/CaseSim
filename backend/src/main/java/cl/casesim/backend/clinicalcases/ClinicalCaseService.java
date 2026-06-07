@@ -44,7 +44,7 @@ public class ClinicalCaseService {
     }
 
     public List<ClinicalCaseResponse> getActiveClinicalCases() {
-        return clinicalCaseRepository.findByStatusNotOrderByCreadoEnDesc(ClinicalCaseStatus.ARCHIVED)
+        return clinicalCaseRepository.findAllByOrderByCreadoEnDesc()
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -91,7 +91,6 @@ public class ClinicalCaseService {
                 resolveNoInformationPhrase(request.noInformationPhrase()),
                 status.isLegacyActive(),
                 status,
-                request.estimatedTimeMinutes(),
                 authenticatedUserId,
                 now
         );
@@ -118,8 +117,7 @@ public class ClinicalCaseService {
                 resolveRequiredStorageText(request.chiefComplaint(), DRAFT_CHIEF_COMPLAINT_PLACEHOLDER),
                 resolveNoInformationPhrase(request.noInformationPhrase()),
                 status.isLegacyActive(),
-                status,
-                request.estimatedTimeMinutes()
+                status
         );
 
         ClinicalCase updatedClinicalCase = clinicalCaseRepository.save(clinicalCase);
@@ -155,7 +153,7 @@ public class ClinicalCaseService {
         if (request.active() != null) {
             return ClinicalCaseStatus.fromLegacyActive(request.active());
         }
-        return ClinicalCaseStatus.READY;
+        return ClinicalCaseStatus.DRAFT;
     }
 
     private String resolveRequiredStorageText(String value, String placeholder) {
@@ -184,7 +182,7 @@ public class ClinicalCaseService {
         if (request.facts() == null || request.facts().stream().noneMatch(this::hasValidFactContent)) {
             missingFields.add("facts");
         }
-        if (resolveNoInformationPhrase(request.noInformationPhrase()) == null) {
+        if (normalizeOptionalText(request.noInformationPhrase()) == null) {
             missingFields.add("noInformationPhrase");
         }
 
@@ -240,7 +238,6 @@ public class ClinicalCaseService {
                 clinicalCase.getFraseSinInformacion(),
                 clinicalCase.isActivo(),
                 clinicalCase.getStatus(),
-                clinicalCase.getDuracionEstimadaMinutos(),
                 clinicalCase.getCreadoEn(),
                 facts,
                 personality

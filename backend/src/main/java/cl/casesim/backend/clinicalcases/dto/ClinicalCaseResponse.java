@@ -18,7 +18,6 @@ public record ClinicalCaseResponse(
         String noInformationPhrase,
         boolean active,
         ClinicalCaseStatus status,
-        Integer estimatedTimeMinutes,
         LocalDateTime createdAt,
         List<ClinicalCaseFactResponse> facts,
         List<String> personality
@@ -39,7 +38,7 @@ public record ClinicalCaseResponse(
             List<String> personality
     ) {
         this(id, title, description, patientName, patientAge, patientSex, chiefComplaint, noInformationPhrase,
-                active, ClinicalCaseStatus.fromLegacyActive(active), null, createdAt, facts, personality);
+                active, ClinicalCaseStatus.fromLegacyActive(active), createdAt, facts, personality);
     }
 
     public record ClinicalCaseFactResponse(

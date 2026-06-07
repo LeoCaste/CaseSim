@@ -48,11 +48,6 @@ class SimulationAssignmentServiceTest {
     }
 
     @Test
-    void createSimulationShouldRejectArchivedClinicalCase() {
-        assertCaseStatusRejected(ClinicalCaseStatus.ARCHIVED);
-    }
-
-    @Test
     void createSimulationShouldAllowReadyClinicalCase() {
         UUID caseId = UUID.randomUUID();
         UUID studentId = UUID.randomUUID();
@@ -105,7 +100,6 @@ class SimulationAssignmentServiceTest {
                 "No tengo información asociada a eso.",
                 status.isLegacyActive(),
                 status,
-                null,
                 UUID.randomUUID(),
                 LocalDateTime.now()
         );

@@ -5,9 +5,6 @@ import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.common.exception.ResourceNotFoundException;
 import cl.casesim.backend.simulations.SimulationActivity;
 import cl.casesim.backend.simulations.SimulationActivityRepository;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -16,8 +13,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -589,7 +584,6 @@ class ClinicalCaseServiceTest {
                 null,
                 null,
                 ClinicalCaseStatus.DRAFT,
-                null,
                 List.of(),
                 List.of()
         );
@@ -616,7 +610,6 @@ class ClinicalCaseServiceTest {
                 "No tengo información asociada a eso.",
                 true,
                 ClinicalCaseStatus.DRAFT,
-                null,
                 creatorId,
                 LocalDateTime.now()
         );
@@ -633,10 +626,9 @@ class ClinicalCaseServiceTest {
                 45,
                 "F",
                 "Dolor",
-                null,
+                "No tengo información",
                 null,
                 ClinicalCaseStatus.READY,
-                null,
                 List.of(new ClinicalCaseRequest.ClinicalCaseFactRequest("GENERAL", "dato", "Contenido", null, 1, null)),
                 List.of()
         ));
@@ -659,7 +651,6 @@ class ClinicalCaseServiceTest {
                 null,
                 null,
                 ClinicalCaseStatus.READY,
-                null,
                 List.of(),
                 List.of()
         );
@@ -685,112 +676,11 @@ class ClinicalCaseServiceTest {
                 LocalDateTime.now()
         );
 
-        assertEquals(ClinicalCaseStatus.ARCHIVED, legacyInactive.getStatus());
+        assertEquals(ClinicalCaseStatus.DRAFT, legacyInactive.getStatus());
     }
 
-    @Test
-    void createClinicalCaseShouldPersistEstimatedTimeMinutes() {
-        UUID userId = UUID.randomUUID();
-        UUID caseId = UUID.randomUUID();
-
-        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> {
-            ClinicalCase input = invocation.getArgument(0);
-            return new ClinicalCase(
-                    caseId,
-                    input.getTitulo(),
-                    input.getDescripcion(),
-                    input.getPacienteNombre(),
-                    input.getPacienteEdad(),
-                    input.getPacienteSexo(),
-                    input.getMotivoConsulta(),
-                    input.getFraseSinInformacion(),
-                    input.isActivo(),
-                    input.getStatus(),
-                    input.getDuracionEstimadaMinutos(),
-                    input.getCreadoPor(),
-                    input.getCreadoEn()
-            );
-        });
-        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of());
-        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
-
-        ClinicalCaseRequest request = new ClinicalCaseRequest(
-                "Caso", "desc", "Paciente", 40, "F", "Dolor", "No sé", true,
-                ClinicalCaseStatus.DRAFT, 45, List.of(), List.of()
-        );
-
-        var response = clinicalCaseService.createClinicalCase(request, userId);
-
-        assertEquals(Integer.valueOf(45), response.estimatedTimeMinutes());
-    }
-
-    @Test
-    void createClinicalCaseShouldAllowNullEstimatedTimeMinutes() {
-        UUID userId = UUID.randomUUID();
-        UUID caseId = UUID.randomUUID();
-
-        when(clinicalCaseRepository.save(any(ClinicalCase.class))).thenAnswer(invocation -> {
-            ClinicalCase input = invocation.getArgument(0);
-            return new ClinicalCase(
-                    caseId,
-                    input.getTitulo(),
-                    input.getDescripcion(),
-                    input.getPacienteNombre(),
-                    input.getPacienteEdad(),
-                    input.getPacienteSexo(),
-                    input.getMotivoConsulta(),
-                    input.getFraseSinInformacion(),
-                    input.isActivo(),
-                    input.getStatus(),
-                    input.getDuracionEstimadaMinutos(),
-                    input.getCreadoPor(),
-                    input.getCreadoEn()
-            );
-        });
-        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(caseId)).thenReturn(List.of());
-        when(clinicalCasePersonalityRepository.findByCasoId(caseId)).thenReturn(List.of());
-
-        ClinicalCaseRequest request = new ClinicalCaseRequest(
-                "Caso", "desc", "Paciente", 40, "F", "Dolor", "No sé", true,
-                ClinicalCaseStatus.DRAFT, null, List.of(), List.of()
-        );
-
-        var response = clinicalCaseService.createClinicalCase(request, userId);
-
-        assertNull(response.estimatedTimeMinutes());
-    }
-
-    @Test
-    void shouldRejectEstimatedTimeMinutesBelowMinimum() {
-        ClinicalCaseRequest request = new ClinicalCaseRequest(
-                "Caso", "desc", "Paciente", 40, "F", "Dolor", "No sé", true,
-                ClinicalCaseStatus.READY, 2, List.of(), List.of()
-        );
-
-        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
-            Validator validator = factory.getValidator();
-            var violations = validator.validate(request);
-            assertFalse(violations.isEmpty());
-            assertTrue(violations.stream().anyMatch(v ->
-                    v.getPropertyPath().toString().equals("estimatedTimeMinutes")));
-        }
-    }
-
-    @Test
-    void shouldRejectEstimatedTimeMinutesAboveMaximum() {
-        ClinicalCaseRequest request = new ClinicalCaseRequest(
-                "Caso", "desc", "Paciente", 40, "F", "Dolor", "No sé", true,
-                ClinicalCaseStatus.READY, 200, List.of(), List.of()
-        );
-
-        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
-            Validator validator = factory.getValidator();
-            var violations = validator.validate(request);
-            assertFalse(violations.isEmpty());
-            assertTrue(violations.stream().anyMatch(v ->
-                    v.getPropertyPath().toString().equals("estimatedTimeMinutes")));
-        }
-    }
+    // Tests for estimatedTimeMinutes were removed along with the field.
+    // Validation of estimatedTimeMinutes (@Min/@Max) was removed.
 
     private ClinicalCase buildCase(UUID caseId, UUID creatorId) {
         return new ClinicalCase(
