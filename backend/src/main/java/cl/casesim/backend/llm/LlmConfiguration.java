@@ -28,6 +28,11 @@ public class LlmConfiguration {
     }
 
     @Bean
+    public PatientResponseSafetyService patientResponseSafetyService(ResponseSafetyFilter responseSafetyFilter) {
+        return new PatientResponseSafetyService(responseSafetyFilter);
+    }
+
+    @Bean
     public LlmProviderUrlResolver llmProviderUrlResolver() {
         return new LlmProviderUrlResolver();
     }
@@ -106,7 +111,7 @@ public class LlmConfiguration {
             LlmProperties llmProperties,
             LlmClient llmClient,
             PromptBuilderService promptBuilderService,
-            ResponseSafetyFilter responseSafetyFilter,
+            PatientResponseSafetyService patientResponseSafetyService,
             ChatMessageRepository chatMessageRepository,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
@@ -120,7 +125,7 @@ public class LlmConfiguration {
                 llmProperties,
                 llmClient,
                 promptBuilderService,
-                responseSafetyFilter,
+                patientResponseSafetyService,
                 chatMessageRepository,
                 llmUsageService,
                 simulationActivityRepository,

@@ -52,7 +52,7 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final LlmProperties llmProperties;
     private final LlmClient llmClient;
     private final PromptBuilderService promptBuilderService;
-    private final ResponseSafetyFilter responseSafetyFilter;
+    private final PatientResponseSafetyService patientResponseSafetyService;
     private final ChatMessageRepository chatMessageRepository;
     private final LlmUsageService llmUsageService;
     private final SimulationActivityRepository simulationActivityRepository;
@@ -74,7 +74,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             LlmProperties llmProperties,
             LlmClient llmClient,
             PromptBuilderService promptBuilderService,
-            ResponseSafetyFilter responseSafetyFilter,
+            PatientResponseSafetyService patientResponseSafetyService,
             ChatMessageRepository chatMessageRepository,
             LlmUsageService llmUsageService,
             SimulationActivityRepository simulationActivityRepository,
@@ -87,7 +87,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         this.llmProperties = llmProperties;
         this.llmClient = llmClient;
         this.promptBuilderService = promptBuilderService;
-        this.responseSafetyFilter = responseSafetyFilter;
+        this.patientResponseSafetyService = patientResponseSafetyService;
         this.chatMessageRepository = chatMessageRepository;
         this.llmUsageService = llmUsageService;
         this.simulationActivityRepository = simulationActivityRepository;
@@ -273,7 +273,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 );
             }
 
-            String safeResponse = responseSafetyFilter.applyOrFallback(
+            String safeResponse = patientResponseSafetyService.applyLlmResponse(
                     llmResponse,
                     llmProperties.isEnabledSafetyFilter(),
                     noInfoResolution.value()
@@ -363,10 +363,9 @@ public class LlmPatientResponseService implements PatientResponseService {
             int promptChars,
             int promptTokensEstimate
     ) {
-        String fallback = responseSafetyFilter.applyOrFallback(
+        String fallback = patientResponseSafetyService.applyContextualFallback(
                 CONTEXT_FALLBACK_RESPONSE,
-                llmProperties.isEnabledSafetyFilter(),
-                CONTEXT_FALLBACK_RESPONSE
+                llmProperties.isEnabledSafetyFilter()
         );
         String errorType = ex.getClass().getSimpleName();
         String sanitizedReason = sanitizeError(ex.getMessage());
@@ -424,10 +423,9 @@ public class LlmPatientResponseService implements PatientResponseService {
             int promptChars,
             int promptTokensEstimate
     ) {
-        String fallback = responseSafetyFilter.applyOrFallback(
+        String fallback = patientResponseSafetyService.applyTechnicalFallback(
                 TECHNICAL_FALLBACK_RESPONSE,
-                llmProperties.isEnabledSafetyFilter(),
-                TECHNICAL_FALLBACK_RESPONSE
+                llmProperties.isEnabledSafetyFilter()
         );
         String errorType = ex.getClass().getSimpleName();
         String sanitizedReason = sanitizeError(ex.getMessage());
@@ -487,7 +485,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             int promptChars,
             int promptTokensEstimate
     ) {
-        String safeResponse = responseSafetyFilter.applyOrFallback(
+        String safeResponse = patientResponseSafetyService.applyLocalPatientFallback(
                 localFallback,
                 llmProperties.isEnabledSafetyFilter(),
                 noInfoResolution.value()
@@ -706,7 +704,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             if (!hasText(factValue)) {
                 continue;
             }
-            String safeAlternative = responseSafetyFilter.applyOrFallback(
+            String safeAlternative = patientResponseSafetyService.applyRepetitionAlternative(
                     factValue,
                     llmProperties.isEnabledSafetyFilter(),
                     noInfoResolution == null ? DEFAULT_SAFE_NO_INFO_RESPONSE : noInfoResolution.value()
@@ -741,7 +739,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             if (normalizedFactValue.equals(normalizedCandidate) || normalizedFactValue.equals(normalizedChiefComplaint)) {
                 continue;
             }
-            String safeAlternative = responseSafetyFilter.applyOrFallback(
+            String safeAlternative = patientResponseSafetyService.applyRepetitionAlternative(
                     factValue,
                     llmProperties.isEnabledSafetyFilter(),
                     noInfoResolution == null ? DEFAULT_SAFE_NO_INFO_RESPONSE : noInfoResolution.value()

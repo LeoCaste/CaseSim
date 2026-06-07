@@ -56,6 +56,7 @@ class LlmPatientResponseServiceTest {
     private final SessionRevealedFactRepository sessionRevealedFactRepository = mock(SessionRevealedFactRepository.class);
     private final LlmUsageRepository llmUsageRepository = mock(LlmUsageRepository.class);
     private final ResponseSafetyFilter responseSafetyFilter = mock(ResponseSafetyFilter.class);
+    private final PatientResponseSafetyService patientResponseSafetyService = new PatientResponseSafetyService(responseSafetyFilter);
 
     private final PromptBuilderService promptBuilderService = new PromptBuilderService();
     private final LlmUsageService llmUsageService = new LlmUsageService(
@@ -84,7 +85,7 @@ class LlmPatientResponseServiceTest {
                 properties,
                 llmClient,
                 promptBuilderService,
-                responseSafetyFilter,
+                patientResponseSafetyService,
                 chatMessageRepository,
                 llmUsageService,
                 simulationActivityRepository,
