@@ -28,12 +28,22 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static cl.casesim.backend.llm.FallbackCauseClassifier.classifyFallbackCause;
+import static cl.casesim.backend.llm.FallbackCauseClassifier.isLikelyFollowUp;
+import static cl.casesim.backend.llm.FallbackCauseClassifier.isLikelyGreeting;
+import static cl.casesim.backend.llm.FallbackCauseClassifier.isLikelyQuotaMessage;
+import static cl.casesim.backend.llm.TextNormalizationUtil.extractFactValue;
+import static cl.casesim.backend.llm.TextNormalizationUtil.firstText;
+import static cl.casesim.backend.llm.TextNormalizationUtil.hasText;
+import static cl.casesim.backend.llm.TextNormalizationUtil.maskForLog;
+import static cl.casesim.backend.llm.TextNormalizationUtil.normalize;
+import static cl.casesim.backend.llm.TextNormalizationUtil.safeFactPart;
+import static cl.casesim.backend.llm.TextNormalizationUtil.safeMetadataValue;
 
 public class LlmPatientResponseService implements PatientResponseService {
 
@@ -52,7 +62,6 @@ public class LlmPatientResponseService implements PatientResponseService {
     private final ClinicalCasePersonalityRepository clinicalCasePersonalityRepository;
     private final SessionRevealedFactRepository sessionRevealedFactRepository;
 
-    private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^\\p{L}\\p{N} ]");
     private static final String DEFAULT_SAFE_NO_INFO_RESPONSE = "No tengo información asociada a eso.";
     private static final String TECHNICAL_FALLBACK_RESPONSE = "Perdón, me cuesta responder en este momento. ¿Podrías repetir tu pregunta?";
     private static final String CONTEXT_FALLBACK_RESPONSE = "No pude cargar el contexto clínico de esta sesión. Intenta nuevamente en unos segundos o reinicia la sesión.";
@@ -215,7 +224,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                         ex
                 );
                 if (!hasText(llmResponse)) {
-                    String fallbackCause = classifyFallbackCause(ex);
+                    String fallbackCause = classifyFallbackCause(ex, this::sanitizeError);
                     String contextualFallback = buildContextualPatientFallback(context, userMessage, noInfoResolution);
                     if (hasText(contextualFallback)) {
                         return registerAndReturnLocalPatientFallback(
@@ -382,7 +391,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 resolvedModel,
                 "FALLBACK_CONTEXT",
                 stage,
-                classifyFallbackCause(ex),
+                classifyFallbackCause(ex, this::sanitizeError),
                 errorType,
                 sanitizedReason,
                 promptChars,
@@ -444,7 +453,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 resolvedModel,
                 "FALLBACK_TECHNICAL",
                 stage,
-                classifyFallbackCause(ex),
+                classifyFallbackCause(ex, this::sanitizeError),
                 errorType,
                 sanitizedReason,
                 promptChars,
@@ -483,7 +492,7 @@ public class LlmPatientResponseService implements PatientResponseService {
                 llmProperties.isEnabledSafetyFilter(),
                 noInfoResolution.value()
         );
-        String fallbackCause = classifyFallbackCause(ex);
+        String fallbackCause = classifyFallbackCause(ex, this::sanitizeError);
         String errorType = ex.getClass().getSimpleName();
         String sanitizedReason = sanitizeError(ex.getMessage());
         String reason = stage + "|" + errorType + "|" + sanitizedReason + "|LOCAL_PATIENT_FALLBACK";
@@ -636,7 +645,7 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
 
         boolean hasFacts = context != null && context.facts() != null
-                && context.facts().stream().anyMatch(this::hasText);
+                && context.facts().stream().anyMatch(TextNormalizationUtil::hasText);
         boolean isGreetingTurn = isLikelyGreeting(userMessage);
 
         if (!hasFacts || isGreetingTurn) {
@@ -674,18 +683,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             }
         }
         return null;
-    }
-
-    private boolean isLikelyGreeting(String userMessage) {
-        String normalized = normalize(userMessage);
-        if (!hasText(normalized)) {
-            return true;
-        }
-        return normalized.equals("hola")
-                || normalized.equals("buenas")
-                || normalized.equals("buenos dias")
-                || normalized.equals("buenas tardes")
-                || normalized.equals("buenas noches");
     }
 
     private String buildAlternativeFromFacts(
@@ -755,14 +752,6 @@ public class LlmPatientResponseService implements PatientResponseService {
         }
 
         return null;
-    }
-
-    private String extractFactValue(String factLine) {
-        int separatorIndex = factLine.indexOf(':');
-        if (separatorIndex < 0 || separatorIndex == factLine.length() - 1) {
-            return factLine;
-        }
-        return factLine.substring(separatorIndex + 1).trim();
     }
 
     private List<ChatMessage> loadRecentHistory(java.util.UUID sessionId) {
@@ -1008,11 +997,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                 || factText.contains("tiempo");
     }
 
-    private boolean isLikelyFollowUp(String userMessage) {
-        String normalized = normalize(userMessage);
-        return hasText(normalized) && !isLikelyGreeting(normalized);
-    }
-
     private boolean matchesFactByKeyword(ClinicalCaseFact fact, Set<String> messageKeywords) {
         if (messageKeywords == null || messageKeywords.isEmpty()) {
             return false;
@@ -1048,22 +1032,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                 .collect(java.util.stream.Collectors.toSet());
     }
 
-    private String normalize(String text) {
-        if (text == null) {
-            return "";
-        }
-
-        String lowerCased = text.toLowerCase(Locale.ROOT)
-                .replace('á', 'a')
-                .replace('é', 'e')
-                .replace('í', 'i')
-                .replace('ó', 'o')
-                .replace('ú', 'u')
-                .replace('ü', 'u');
-
-        return NON_ALPHANUMERIC.matcher(lowerCased).replaceAll(" ").trim();
-    }
-
     private NoInfoResolution resolveNoInfoResponse(String contextNoInfoResponse) {
         if (hasText(contextNoInfoResponse)) {
             return new NoInfoResolution(contextNoInfoResponse.trim(), "CASE");
@@ -1079,8 +1047,8 @@ public class LlmPatientResponseService implements PatientResponseService {
             return 0;
         }
         return (int) facts.stream()
-                .filter(this::hasText)
-                .map(this::normalize)
+                .filter(TextNormalizationUtil::hasText)
+                .map(TextNormalizationUtil::normalize)
                 .filter(text -> text.contains("sintoma") || text.contains("dolor") || text.contains("fiebre") || text.contains("tos") || text.contains("disnea"))
                 .count();
     }
@@ -1093,7 +1061,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             String resolvedModel,
             LlmClientException firstError
     ) {
-        if ("QUOTA_EXCEEDED".equals(classifyFallbackCause(firstError))) {
+        if ("QUOTA_EXCEEDED".equals(classifyFallbackCause(firstError, this::sanitizeError))) {
             log.warn("LLM compact retry skipped due to quota provider={} model={} clinicalCaseId={}",
                     resolvedProvider,
                     resolvedModel,
@@ -1113,7 +1081,7 @@ public class LlmPatientResponseService implements PatientResponseService {
             compactFacts.add("motivo_consulta: " + originalContext.chiefComplaint().trim());
         }
         if (originalContext.facts() != null && !originalContext.facts().isEmpty()) {
-            String firstFact = originalContext.facts().stream().filter(this::hasText).findFirst().orElse(null);
+            String firstFact = originalContext.facts().stream().filter(TextNormalizationUtil::hasText).findFirst().orElse(null);
             if (hasText(firstFact)) {
                 compactFacts.add(firstFact.trim());
             }
@@ -1185,14 +1153,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                 .orElse("<empty-prompt>");
     }
 
-    private String maskForLog(String value) {
-        if (!hasText(value)) {
-            return "<empty>";
-        }
-        String trimmed = value.trim();
-        return trimmed.length() <= 120 ? trimmed : trimmed.substring(0, 120) + "...";
-    }
-
     private String sanitizeError(String rawError) {
         if (rawError == null || rawError.isBlank()) {
             return "Error LLM no especificado.";
@@ -1207,57 +1167,6 @@ public class LlmPatientResponseService implements PatientResponseService {
             sanitized = sanitized.substring(0, 400);
         }
         return sanitized;
-    }
-
-    private String classifyFallbackCause(RuntimeException ex) {
-        if (ex == null) {
-            return "UNKNOWN";
-        }
-        if (ex instanceof LlmClientException llmEx && llmEx.providerError() != null && llmEx.providerError().category() != null) {
-            return llmEx.providerError().category().name();
-        }
-        String message = sanitizeError(ex.getMessage()).toLowerCase(Locale.ROOT);
-        if (message.contains("timeout") || message.contains("timed out")) {
-            return "TIMEOUT";
-        }
-        if (message.contains("context") && (message.contains("length") || message.contains("token") || message.contains("max"))) {
-            return "TOKEN_LIMIT_OR_CONTEXT_LENGTH";
-        }
-        if (message.contains("json") || message.contains("parse") || message.contains("parseable")) {
-            return "PARSE_JSON";
-        }
-        if (message.contains("payload") || message.contains("messages") || message.contains("input")) {
-            return "PROMPT_MALFORMED_OR_PAYLOAD_INVALID";
-        }
-        if (message.contains("status=429")
-                || message.contains("quota")
-                || message.contains("insufficient")
-                || message.contains("rate limit")) {
-            return "QUOTA_EXCEEDED";
-        }
-        if (message.contains("model_invalid") || (message.contains("model") && (message.contains("invalid") || message.contains("not found") || message.contains("does not exist")))) {
-            return "MODEL_OR_PARAMETER_INCOMPATIBILITY";
-        }
-        if (message.contains("serializ") || message.contains("deserialize")) {
-            return "SERIALIZATION";
-        }
-        if (message.contains("null")) {
-            return "NULL_VALUES";
-        }
-        if (message.contains("response vac") || message.contains("no parseable") || message.contains("http error") || message.contains("provider")) {
-            return "PROVIDER_RESPONSE_INVALID";
-        }
-        return "UNKNOWN";
-    }
-
-    private boolean isLikelyQuotaMessage(String userMessage) {
-        String normalized = normalize(userMessage);
-        return normalized.contains("quota")
-                || normalized.contains("sin cuota")
-                || normalized.contains("sin saldo")
-                || normalized.contains("no responde")
-                || normalized.contains("no contestas")
-                || normalized.contains("silencio");
     }
 
     private void safeRegisterUsage(
@@ -1291,39 +1200,6 @@ public class LlmPatientResponseService implements PatientResponseService {
                     sanitizeError(registerError.getMessage())
             );
         }
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.trim().isEmpty();
-    }
-
-    private String safeMetadataValue(Map<String, String> metadata, String... keys) {
-        if (metadata == null || metadata.isEmpty() || keys == null) {
-            return null;
-        }
-        for (String key : keys) {
-            String value = metadata.get(key);
-            if (hasText(value)) {
-                return ClinicalCaseSafetySanitizer.sanitizeCaseHistory(value);
-            }
-        }
-        return null;
-    }
-
-    private String firstText(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (hasText(value)) {
-                return value.trim();
-            }
-        }
-        return null;
-    }
-
-    private String safeFactPart(String value) {
-        return hasText(value) ? value.trim() : "GENERAL";
     }
 
     private String resolveMetricProvider(LlmResponse providerResponse, String fallbackProvider) {

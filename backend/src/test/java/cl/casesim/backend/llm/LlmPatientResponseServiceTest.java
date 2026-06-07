@@ -912,6 +912,125 @@ class LlmPatientResponseServiceTest {
                 "Debe prohibir recitar los facts como lista completa");
     }
 
+    /**
+     * Caracteriza que cuando el provider falla (ambos intentos, primary y compact retry)
+     * y el mensaje NO es un saludo (tiene más de 12 chars y no es saludo),
+     * {@code buildContextualPatientFallback} retorna el primer fact disponible
+     * (vía {@code firstUsableFactValue}), NO el technical fallback.
+     *
+     * Se usa "¿Tiene fiebre?" para activar keyword matching del level2Fact ("fiebre")
+     * y que así ambos facts (chiefComplaint y level2) estén en el contexto.
+     */
+    @Test
+    void fallbackLocalContextual_cuandoProviderFallaConPreguntaNoSaludo_devuelveFactAlternativo() {
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("MODEL_INVALID"))
+                .thenThrow(new LlmClientException("MODEL_INVALID"));
+
+        String response = service.generateResponse(session, "¿Tiene fiebre?");
+
+        assertTrue(response.contains("Tengo fiebre desde ayer"),
+                "El fallback contextual debe retornar el primer fact value que no es chiefComplaint");
+        assertFalse(response.contains("Perdón, me cuesta responder"),
+                "No debe ser technical fallback cuando hay facts disponibles");
+        verify(llmClient, times(2)).generate(any());
+    }
+
+    /**
+     * Caracteriza que cuando el provider falla y {@code buildContextualPatientFallback}
+     * no tiene chiefComplaint ni facts, retorna la respuesta sin información por defecto
+     * (ADMIN o DEFAULT) a través del local patient fallback, no el technical fallback.
+     * El usage registra {@code fallbackUsed=true} y {@code error} con {@code PROVIDER_CALL_ERROR}.
+     */
+    @Test
+    void fallbackNoInfo_cuandoProviderFallaSinContexto_usaNoInfoResponse() {
+        ClinicalCase nullCase = new ClinicalCase(
+                clinicalCase.getId(),
+                "Caso sin contexto",
+                "",
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                UUID.randomUUID(),
+                LocalDateTime.now()
+        );
+        when(clinicalCaseRepository.findById(clinicalCase.getId())).thenReturn(Optional.of(nullCase));
+        when(clinicalCaseFactRepository.findByCasoIdOrderByOrdenAsc(clinicalCase.getId())).thenReturn(List.of());
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("MODEL_INVALID"))
+                .thenThrow(new LlmClientException("MODEL_INVALID"));
+
+        String response = service.generateResponse(session, "¿Qué me dice?");
+
+        // Al no haber chiefComplaint ni facts, buildContextualPatientFallback retorna
+        // la respuesta sin información por defecto (ADMIN/DEFAULT) vía registerAndReturnLocalPatientFallback
+        assertTrue(response.contains("No tengo información asociada a eso."),
+                "Sin chiefComplaint ni facts, el fallback debe ser la respuesta sin información por defecto");
+        verify(llmClient, times(2)).generate(any());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(readBooleanField(usage, "fallbackUsed"));
+        assertTrue(readStringField(usage, "error").contains("PROVIDER_CALL_ERROR"));
+    }
+
+    /**
+     * Caracteriza que cuando {@code simulationActivityRepository.findById()} retorna
+     * {@code Optional.empty()}, se lanza {@code ContextResolutionException} (clase privada)
+     * que es capturada y retorna CONTEXT_FALLBACK_RESPONSE
+     * ("No pude cargar el contexto clínico...").
+     */
+    @Test
+    void contextResolutionException_cuandoActividadNoExiste_retornaContextFallback() {
+        when(simulationActivityRepository.findById(any())).thenReturn(Optional.empty());
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+
+        String response = service.generateResponse(session, "Hola");
+
+        assertTrue(response.contains("No pude cargar el contexto clínico"),
+                "Debe retornar CONTEXT_FALLBACK_RESPONSE cuando no existe la actividad");
+        assertFalse(response.contains("Perdón, me cuesta responder"),
+                "No debe ser technical fallback, sino context fallback");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(readBooleanField(usage, "fallbackUsed"));
+        assertTrue(readStringField(usage, "error").contains("CONTEXT_LOAD_ERROR"));
+    }
+
+    /**
+     * Caracteriza que cuando ocurre una RuntimeException inesperada durante el flujo
+     * (ej: en {@code loadRecentHistory}), se captura y retorna TECHNICAL_FALLBACK_RESPONSE
+     * con error {@code "PROMPT_OR_CONTEXT_ERROR"} en la métrica.
+     */
+    @Test
+    void runtimeExceptionInesperada_retornaFallbackTecnico() {
+        when(chatMessageRepository.findBySesionIdOrderByNumeroTurnoDesc(any(), any()))
+                .thenThrow(new RuntimeException("Fallo inesperado en BD"));
+        when(sessionRevealedFactRepository.findFactIdsBySessionId(session.getId())).thenReturn(Set.of());
+
+        String response = service.generateResponse(session, "Hola");
+
+        assertTrue(response.contains("Perdón, me cuesta responder"),
+                "Debe retornar TECHNICAL_FALLBACK_RESPONSE ante RuntimeException inesperada");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LlmUsage> usageCaptor = ArgumentCaptor.forClass(LlmUsage.class);
+        verify(llmUsageRepository, atLeastOnce()).save(usageCaptor.capture());
+        LlmUsage usage = usageCaptor.getValue();
+        assertTrue(readBooleanField(usage, "fallbackUsed"));
+        assertTrue(readStringField(usage, "error").contains("PROMPT_OR_CONTEXT_ERROR"));
+    }
+
     private boolean readBooleanField(LlmUsage usage, String fieldName) {
         try {
             var field = LlmUsage.class.getDeclaredField(fieldName);
