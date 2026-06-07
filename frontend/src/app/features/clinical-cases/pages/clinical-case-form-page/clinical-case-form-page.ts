@@ -28,6 +28,11 @@ interface SaveErrorContext {
   fieldErrors: Record<string, string>;
 }
 
+interface CaseSaveSummaryItem {
+  label: string;
+  value: string;
+}
+
 @Component({
   selector: 'app-clinical-case-form-page',
   imports: [CommonModule, RouterLink, FormsModule, ErrorModal],
@@ -475,56 +480,106 @@ export class ClinicalCaseFormPage implements OnInit {
     return this.isEditMode ? 'Guardar cambios' : 'Guardar caso';
   }
 
-  get pendingRequiredItems(): string[] {
-    const pending: string[] = [];
-
-    if (!this.caseFormState.patientName.trim()) {
-      pending.push('Nombre del paciente');
+  get statusMicrocopy(): string {
+    if (this.caseFormState.status === 'READY') {
+      return 'Listo: el caso puede asignarse a estudiantes.';
     }
 
-    if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) {
-      pending.push('Edad del paciente (mayor a 0)');
-    }
+    return 'Borrador: puedes guardar avances, pero no asignar.';
+  }
 
-    if (!this.caseFormState.reason.trim()) {
-      pending.push('Motivo principal de consulta');
-    }
+  get isReadyMinimumMet(): boolean {
+    return this.readyMissingItems.length === 0;
+  }
 
-    if (!this.caseFormState.initialMessage.trim()) {
-      pending.push('Mensaje inicial del paciente');
-    }
+  get readyMissingItems(): string[] {
+    const missing: string[] = [];
 
-    if (!this.caseFormState.sex) {
-      pending.push('Sexo del paciente');
-    }
+    if (!this.caseFormState.patientName.trim()) missing.push('Nombre del paciente');
+    if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) missing.push('Edad mayor a 0');
+    if (!this.caseFormState.sex) missing.push('Sexo del paciente');
+    if (!this.caseFormState.reason.trim()) missing.push('Motivo principal de consulta');
+    if (!this.caseFormState.initialMessage.trim()) missing.push('Mensaje inicial del paciente');
+    if (!this.caseFormState.fallbackResponse?.trim()) missing.push('Frase cuando no tiene información');
+    if (!this.caseFormState.behaviorGuidelines?.trim()) missing.push('Reglas de comportamiento del paciente');
 
-    if (!this.caseFormState.fallbackResponse?.trim()) {
-      pending.push('Respuesta cuando no sabe algo');
-    }
+    const hasValidFact = this.clinicalFacts.some(
+      (fact) => fact.category.trim() && fact.title.trim() && fact.content.trim() && fact.trigger.trim()
+    );
+    if (!hasValidFact) missing.push('Al menos un dato revelable completo');
+
+    return missing;
+  }
+
+  get caseWarnings(): string[] {
+    const warnings: string[] = [];
 
     if (this.clinicalFacts.length === 0) {
-      pending.push('Al menos un elemento de información revelable');
-      return pending;
+      warnings.push('No hay datos revelables.');
     }
 
-    this.clinicalFacts.forEach((fact, index) => {
-      const factNumber = index + 1;
+    if (this.clinicalFacts.some((fact) => !fact.trigger.trim())) {
+      warnings.push('Hay facts sin trigger.');
+    }
 
-      if (!fact.category.trim()) {
-        pending.push(`Información revelable ${factNumber}: categoría`);
-      }
-      if (!fact.title.trim()) {
-        pending.push(`Información revelable ${factNumber}: título`);
-      }
-      if (!fact.content.trim()) {
-        pending.push(`Información revelable ${factNumber}: contenido`);
-      }
-      if (!fact.trigger.trim()) {
-        pending.push(`Información revelable ${factNumber}: gatillante`);
-      }
-    });
+    if (!this.caseFormState.expectedDiagnosis?.trim()) {
+      warnings.push('Falta diagnóstico esperado.');
+    }
 
-    return pending;
+    if (!this.caseFormState.behaviorGuidelines?.trim()) {
+      warnings.push('Falta comportamiento del paciente.');
+    }
+
+    if (!this.isReadyMinimumMet) {
+      warnings.push('El caso aún no cumple mínimos para READY.');
+    }
+
+    if (this.hasPossibleDiagnosisInFact()) {
+      warnings.push('Posible diagnóstico en un fact. Revisa que no se revele información interna al estudiante.');
+    }
+
+    return warnings;
+  }
+
+  get saveSummaryItems(): CaseSaveSummaryItem[] {
+    return [
+      { label: 'Paciente', value: this.caseFormState.patientName.trim() || 'Sin definir' },
+      { label: 'Edad/sexo', value: `${this.caseFormState.age || 'Sin edad'} / ${this.sexLabel}` },
+      { label: 'Motivo de consulta', value: this.caseFormState.reason.trim() || 'Sin definir' },
+      { label: 'Estado', value: this.caseFormState.status === 'READY' ? 'Listo' : 'Borrador' },
+      { label: 'Datos revelables', value: `${this.validRevealableFactsCount} de ${this.clinicalFacts.length}` },
+      { label: 'Comportamiento del paciente', value: this.behaviorSummary },
+      {
+        label: 'Diagnóstico esperado',
+        value: this.caseFormState.expectedDiagnosis?.trim() ? 'Definido' : 'No definido'
+      }
+    ];
+  }
+
+  get validRevealableFactsCount(): number {
+    return this.clinicalFacts.filter(
+      (fact) => fact.category.trim() && fact.title.trim() && fact.content.trim() && fact.trigger.trim()
+    ).length;
+  }
+
+  get behaviorSummary(): string {
+    const guidelines = this.caseFormState.behaviorGuidelines?.trim();
+    if (guidelines) {
+      return guidelines.length > 90 ? `${guidelines.slice(0, 87)}...` : guidelines;
+    }
+
+    const tone = this.caseFormState.personality?.tone?.trim();
+    const detailLevel = this.caseFormState.personality?.detailLevel?.trim();
+    return [tone, detailLevel].filter(Boolean).join(' · ') || 'Sin definir';
+  }
+
+  get sexLabel(): string {
+    const labels: Record<string, string> = { F: 'Femenino', M: 'Masculino', X: 'Otro / No especificado' };
+    return labels[this.caseFormState.sex] ?? 'Sin sexo';
+  }
+
+  get pendingRequiredItems(): string[] {
+    return this.caseFormState.status === 'READY' ? this.readyMissingItems : [];
   }
 
   get shouldShowPendingRequiredSummary(): boolean {
@@ -606,43 +661,61 @@ export class ClinicalCaseFormPage implements OnInit {
   }
 
   private validateCaseRequiredFields(): boolean {
-    if (!this.caseFormState.patientName.trim()) {
-      this.factsValidationError = 'Ingresa el nombre del paciente antes de guardar.';
-      this.fieldErrors['patientName'] = 'Campo obligatorio';
-      return false;
-    }
-
-    if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) {
-      this.factsValidationError = 'La edad del paciente debe ser mayor a 0.';
-      this.fieldErrors['age'] = 'Debe ser mayor a 0';
-      return false;
-    }
-
-    if (!this.caseFormState.reason.trim()) {
-      this.factsValidationError = 'Ingresa el motivo principal de consulta antes de guardar.';
-      this.fieldErrors['reason'] = 'Campo obligatorio';
-      return false;
-    }
-
-    if (!this.caseFormState.initialMessage.trim()) {
-      this.factsValidationError = 'Ingresa el mensaje inicial del paciente antes de guardar.';
-      this.fieldErrors['initialMessage'] = 'Campo obligatorio';
-      return false;
-    }
-
-    if (!this.caseFormState.sex) {
-      this.factsValidationError = 'Selecciona el sexo del paciente antes de marcar el caso como listo.';
-      this.fieldErrors['sex'] = 'Campo obligatorio';
-      return false;
-    }
-
-    if (!this.caseFormState.fallbackResponse?.trim()) {
-      this.factsValidationError = 'Ingresa cómo responde el paciente cuando no sabe algo antes de marcar el caso como listo.';
-      this.fieldErrors['fallbackResponse'] = 'Campo obligatorio';
+    const missing = this.readyMissingItems;
+    if (missing.length > 0) {
+      this.factsValidationError = `Para marcar como listo, completa los campos mínimos: ${missing.join(', ')}.`;
+      this.markReadyMissingFieldErrors();
       return false;
     }
 
     return true;
+  }
+
+  private markReadyMissingFieldErrors(): void {
+    if (!this.caseFormState.patientName.trim()) {
+      this.fieldErrors['patientName'] = 'Campo obligatorio';
+    }
+
+    if (!Number.isFinite(this.caseFormState.age) || this.caseFormState.age <= 0) {
+      this.fieldErrors['age'] = 'Debe ser mayor a 0';
+    }
+
+    if (!this.caseFormState.reason.trim()) {
+      this.fieldErrors['reason'] = 'Campo obligatorio';
+    }
+
+    if (!this.caseFormState.initialMessage.trim()) {
+      this.fieldErrors['initialMessage'] = 'Campo obligatorio';
+    }
+
+    if (!this.caseFormState.sex) {
+      this.fieldErrors['sex'] = 'Campo obligatorio';
+    }
+
+    if (!this.caseFormState.fallbackResponse?.trim()) {
+      this.fieldErrors['fallbackResponse'] = 'Campo obligatorio';
+    }
+
+    if (!this.caseFormState.behaviorGuidelines?.trim()) {
+      this.fieldErrors['behaviorGuidelines'] = 'Campo obligatorio para READY';
+    }
+
+    this.clinicalFacts.forEach((fact, index) => {
+      if (!fact.category.trim()) this.fieldErrors[`facts.${index}.category`] = 'Campo obligatorio';
+      if (!fact.title.trim()) this.fieldErrors[`facts.${index}.title`] = 'Campo obligatorio';
+      if (!fact.content.trim()) this.fieldErrors[`facts.${index}.content`] = 'Campo obligatorio';
+      if (!fact.trigger.trim()) this.fieldErrors[`facts.${index}.trigger`] = 'Campo obligatorio';
+    });
+  }
+
+  private hasPossibleDiagnosisInFact(): boolean {
+    const diagnosisPattern = /\b(dx|diagn[oó]stic[oa]|impresi[oó]n diagn[oó]stica)\b/i;
+    const expectedDiagnosis = this.caseFormState.expectedDiagnosis?.trim().toLowerCase();
+
+    return this.clinicalFacts.some((fact) => {
+      const text = [fact.category, fact.title, fact.content, fact.trigger].join(' ').toLowerCase();
+      return diagnosisPattern.test(text) || Boolean(expectedDiagnosis && expectedDiagnosis.length >= 4 && text.includes(expectedDiagnosis));
+    });
   }
 
   private mapLabelToVisibility(label: string): ClinicalFactVisibility {

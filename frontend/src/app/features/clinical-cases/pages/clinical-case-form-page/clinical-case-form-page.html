@@ -30,10 +30,24 @@
   <p *ngIf="!isLoading && loadError" class="error-text">{{ loadError }}</p>
 
   <form class="case-form" *ngIf="!isLoading && !loadError">
-    <p class="required-legend">Los campos con <span>*</span> son obligatorios para guardar.</p>
+    <p class="required-legend">Los campos con <span>*</span> son mínimos para marcar como Listo. En Borrador puedes guardar avances.</p>
+
+    <section class="required-summary" aria-live="polite">
+      <p>{{ statusMicrocopy }}</p>
+      <p *ngIf="caseFormState.status === 'READY' && !isReadyMinimumMet">
+        Para marcar como listo, completa los campos mínimos.
+      </p>
+    </section>
+
+    <section class="required-summary" *ngIf="caseWarnings.length > 0" aria-live="polite">
+      <p><strong>Advertencias no bloqueantes</strong></p>
+      <ul>
+        <li *ngFor="let warning of caseWarnings">{{ warning }}</li>
+      </ul>
+    </section>
 
     <section class="required-summary" *ngIf="shouldShowPendingRequiredSummary" aria-live="assertive">
-      <p><strong>No puedes guardar aún.</strong> Revisa estos campos obligatorios:</p>
+      <p><strong>No puedes marcar como listo aún.</strong> Revisa estos campos mínimos:</p>
       <ul>
         <li *ngFor="let item of pendingRequiredItems">{{ item }}</li>
       </ul>
@@ -519,8 +533,9 @@
             </select>
             <small class="field-hint">Solo los casos listos se pueden asignar a simulaciones.</small>
             <small class="status-hint">
-              <strong>Borrador:</strong> puedes guardar avances, pero no asignar.<br>
-              <strong>Listo:</strong> el caso puede asignarse a estudiantes.
+              Borrador: puedes guardar avances, pero no asignar.<br>
+              Listo: el caso puede asignarse a estudiantes.<br>
+              Para marcar como listo, completa los campos mínimos.
             </small>
           </label>
         </div>
@@ -537,8 +552,8 @@
       </button>
     </footer>
 
-    <p *ngIf="pendingRequiredItems.length > 0 && !saveAttempted" class="save-disabled-hint">
-      Completa los campos obligatorios marcados con * para guardar.
+    <p *ngIf="caseFormState.status === 'READY' && pendingRequiredItems.length > 0 && !saveAttempted" class="save-disabled-hint">
+      Para marcar como listo, completa los campos mínimos.
     </p>
   </form>
 
@@ -547,6 +562,20 @@
     <article class="modal-card">
       <p class="modal-title" *ngIf="!isSaveSuccess">¿Guardar este caso clínico?</p>
       <p class="modal-title modal-title--success" *ngIf="isSaveSuccess">Caso guardado correctamente.</p>
+
+      <dl *ngIf="!isSaveSuccess">
+        <div *ngFor="let item of saveSummaryItems">
+          <dt>{{ item.label }}</dt>
+          <dd>{{ item.value }}</dd>
+        </div>
+      </dl>
+
+      <section class="required-summary" *ngIf="!isSaveSuccess && caseWarnings.length > 0">
+        <p>Advertencias:</p>
+        <ul>
+          <li *ngFor="let warning of caseWarnings">{{ warning }}</li>
+        </ul>
+      </section>
 
       <div class="modal-actions" *ngIf="!isSaveSuccess">
         <button class="cs-button secondary" type="button" (click)="cancelSaveConfirmation()" [disabled]="isSaving">

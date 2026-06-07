@@ -41,7 +41,7 @@
 
         <p *ngIf="isLoading" class="assign-feedback">Cargando estudiantes…</p>
         <p *ngIf="!isLoading && !canAssignCase" class="assign-feedback assign-feedback--error">
-          Este caso aún no está listo para ser asignado.
+          Borrador: puedes guardar avances, pero no asignar. Marca el caso como Listo antes de crear simulaciones.
         </p>
         <p *ngIf="!isLoading && loadError" class="assign-feedback assign-feedback--error">{{ loadError }}</p>
         <p *ngIf="!isLoading && !loadError && students.length === 0" class="assign-feedback">
@@ -50,7 +50,7 @@
 
         <div class="student-list" *ngIf="!isLoading && !loadError && students.length > 0">
           <label class="student-row" *ngFor="let student of students">
-            <input type="checkbox" [(ngModel)]="student.selected" />
+            <input type="checkbox" [(ngModel)]="student.selected" [disabled]="!canAssignCase || isSubmitting" />
             <span>{{ student.name }}</span>
           </label>
         </div>
@@ -95,7 +95,7 @@
         </button>
 
         <button class="cs-button primary" type="button" [disabled]="isSubmitting" (click)="confirmCreateSimulation()">
-          Crear simulación
+          {{ isSubmitting ? 'Creando simulación...' : 'Crear simulación' }}
         </button>
       </div>
     </article>
