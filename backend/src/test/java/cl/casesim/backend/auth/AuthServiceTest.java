@@ -137,6 +137,20 @@ class AuthServiceTest {
         verify(passwordEncoder).matches(eq("good-password"), eq("$2a$10$adminhash"));
     }
 
+
+    @Test
+    void loginShouldAllowAdminWithNonInstitutionalEmailWhenPasswordIsValid() {
+        AppUser user = buildUser(true, "admin.personal@gmail.com", "$2a$10$adminhash", Set.of(buildRole("ADMIN")));
+        when(userRepository.findByEmailIgnoreCase("admin.personal@gmail.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("good-password", "$2a$10$adminhash")).thenReturn(true);
+        when(jwtService.generateToken(any(UserPrincipal.class))).thenReturn("jwt-admin-token");
+
+        LoginResponse response = authService.login(new LoginRequest("admin.personal@gmail.com", "good-password"));
+
+        assertEquals("jwt-admin-token", response.token());
+        verify(passwordEncoder).matches(eq("good-password"), eq("$2a$10$adminhash"));
+    }
+
     @Test
     void preCheckShouldReturnTrueForActiveAdmin() {
         AppUser user = buildUser(true, "admin.demo@ufrontera.cl", "$2a$10$adminhash", Set.of(buildRole("ADMIN")));

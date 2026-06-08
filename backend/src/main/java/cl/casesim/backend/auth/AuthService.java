@@ -34,10 +34,6 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         String normalizedEmail = request.email().trim().toLowerCase(Locale.ROOT);
 
-        if (!INSTITUTIONAL_EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
-            throw unauthorizedException();
-        }
-
         AppUser user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseThrow(this::unauthorizedException);
 
@@ -53,6 +49,8 @@ public class AuthService {
             if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
                 throw unauthorizedException();
             }
+        } else if (!INSTITUTIONAL_EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
+            throw unauthorizedException();
         }
 
         UserPrincipal principal = UserPrincipal.fromEntity(user);
