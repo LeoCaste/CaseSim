@@ -3,8 +3,6 @@ package cl.casesim.backend.auth;
 import cl.casesim.backend.auth.dto.AuthUserResponse;
 import cl.casesim.backend.auth.dto.AdminResetTokenRequest;
 import cl.casesim.backend.auth.dto.AdminResetTokenResponse;
-import cl.casesim.backend.auth.dto.BootstrapAdminRequest;
-import cl.casesim.backend.auth.dto.BootstrapStatusResponse;
 import cl.casesim.backend.auth.dto.ForgotPasswordRequest;
 import cl.casesim.backend.auth.dto.ForgotPasswordResponse;
 import cl.casesim.backend.auth.dto.LoginRequest;
@@ -22,9 +20,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -32,12 +30,10 @@ import org.springframework.web.server.ResponseStatusException;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthBootstrapService authBootstrapService;
     private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService, AuthBootstrapService authBootstrapService, PasswordResetService passwordResetService) {
+    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
-        this.authBootstrapService = authBootstrapService;
         this.passwordResetService = passwordResetService;
     }
 
@@ -49,20 +45,6 @@ public class AuthController {
     @PostMapping("/pre-check")
     public PreCheckResponse preCheck(@RequestBody(required = false) PreCheckRequest request) {
         return authService.preCheck(request);
-    }
-
-    @GetMapping("/bootstrap-status")
-    public BootstrapStatusResponse bootstrapStatus() {
-        return new BootstrapStatusResponse(authBootstrapService.needsInitialSetup());
-    }
-
-    @PostMapping("/bootstrap-admin")
-    public ResponseEntity<Void> bootstrapAdmin(
-            @RequestHeader(name = "X-Bootstrap-Token", required = false) String bootstrapToken,
-            @Valid @RequestBody BootstrapAdminRequest request
-    ) {
-        authBootstrapService.bootstrapAdmin(request, bootstrapToken);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @PostMapping("/forgot-password")

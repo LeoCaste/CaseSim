@@ -50,4 +50,12 @@ public interface UserRepository extends JpaRepository<AppUser, UUID> {
               and upper(r.nombre) = 'ADMIN'
             """)
     boolean existsActiveAdmin();
+
+    @Query("""
+            select (count(u) > 0)
+            from AppUser u
+            join u.roles r
+            where upper(r.nombre) = 'ADMIN'
+            """)
+    boolean existsAdmin();
 }
