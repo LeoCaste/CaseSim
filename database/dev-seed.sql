@@ -48,7 +48,7 @@ VALUES
         '00000000-0000-0000-0000-000000000103',
         'Administrador Demo',
         'admin.demo@ufrontera.cl',
-        '$2b$10$Lb9r.5K9fJCLtr/JbDINyuIlFqJhNhxfAQtImAZf0nWrAK2RaDec6',
+        '$2a$10$NRyA52OlyeXdYsXdknsSnu/e8VENto9hlSUAGSlAUsk4bwVyv.eF6',
         TRUE
     )
 ON CONFLICT (id) DO UPDATE
