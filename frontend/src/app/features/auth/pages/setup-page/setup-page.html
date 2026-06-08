@@ -4,18 +4,15 @@
       <div class="login-logo">CS</div>
       <div>
         <p>CaseSim</p>
-        <h1>Configuración inicial</h1>
-        <span>Registro único de institución y administrador</span>
+        <h1>Primer administrador</h1>
+        <span>Completa el acceso inicial de la plataforma</span>
       </div>
     </header>
 
     <form class="login-form" (ngSubmit)="submit()">
-      <label>Institución <input type="text" name="institutionName" [(ngModel)]="institutionName" required /></label>
-      <label>Nombre administrador <input type="text" name="adminName" [(ngModel)]="adminName" required /></label>
-      <label>Correo administrador <input type="email" name="adminEmail" [(ngModel)]="adminEmail" required autocomplete="email" /></label>
+      <label>Correo administrador <input type="email" name="email" [(ngModel)]="email" required autocomplete="email" /></label>
       <label>Contraseña <input type="password" name="password" [(ngModel)]="password" required autocomplete="new-password" /></label>
       <label>Confirmar contraseña <input type="password" name="confirmPassword" [(ngModel)]="confirmPassword" required autocomplete="new-password" /></label>
-      <label>Bootstrap token <input type="password" name="bootstrapToken" [(ngModel)]="bootstrapToken" required autocomplete="off" /></label>
 
       <p class="login-help">Política de contraseña: mínimo 8 caracteres, al menos 1 mayúscula y 1 número.</p>
       <p class="login-error" *ngIf="errorMessage">{{ errorMessage }}</p>

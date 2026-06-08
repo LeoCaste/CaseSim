@@ -18,7 +18,7 @@ export const bootstrapFlowGuard: CanActivateFn = (_route, state) => {
 
   return authService.bootstrapStatus(true).pipe(
     map((status) => {
-      if (status.needsInitialSetup && !isSetupSafeRoute(state.url)) {
+      if (!status.adminExists && !isSetupSafeRoute(state.url)) {
         return router.createUrlTree(['/setup']);
       }
 

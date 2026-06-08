@@ -11,17 +11,14 @@ export interface AuthLoginRequest {
   password?: string;
 }
 
-export interface BootstrapStatusResponse {
-  needsInitialSetup: boolean;
+export interface BootstrapAdminStatusResponse {
+  adminExists: boolean;
 }
 
 export interface BootstrapAdminRequest {
-  institutionName: string;
-  adminName: string;
-  adminEmail: string;
+  email: string;
   password: string;
   confirmPassword: string;
-  bootstrapToken: string;
 }
 
 export interface ForgotPasswordRequest {

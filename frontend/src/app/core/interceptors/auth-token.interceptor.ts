@@ -8,7 +8,8 @@ import { AuthService } from '../services/auth.service';
 export const authTokenInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const token = normalizeToken(authService.getToken());
-  const isAuthFlowRequest = /\/auth\/(login|pre-check|forgot-password|reset-password|bootstrap-status|bootstrap-admin)$/i.test(req.url);
+  const isAuthFlowRequest = /\/auth\/(login|pre-check|forgot-password|reset-password)$/i.test(req.url)
+    || /\/bootstrap\/admin(\/status)?$/i.test(req.url);
   const isSessionValidationRequest = /\/auth\/me$/i.test(req.url);
   const isProtectedRequest = !isAuthFlowRequest;
 

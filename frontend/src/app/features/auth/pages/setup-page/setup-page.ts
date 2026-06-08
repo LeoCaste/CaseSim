@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -13,12 +14,9 @@ import { AuthService } from '../../../../core/services/auth.service';
   styleUrl: './setup-page.css'
 })
 export class SetupPage {
-  institutionName = '';
-  adminName = '';
-  adminEmail = '';
+  email = '';
   password = '';
   confirmPassword = '';
-  bootstrapToken = '';
 
   isSubmitting = false;
   errorMessage = '';
@@ -42,12 +40,9 @@ export class SetupPage {
 
     this.authService
       .bootstrapAdmin({
-        institutionName: this.institutionName.trim(),
-        adminName: this.adminName.trim(),
-        adminEmail: this.adminEmail.trim().toLowerCase(),
+        email: this.normalizeEmail(this.email),
         password: this.password,
-        confirmPassword: this.confirmPassword,
-        bootstrapToken: this.bootstrapToken.trim()
+        confirmPassword: this.confirmPassword
       })
       .pipe(
         finalize(() => {
@@ -58,18 +53,18 @@ export class SetupPage {
         next: () => {
           void this.router.navigate(['/login']);
         },
-        error: () => {
-          this.errorMessage = 'No fue posible completar la configuración inicial. Verifica los datos e intenta nuevamente.';
+        error: (error) => {
+          this.errorMessage = this.mapBootstrapError(error);
         }
       });
   }
 
   private validateForm(): string {
-    if (!this.institutionName.trim() || !this.adminName.trim() || !this.adminEmail.trim() || !this.bootstrapToken.trim()) {
+    if (!this.email.trim() || !this.password.trim() || !this.confirmPassword.trim()) {
       return 'Todos los campos son obligatorios.';
     }
 
-    const email = this.adminEmail.trim().toLowerCase();
+    const email = this.normalizeEmail(this.email);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return 'Debes ingresar un correo válido.';
     }
@@ -80,6 +75,36 @@ export class SetupPage {
 
     if (this.password !== this.confirmPassword) {
       return 'La confirmación de contraseña no coincide.';
+    }
+
+    return '';
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private mapBootstrapError(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const backendMessage = this.extractBackendMessage(error);
+      if (backendMessage) {
+        return backendMessage;
+      }
+
+      if (error.status === 0) {
+        return 'No se pudo conectar con el servidor. Intenta nuevamente.';
+      }
+    }
+
+    return 'No fue posible crear el primer administrador. Revisa los datos e intenta nuevamente.';
+  }
+
+  private extractBackendMessage(error: HttpErrorResponse): string {
+    if (error.error && typeof error.error === 'object' && 'message' in error.error) {
+      const message = (error.error as { message?: unknown }).message;
+      if (typeof message === 'string' && message.trim()) {
+        return message.trim();
+      }
     }
 
     return '';

@@ -26,7 +26,7 @@ describe('setupAccessGuard', () => {
   });
 
   it('permite acceso cuando necesita setup inicial', async () => {
-    authServiceMock.bootstrapStatus.mockReturnValue(of({ needsInitialSetup: true }));
+    authServiceMock.bootstrapStatus.mockReturnValue(of({ adminExists: false }));
 
     const result = await firstValueFrom(
       TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never)) as Observable<GuardResult>
@@ -36,7 +36,7 @@ describe('setupAccessGuard', () => {
   });
 
   it('redirige a /login cuando no necesita setup inicial', async () => {
-    authServiceMock.bootstrapStatus.mockReturnValue(of({ needsInitialSetup: false }));
+    authServiceMock.bootstrapStatus.mockReturnValue(of({ adminExists: true }));
 
     const result = await firstValueFrom(
       TestBed.runInInjectionContext(() => setupAccessGuard({} as never, {} as never)) as Observable<GuardResult>
@@ -45,7 +45,7 @@ describe('setupAccessGuard', () => {
     expect(router.serializeUrl(result as ReturnType<Router['createUrlTree']>)).toBe('/login');
   });
 
-  it('redirige a /login cuando bootstrap-status falla', async () => {
+  it('redirige a /login cuando bootstrap status falla', async () => {
     authServiceMock.bootstrapStatus.mockReturnValue(throwError(() => new Error('network')));
 
     const result = await firstValueFrom(

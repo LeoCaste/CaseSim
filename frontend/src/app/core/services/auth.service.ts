@@ -8,7 +8,7 @@ import {
   AuthLoginRequest,
   AuthPreCheckRequest,
   BootstrapAdminRequest,
-  BootstrapStatusResponse,
+  BootstrapAdminStatusResponse,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
   ResetPasswordRequest
@@ -30,7 +30,7 @@ export class AuthService {
   private initialized = false;
   private initializing$: Observable<void> | null = null;
   private sessionValidated = false;
-  private bootstrapStatusCache: BootstrapStatusResponse | null = null;
+  private bootstrapStatusCache: BootstrapAdminStatusResponse | null = null;
   private readonly authReadySubject = new BehaviorSubject<boolean>(false);
   private readonly backendAvailableSubject = new BehaviorSubject<boolean>(true);
   private readonly sessionStateSubject = new BehaviorSubject<AuthSessionState>('checking');
@@ -161,35 +161,35 @@ export class AuthService {
     return of({ requiresPassword: role === 'admin' });
   }
 
-  bootstrapStatus(forceRefresh = false): Observable<BootstrapStatusResponse> {
+  bootstrapStatus(forceRefresh = false): Observable<BootstrapAdminStatusResponse> {
     if (!forceRefresh && this.bootstrapStatusCache) {
       return of(this.bootstrapStatusCache);
     }
 
     if (!environment.useMocks) {
-      return this.http.get<BootstrapStatusResponse>(`${this.apiBaseUrl}/auth/bootstrap-status`).pipe(
-        map((response) => ({ needsInitialSetup: response.needsInitialSetup === true })),
+      return this.http.get<BootstrapAdminStatusResponse>(`${this.apiBaseUrl}/bootstrap/admin/status`).pipe(
+        map((response) => ({ adminExists: response.adminExists === true })),
         tap((status) => {
           this.bootstrapStatusCache = status;
         })
       );
     }
 
-    const status = { needsInitialSetup: false };
+    const status = { adminExists: true };
     this.bootstrapStatusCache = status;
     return of(status);
   }
 
   bootstrapAdmin(request: BootstrapAdminRequest): Observable<void> {
     if (!environment.useMocks) {
-      return this.http.post<void>(`${this.apiBaseUrl}/auth/bootstrap-admin`, request).pipe(
+      return this.http.post<void>(`${this.apiBaseUrl}/bootstrap/admin`, request).pipe(
         tap(() => {
-          this.bootstrapStatusCache = { needsInitialSetup: false };
+          this.bootstrapStatusCache = { adminExists: true };
         })
       );
     }
 
-    this.bootstrapStatusCache = { needsInitialSetup: false };
+    this.bootstrapStatusCache = { adminExists: true };
     return of(void 0);
   }
 
