@@ -259,9 +259,6 @@ VALUES
 ('ADMIN')
 ON CONFLICT (nombre) DO NOTHING;
 
-INSERT INTO institucion (nombre, tipo)
-VALUES ('CaseSim Demo', 'universidad');
-
 INSERT INTO platform_setup_state (id, initialized)
 VALUES (1, FALSE)
 ON CONFLICT (id) DO NOTHING;
