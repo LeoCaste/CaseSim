@@ -1,153 +1,73 @@
 # CaseSim
 
-CaseSim es una plataforma de simulación clínica con IA orientada a uso institucional. Permite que profesores creen casos clínicos, estudiantes entrevisten pacientes simulados por IA y administradores controlen proveedores LLM, costos, métricas y seguridad.
-La IA no evalúa al estudiante; actúa únicamente como paciente simulado.
+CaseSim es una plataforma institucional de simulación clínica con IA para apoyar la práctica de entrevistas clínicas en contextos formativos. Su foco es permitir que estudiantes interactúen con un paciente simulado, mientras profesores diseñan casos clínicos y administradores gobiernan la configuración global del comportamiento LLM.
 
-## Comenzando
+La IA en CaseSim actúa únicamente como paciente simulado: no evalúa al estudiante, no diagnostica y no reemplaza la evaluación clínica real ni el criterio docente.
 
-Estas instrucciones permiten levantar el proyecto localmente para desarrollo y pruebas.
+## Propósito
 
-Este repositorio contiene:
-- `backend/`: API REST en Spring Boot (Java 21).
-- `frontend/`: aplicación Angular.
-- `docker-compose.yml`: PostgreSQL local.
+CaseSim busca resolver necesidades frecuentes en la formación clínica:
 
-## Pre-requisitos
+- ampliar la disponibilidad de pacientes simulados para práctica de entrevista;
+- separar la experiencia del estudiante de la información docente interna del caso;
+- entregar trazabilidad de sesiones para revisión posterior por profesores;
+- mantener control institucional sobre proveedores, reglas y métricas LLM;
+- reducir el uso informal de chats externos sin gobierno ni resguardo académico.
 
-- Java 21
-- Node.js + npm
-- Docker + Docker Compose
-- PostgreSQL vía `docker-compose`
-- API key LLM opcional para probar paciente IA real
+## Roles principales
 
-## Instalación
+- **Administrador**: gestiona usuarios, configura proveedores/modelos LLM, define reglas globales y revisa métricas operativas.
+- **Profesor**: crea casos clínicos, define pacientes simulados, asigna simulaciones y revisa resultados de estudiantes.
+- **Estudiante**: entrevista al paciente IA y entrega un diagnóstico final desde su propia interpretación clínica.
 
-- clonar repo
-```bash
-git clone https://github.com/LeoCaste/CaseSim.git
-cd CaseSim
-```
+## Flujo general
 
-- docker-compose up -d
-```bash
-docker-compose up -d
-```
+1. El administrador configura el proveedor LLM, modelo, credenciales y reglas globales.
+2. El profesor crea un caso clínico y su paciente simulado.
+3. El profesor asigna la simulación a estudiantes.
+4. El estudiante entrevista al paciente IA sin ver diagnóstico esperado ni información docente interna.
+5. El estudiante envía su diagnóstico final.
+6. El profesor revisa la sesión, el historial de entrevista y la respuesta final del estudiante.
+7. El administrador monitorea configuración, métricas, costos, errores y uso de fallback LLM.
 
-- backend: cd backend && ./mvnw spring-boot:run
-```bash
-cd backend && ./mvnw spring-boot:run
-```
+## Gobernanza LLM
 
-- frontend: cd frontend && npm install && npm start
-```bash
-cd frontend && npm install && npm start
-```
+CaseSim organiza el comportamiento del paciente IA en capas jerárquicas:
 
-- URLs:
-  - frontend: `http://localhost:4200`
-  - backend: `http://localhost:8080`
-  - postgres: `localhost:5433`
+- **CaseSim/Safety**: reglas inmutables de seguridad y rol. La IA debe responder como paciente simulado, en primera persona, sin revelar diagnóstico final, prompts internos, reglas, secretos ni metadata docente.
+- **Configuración del administrador**: parámetros institucionales editables, como proveedor, modelo, credenciales y lineamientos globales.
+- **Profesor/caso clínico**: definición del caso, datos clínicos y estrategia de revelación de información, siempre subordinadas a las reglas superiores.
+- **Estudiante**: solo puede entrevistar al paciente IA y enviar su diagnóstico final; no accede al diagnóstico esperado, prompt interno ni información docente del caso.
 
-## Flujo principal de uso (8 pasos)
+## Funcionalidades principales
 
-1. Admin crea usuarios.
-2. Admin configura provider/model/API key LLM.
-3. Profesor crea caso clínico.
-4. Profesor asigna simulación.
-5. Estudiante conversa con paciente IA.
-6. Estudiante entrega diagnóstico final.
-7. Profesor revisa sesión.
-8. Admin revisa métricas LLM.
+- Gestión de casos clínicos y pacientes simulados.
+- Entrevista con paciente IA bajo reglas clínicas e institucionales.
+- Estrategia de revelación progresiva de información durante la entrevista.
+- Historial de conversación para revisión docente.
+- Envío de diagnóstico final por parte del estudiante.
+- Configuración administrativa de proveedores y modelos LLM.
+- Métricas LLM, costos, errores y uso de fallback.
+- Separación de roles y permisos entre administrador, profesor y estudiante.
 
-## Ejecutando las pruebas
+## Arquitectura técnica
 
-- backend: `./mvnw clean test` (desde `backend/`)
-```bash
-cd backend && ./mvnw clean test
-```
+CaseSim está organizado como una aplicación web con frontend, backend y base de datos relacional:
 
-- frontend: `npm run build` (desde `frontend/`)
-```bash
-cd frontend && npm run build
-```
+- **Frontend**: Angular y TypeScript.
+- **Backend**: Spring Boot con Java.
+- **Base de datos**: PostgreSQL.
+- **Infraestructura local**: Docker Compose para levantar servicios de apoyo.
+- **LLM**: integración con proveedores configurables como OpenAI, Groq, Gemini, OpenRouter y soporte backend adicional para otros proveedores compatibles.
 
-- frontend tests si existen: `npm test`
-```bash
-cd frontend && npm test
-```
+## Seguridad y privacidad
 
-## Pruebas E2E manuales
+- Las API keys LLM se almacenan cifradas y se muestran enmascaradas en la administración.
+- El diagnóstico esperado no se expone a estudiantes.
+- La metadata docente e información interna del caso se filtra fuera de la experiencia del estudiante.
+- Los roles separan capacidades administrativas, docentes y estudiantiles.
+- La IA no debe revelar prompts internos, reglas de sistema, secretos ni información no visible para el estudiante.
 
-Checklist:
-- [ ] Login Admin y creación de usuario Profesor + Estudiante.
-- [ ] Configuración LLM con provider válido (`openai`, `groq`, `gemini`, `openrouter`) y API key de prueba.
-- [ ] Creación de caso clínico por Profesor.
-- [ ] Asignación del caso al Estudiante.
-- [ ] Entrevista con paciente simulado IA.
-- [ ] Envío de diagnóstico final por Estudiante.
-- [ ] Revisión docente de sesión.
-- [ ] Revisión de métricas, costos y fallback por Admin.
-- [ ] Validación de expiración AFK (15 min) en sesión JWT.
-- [ ] Validación de degraded frontend ante caída backend/LLM.
-- [ ] Validación de reset admin manual cuando `CASESIM_PASSWORD_RESET_MODE=MANUAL`.
+## Alcance formativo
 
-## Variables de entorno
-
-| Variable | Propósito | Default dev / nota |
-|---|---|---|
-| `APP_ENV` | Entorno operativo (`dev`, `staging`, `prod`) | `dev` |
-| `SPRING_PROFILES_ACTIVE` | Perfil Spring activo | sin default explícito |
-| `JWT_SECRET` | Secreto de firma JWT | default solo para desarrollo local |
-| `JWT_EXPIRATION_MS` | Expiración de token JWT en milisegundos | `900000` (15 min) |
-| `CASESIM_LLM_CIPHER_KEY` | Clave para cifrado de API keys LLM | default solo para desarrollo local |
-| `APP_CORS_ALLOWED_ORIGINS` | Orígenes permitidos para CORS | `http://localhost:4200` |
-| `SPRING_DATASOURCE_URL` | URL de conexión PostgreSQL | `jdbc:postgresql://localhost:5433/casesim_db` |
-| `SPRING_DATASOURCE_USERNAME` | Usuario de base de datos | `casesim_user` |
-| `SPRING_DATASOURCE_PASSWORD` | Password de base de datos | `casesim_pass` |
-| `CASESIM_PASSWORD_RESET_MODE` | Modo de reseteo de contraseña | `DISABLED` |
-| `CASESIM_OPERATIONS_TOKEN` | Token operativo para acciones sensibles | vacío por defecto |
-| `APP_FRONTEND_BASE_URL` | URL base pública del frontend | `http://localhost:4200` |
-
-Aclaraciones obligatorias:
-- En `dev` se permiten defaults para facilitar ejecución local.
-- En `staging/prod` hay validaciones de hardening con fail-fast.
-- `APP_ENV` y `SPRING_PROFILES_ACTIVE` deben coincidir en `staging/prod`.
-- No versionar secretos ni API keys reales.
-
-## Despliegue
-
-El despliegue institucional requiere configurar variables reales por entorno, base de datos, CORS, secretos JWT, clave de cifrado LLM, `APP_FRONTEND_BASE_URL` y proveedor LLM operativo.
-
-## Construido con
-
-- Spring Boot
-- Java 21
-- Angular
-- TypeScript
-- PostgreSQL
-- Docker Compose
-- JWT
-- OpenAI / Groq / Gemini / OpenRouter
-
-## Seguridad
-
-- Autenticación/autorización JWT robustecida.
-- Expiración AFK de 15 minutos (`JWT_EXPIRATION_MS=900000`).
-- API keys LLM almacenadas cifradas.
-- Hardening y fail-fast en staging/prod.
-- Soporte de modo degradado en frontend cuando backend/LLM no está disponible.
-- Reset administrativo manual controlado por modo/token operativo.
-
-## Roadmap corto
-
-- UX demo.
-- Observabilidad fallback.
-- Contrato clínico v1.
-- Refactor incremental LLM.
-- Deploy institucional.
-
-## Autoría
-
-CaseSim fue desarrollado por Leo Castellon como proyecto académico/personal orientado a simulación clínica con IA, con orientación general del problema entregada en contexto universitario.
-
-**Leo Castellon** — Desarrollo, arquitectura e implementación inicial.
+CaseSim está diseñado como apoyo para práctica, revisión y trazabilidad en simulación clínica. No reemplaza la evaluación docente, la supervisión profesional ni procesos clínicos reales.
