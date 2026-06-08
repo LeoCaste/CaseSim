@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Build output
+dist/
+
+# Entorno
+.env
+.env.*
+*.log
+
+# IDE
+.idea/
+.vscode/
+.settings/
+
+# Git
+.git/
+.gitignore
+
+# Angular
+.angular/
+*.md
+README.md
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,29 @@
+# Dependencias y builds locales
+target/
+*.class
+*.jar
+*.war
+
+# Entorno
+.env
+.env.*
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Git
+.git/
+.gitignore
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Documentación (solo local)
+*.md
