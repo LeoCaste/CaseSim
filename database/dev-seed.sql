@@ -27,6 +27,10 @@ ON CONFLICT (nombre) DO NOTHING;
 
 -- =========================================================
 -- 3) Usuarios demo (UUIDs fijos requeridos)
+--
+-- Nota: el usuario ADMIN no se versiona aquí para evitar publicar email/hash
+-- privados. Se crea desde variables de entorno mediante
+-- 03-seed-admin-from-env.sh durante la inicialización Docker.
 -- =========================================================
 INSERT INTO usuario (id, nombre, email, password_hash, activo)
 VALUES
@@ -42,13 +46,6 @@ VALUES
         'Estudiante Demo 01',
         'estudiante.demo01@ufromail.cl',
         '$2a$10$dXJ3SW6G7P50lGmMkkmwe.5W5n1p5MNDoAuCEi0aKBslrHonghE2e',
-        TRUE
-    ),
-    (
-        '00000000-0000-0000-0000-000000000103',
-        'Administrador Demo',
-        'admin.demo@ufrontera.cl',
-        '$2a$10$NRyA52OlyeXdYsXdknsSnu/e8VENto9hlSUAGSlAUsk4bwVyv.eF6',
         TRUE
     )
 ON CONFLICT (id) DO UPDATE
@@ -70,12 +67,6 @@ INSERT INTO usuario_rol (usuario_id, rol_id)
 SELECT '00000000-0000-0000-0000-000000000102', r.id
 FROM rol r
 WHERE r.nombre = 'ESTUDIANTE'
-ON CONFLICT (usuario_id, rol_id) DO NOTHING;
-
-INSERT INTO usuario_rol (usuario_id, rol_id)
-SELECT '00000000-0000-0000-0000-000000000103', r.id
-FROM rol r
-WHERE r.nombre = 'ADMIN'
 ON CONFLICT (usuario_id, rol_id) DO NOTHING;
 
 -- =========================================================
