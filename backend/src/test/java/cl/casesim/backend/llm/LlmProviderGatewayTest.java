@@ -267,4 +267,91 @@ class LlmProviderGatewayTest {
         assertEquals("TIMEOUT", result.errorCause());
         assertSame(primaryError, result.originalException());
     }
+
+    @Test
+    void compactRetryConservaJerarquiaInstitucionalYAdmin() {
+        // Usar PromptBuilderService real para verificar jerarquía en compact retry
+        PromptBuilderService realPromptBuilder = new PromptBuilderService();
+        LlmProviderGateway gatewayWithRealBuilder = new LlmProviderGateway(
+                llmClient, llmProperties, realPromptBuilder, llmErrorSanitizer
+        );
+
+        // Contexto clínico completo con 4 facts para verificar reducción
+        PromptBuilderService.ClinicalPromptContext fullContext = new PromptBuilderService.ClinicalPromptContext(
+                context.sessionId(), context.clinicalCaseId(), context.caseName(),
+                context.patientName(), context.patientAge(), context.patientSex(),
+                context.chiefComplaint(), context.caseHistory(), context.noInformationReply(),
+                context.personalityTraits(),
+                List.of("fact1: Dolor abdominal", "fact2: Fiebre de 38°C", "fact3: Tos seca", "fact4: Malestar general"),
+                context.initialMessage(), context.broaderContext(), context.currentIllness(),
+                context.generalBackground(), context.clinicalExamFindings(), context.tone(),
+                context.detailLevel(), context.behaviorGuidelines()
+        );
+
+        // Config admin distintiva
+        llmProperties.setSystemPrompt("ADMIN_SYSTEM_PROMPT_RETRY");
+        llmProperties.setPatientBehaviorRules("ADMIN_BEHAVIOR_RULES_RETRY");
+
+        // Simular fallo en primary, éxito en compact retry
+        when(llmClient.generate(any()))
+                .thenThrow(new LlmClientException("Error temporal"))
+                .thenReturn(new LlmResponse("Respuesta del compact retry", null, null));
+
+        LlmProviderGatewayResult result = gatewayWithRealBuilder.executeCall(
+                promptMessages, fullContext, "¿Dolor?",
+                "No sé.", "openai", "gpt-4o-mini"
+        );
+
+        assertTrue(result.compactRetrySuccess());
+        assertEquals("Respuesta del compact retry", result.response());
+
+        // Capturar el LlmRequest del compact retry (segunda llamada a llmClient.generate)
+        ArgumentCaptor<LlmRequest> requestCaptor = ArgumentCaptor.forClass(LlmRequest.class);
+        verify(llmClient, times(2)).generate(requestCaptor.capture());
+        List<LlmMessage> compactPrompt = requestCaptor.getValue().messages();
+        String compactPromptContent = compactPrompt.get(0).content();
+
+        // Verificar jerarquía completa
+        assertTrue(compactPromptContent.contains("[CASESIM_INSTITUCIONAL_INMUTABLE]"),
+                "Compact retry debe contener la capa institucional inmutable");
+        assertTrue(compactPromptContent.contains("[CAPA_ADMIN_INSTITUCIONAL]"),
+                "Compact retry debe contener la capa admin institucional");
+        assertTrue(compactPromptContent.contains("[CAPA_ADMIN_REGLAS_PACIENTE]"),
+                "Compact retry debe contener la capa admin reglas");
+        assertTrue(compactPromptContent.contains("[CAPA_PROFESOR_CONTEXTO_CLINICO]"),
+                "Compact retry debe contener la capa profesor/caso");
+        assertTrue(compactPromptContent.contains("[POLITICA_ROL_Y_NO_DIAGNOSTICO]"),
+                "Compact retry debe contener la política de rol y no diagnóstico");
+        assertTrue(compactPromptContent.contains("[REGLA_REVELACION]"),
+                "Compact retry debe contener la regla de revelación");
+
+        // Verificar contenido admin
+        assertTrue(compactPromptContent.contains("ADMIN_SYSTEM_PROMPT_RETRY"),
+                "Compact retry debe contener el systemPrompt del admin");
+        assertTrue(compactPromptContent.contains("ADMIN_BEHAVIOR_RULES_RETRY"),
+                "Compact retry debe contener las reglas de comportamiento del admin");
+
+        // Verificar orden correcto
+        int idxInmutable = compactPromptContent.indexOf("[CASESIM_INSTITUCIONAL_INMUTABLE]");
+        int idxAdminInst = compactPromptContent.indexOf("[CAPA_ADMIN_INSTITUCIONAL]");
+        int idxAdminReglas = compactPromptContent.indexOf("[CAPA_ADMIN_REGLAS_PACIENTE]");
+        int idxProfesor = compactPromptContent.indexOf("[CAPA_PROFESOR_CONTEXTO_CLINICO]");
+
+        assertTrue(idxInmutable < idxAdminInst,
+                "Compact retry: inmutable antes que admin institucional");
+        assertTrue(idxAdminInst < idxAdminReglas,
+                "Compact retry: admin institucional antes que admin reglas");
+        assertTrue(idxAdminReglas < idxProfesor,
+                "Compact retry: admin reglas antes que profesor/caso");
+
+        // Verificar que los facts están reducidos (compact retry reduce a máximo 2)
+        assertTrue(compactPromptContent.contains("motivo_consulta:"),
+                "Compact retry debe contener motivo de consulta");
+        long factCount = compactPromptContent.lines()
+                .filter(line -> line.contains("fact1:") || line.contains("fact2:")
+                        || line.contains("fact3:") || line.contains("fact4:"))
+                .count();
+        assertTrue(factCount <= 2,
+                "Compact retry debe reducir facts a máximo 2");
+    }
 }
