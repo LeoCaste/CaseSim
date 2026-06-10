@@ -16,7 +16,7 @@ public class SimulationActivity {
     @Column(name = "id", nullable = false)
     private UUID id;
 
-    @Column(name = "curso_id", nullable = false)
+    @Column(name = "curso_id", nullable = true)
     private UUID cursoId;
 
     @Column(name = "caso_id", nullable = false)

@@ -188,6 +188,10 @@
   color: #b91c1c;
 }
 
+.assign-feedback--info {
+  color: #1d4ed8;
+}
+
 .student-row {
   display: flex;
   align-items: center;

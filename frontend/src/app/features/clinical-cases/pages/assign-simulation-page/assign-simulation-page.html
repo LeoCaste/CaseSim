@@ -43,8 +43,11 @@
         <p *ngIf="!isLoading && !canAssignCase" class="assign-feedback assign-feedback--error">
           Borrador: puedes guardar avances, pero no asignar. Marca el caso como Listo antes de crear simulaciones.
         </p>
+        <p *ngIf="!isLoading && showNoCourseWarning" class="assign-feedback assign-feedback--info">
+          No hay cursos disponibles. Puedes seleccionar estudiantes manualmente.
+        </p>
         <p *ngIf="!isLoading && loadError" class="assign-feedback assign-feedback--error">{{ loadError }}</p>
-        <p *ngIf="!isLoading && !loadError && students.length === 0" class="assign-feedback">
+        <p *ngIf="!isLoading && !loadError && !showNoCourseWarning && students.length === 0" class="assign-feedback">
           No hay estudiantes disponibles para asignar.
         </p>
 

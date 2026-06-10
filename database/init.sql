@@ -98,7 +98,7 @@ CREATE TABLE caso_personalidad (
 
 CREATE TABLE actividad_simulacion (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    curso_id UUID NOT NULL REFERENCES curso(id) ON DELETE CASCADE,
+    curso_id UUID REFERENCES curso(id) ON DELETE CASCADE,
     caso_id UUID NOT NULL REFERENCES caso_clinico(id),
     titulo VARCHAR(200) NOT NULL,
     descripcion TEXT,

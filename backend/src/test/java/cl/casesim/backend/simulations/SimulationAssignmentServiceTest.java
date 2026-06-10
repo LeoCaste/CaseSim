@@ -10,6 +10,9 @@ import cl.casesim.backend.common.exception.BadRequestException;
 import cl.casesim.backend.sessions.SimulationSession;
 import cl.casesim.backend.sessions.SimulationSessionRepository;
 import cl.casesim.backend.simulations.dto.CreateSimulationRequest;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -19,6 +22,8 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -72,6 +77,81 @@ class SimulationAssignmentServiceTest {
         assertEquals(caseId, response.clinicalCaseId());
         assertEquals(1, response.assignedStudents());
         verify(simulationSessionRepository).saveAll(any(List.class));
+    }
+
+    @Test
+    void createSimulationShouldWorkWithoutCourseId() {
+        UUID caseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID professorId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.findById(caseId)).thenReturn(Optional.of(buildCase(caseId, ClinicalCaseStatus.READY)));
+        when(userRepository.findAllById(List.of(studentId))).thenReturn(List.of(new AppUser(
+                studentId,
+                "Estudiante",
+                "estudiante@casesim.cl",
+                "hash",
+                true,
+                Set.of(new Role(UUID.randomUUID(), "ESTUDIANTE"))
+        )));
+        when(simulationSessionRepository.findAssignedStudentIdsByClinicalCaseId(caseId, List.of(studentId))).thenReturn(List.of());
+        // No shared course, no student course, no course at all in DB
+        when(courseEnrollmentRepository.findSharedCourseIdsForStudents(List.of(studentId), 1)).thenReturn(List.of());
+        when(courseEnrollmentRepository.findStudentCourseIds(List.of(studentId))).thenReturn(List.of());
+        when(courseEnrollmentRepository.findAnyCourseId()).thenReturn(Optional.empty());
+        when(simulationActivityRepository.save(any(SimulationActivity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertDoesNotThrow(() -> service.createSimulation(
+                new CreateSimulationRequest(caseId, List.of(studentId)), professorId));
+
+        verify(courseEnrollmentRepository).findSharedCourseIdsForStudents(List.of(studentId), 1);
+        verify(courseEnrollmentRepository).findStudentCourseIds(List.of(studentId));
+        verify(courseEnrollmentRepository).findAnyCourseId();
+        verify(simulationActivityRepository).save(any(SimulationActivity.class));
+        verify(simulationSessionRepository).saveAll(any(List.class));
+    }
+
+    @Test
+    void createSimulationShouldFailWithoutStudents() {
+        UUID caseId = UUID.randomUUID();
+        CreateSimulationRequest request = new CreateSimulationRequest(caseId, List.of());
+
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            Validator validator = factory.getValidator();
+            var violations = validator.validate(request);
+            assertFalse(violations.isEmpty(), "Se esperaban violaciones de validación para studentIds vacío");
+            boolean hasStudentIdsViolation = violations.stream()
+                    .anyMatch(v -> v.getPropertyPath().toString().equals("studentIds"));
+            assertEquals(true, hasStudentIdsViolation, "Debe haber una violación en 'studentIds'");
+        }
+    }
+
+    @Test
+    void createSimulationWithCourseIdStillWorks() {
+        UUID caseId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID professorId = UUID.randomUUID();
+        UUID courseId = UUID.randomUUID();
+
+        when(clinicalCaseRepository.findById(caseId)).thenReturn(Optional.of(buildCase(caseId, ClinicalCaseStatus.READY)));
+        when(userRepository.findAllById(List.of(studentId))).thenReturn(List.of(new AppUser(
+                studentId,
+                "Estudiante",
+                "estudiante@casesim.cl",
+                "hash",
+                true,
+                Set.of(new Role(UUID.randomUUID(), "ESTUDIANTE"))
+        )));
+        when(simulationSessionRepository.findAssignedStudentIdsByClinicalCaseId(caseId, List.of(studentId))).thenReturn(List.of());
+        when(courseEnrollmentRepository.findSharedCourseIdsForStudents(List.of(studentId), 1)).thenReturn(List.of(courseId));
+        when(simulationActivityRepository.save(any(SimulationActivity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.createSimulation(new CreateSimulationRequest(caseId, List.of(studentId)), professorId);
+
+        assertEquals(caseId, response.clinicalCaseId());
+        assertEquals(1, response.assignedStudents());
+        verify(simulationSessionRepository).saveAll(any(List.class));
+        verify(courseEnrollmentRepository).findSharedCourseIdsForStudents(List.of(studentId), 1);
     }
 
     private void assertCaseStatusRejected(ClinicalCaseStatus status) {

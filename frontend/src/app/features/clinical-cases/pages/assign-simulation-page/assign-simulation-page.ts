@@ -44,6 +44,7 @@ export class AssignSimulationPage implements OnInit {
   };
   isLoading = false;
   loadError = '';
+  showNoCourseWarning = false;
   isSubmitting = false;
   private readonly destroyRef = inject(DestroyRef);
 
@@ -59,6 +60,7 @@ export class AssignSimulationPage implements OnInit {
   ngOnInit(): void {
     this.isLoading = true;
     this.loadError = '';
+    this.showNoCourseWarning = false;
     const caseId = this.route.snapshot.paramMap.get('id') ?? '1';
     this.simulationAssignmentService
       .getAssignmentContext(caseId)
@@ -74,6 +76,7 @@ export class AssignSimulationPage implements OnInit {
         next: (context) => {
           this.clinicalCase = context.clinicalCase;
           this.students = context.students.map((student) => ({ ...student, selected: !!student.selected }));
+          this.showNoCourseWarning = context.noCourseAvailable ?? false;
           this.createSimulationPayload.clinicalCaseId = context.clinicalCase.id;
           this.cdr.detectChanges();
         },

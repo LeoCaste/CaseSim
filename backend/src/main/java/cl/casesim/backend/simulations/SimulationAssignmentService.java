@@ -160,6 +160,6 @@ public class SimulationAssignmentService {
         }
 
         return courseEnrollmentRepository.findAnyCourseId()
-                .orElseThrow(() -> new BadRequestException("No existe un curso disponible para crear la simulación."));
+                .orElse(null);
     }
 }
